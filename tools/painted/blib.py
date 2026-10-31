@@ -1099,3 +1099,14 @@ def horned_lord(location, scale, layer, eye_strength=60.0):
         e = cone((x + side * 0.42 * s, y - 1.7 * s, z + 10.2 * s), 0.16 * s, 0.05 * s, layer, mat_emission((1.0, 0.1, 0.03), eye_strength, "eyes"), sides=6, name="eye")
         e.rotation_euler = (math.pi / 2, 0, 0)
     return ob
+
+
+def tracery(x, y, z, width, height, layer, columns=3, rows=4):
+    """Stone mullions and transoms over a window (facing -Y)."""
+    mull = mat_stone("mullion", (0.01, 0.01, 0.012), bump=0.1)
+    for c in range(1, columns):
+        xx = x - width / 2 + width * c / columns
+        tube([(xx, y - 0.15, z), (xx, y - 0.15, z + height)], width * 0.025, layer, mull, name="mullion")
+    for r in range(1, rows):
+        zz = z + height * r / rows
+        tube([(x - width / 2, y - 0.15, zz), (x + width / 2, y - 0.15, zz)], width * 0.018, layer, mull, name="transom")
