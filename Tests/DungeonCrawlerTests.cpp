@@ -2,6 +2,7 @@
 //   DungeonCrawlerTests                      run everything except the report-only cpu group
 //   DungeonCrawlerTests --only a,b           run only some groups (smoke, locations, travel...)
 //   DungeonCrawlerTests --snapshot f.png     also write an image of the editor
+//   DungeonCrawlerTests --painted-snapshots dir   review images of the painted map and places (200 %)
 //   DungeonCrawlerTests --render f.wav location [seconds]   a test phrase through a location (listening aid)
 //   DungeonCrawlerTests --calibrate Source/World/LevelTrims.h  measure and write the per-place level trims
 //   DungeonCrawlerTests --listen dir         listening renders: guitar + synth phrase through every place
@@ -1892,6 +1893,59 @@ int renderArt(const juce::String& directory, int width) {
     return failures == 0 ? 0 : 1;
 }
 
+// Visual overhaul: snapshots of the painted prototype for review, the editor at 200 %
+// (Retina-sized art): the map, a zoom held half way, every place of the Dungeon and the
+// Castle, the zoom back out. JPEG files in `directory`.
+int paintedSnapshots(const juce::String& directory) {
+    juce::File dir(directory);
+    dir.createDirectory();
+    DungeonCrawlerProcessor p;
+    p.setRateAndBufferSizeDetails(48000, 512);
+    p.prepareToPlay(48000, 512);
+    std::unique_ptr<juce::AudioProcessorEditor> base(p.createEditor());
+    auto* wrapper = dynamic_cast<DungeonCrawlerEditor*>(base.get());
+    if (wrapper == nullptr) return 1;
+    wrapper->setScale(2.0f);
+    auto& view = wrapper->view();
+    int written = 0;
+    const auto shot = [&](const juce::String& name) {
+        view.advanceLifeForTest(40);
+        const auto image = wrapper->createComponentSnapshot(wrapper->getLocalBounds(), true, 1.0f);
+        auto file = dir.getChildFile(name + ".jpg");
+        file.deleteFile();
+        juce::FileOutputStream stream(file);
+        juce::JPEGImageFormat jpeg;
+        jpeg.setQuality(0.88f);
+        if (stream.openedOk() && jpeg.writeImageToStream(image, stream)) ++written;
+        std::cout << file.getFileName() << "\n";
+    };
+    view.settleForTest();
+    shot("map");
+    for (const int location : { static_cast<int>(dc::Dungeon), static_cast<int>(dc::Castle) }) {
+        view.mapButton().onClick();
+        view.settleForTest();
+        view.locationButton(location == dc::Dungeon ? dc::Castle : dc::Dungeon).onClick();   // start elsewhere
+        view.settleForTest();
+        view.mapButton().onClick();
+        view.settleForTest();
+        view.locationButton(location).onClick();
+        const auto slug = juce::String(dc::locationNames[static_cast<std::size_t>(location)]).toLowerCase();
+        view.holdTransitionForTest(0.5f);
+        shot("zoom-into-" + slug + "-mid-frame");
+        view.settleForTest();
+        for (int k = 0; k <= dc::subLocationCount(location); ++k) {
+            view.subLocationButton(k).onClick();
+            view.settleForTest();
+            shot(dc::art::sceneSlug({ location, k }).replaceCharacter('/', '-'));
+        }
+    }
+    view.mapButton().onClick();
+    view.holdTransitionForTest(0.5f);
+    shot("zoom-out-to-map-mid-frame");
+    view.settleForTest();
+    return written > 0 ? 0 : 1;
+}
+
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
     juce::String snapshot;
@@ -1905,6 +1959,7 @@ int main(int argc, char** argv) {
         else if (arg == "--signatures") return signatureCheck();
         else if (arg == "--art" && i + 1 < argc) return renderArt(argv[i + 1], i + 2 < argc ? juce::String(argv[i + 2]).getIntValue() : 960);
         else if (arg == "--tail-debug") return tailDebug();
+        else if (arg == "--painted-snapshots" && i + 1 < argc) return paintedSnapshots(argv[i + 1]);
         else if (arg == "--render" && i + 2 < argc)
             return renderToFile(argv[i + 1], juce::String(argv[i + 2]).getIntValue(), i + 3 < argc ? juce::String(argv[i + 3]).getDoubleValue() : 8.0);
     }

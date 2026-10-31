@@ -1,0 +1,79 @@
+{
+ "scene": "dungeon/prison-cells",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 547.1,
+   "y": 527.0
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 474.8,
+   "y": 285.2
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 608.4,
+   "y": 291.6
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 341.7,
+   "y": 289.1
+  },
+  {
+   "kind": "hotspot",
+   "sub": 4,
+   "x": 515.9,
+   "y": 288.2
+  },
+  {
+   "kind": "fire",
+   "radius": 18,
+   "x": 446.9,
+   "y": 306.5
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 226.9,
+   "y": 237.5
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 341.8,
+   "y": 261.0
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 382.3,
+   "y": 269.2
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   500,
+   280,
+   80,
+   0.4
+  ]
+ ]
+}

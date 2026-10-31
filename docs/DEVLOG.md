@@ -66,6 +66,20 @@ without after each milestone. Resume from the first unticked item.
 - [x] 12b. Final QA pass (distinctness, levels, clicks on every travel, animation, editor CPU)
 - [x] 12c. Final DEVLOG handoff (GarageBand: what to listen for and look at per milestone); push without `[skip ci]`
 
+**Session 4: visual overhaul, painted prototype** (2026-10-31). The developer replaced the
+engraved art direction: painterly dark-fantasy concept art (near-black and charcoal,
+slate and purple mists, crimson accents; epic layered depth, backlit silhouettes with red
+rims, heavy haze; painterly brushwork), built in Blender from scripts, rendered in depth
+layers and painted by a post-process; the plug-in animates the layers. Navigation and
+animations stay exactly as they were. Prototype first: the map, the Dungeon and the
+Castle with all their places, then **stop for approval** before the other locations.
+
+- [x] V1. Pipeline: scripted Blender scenes (`tools/painted`), depth-layer renders, painterly post-process, manifest
+- [x] V2. Plug-in: painted planes off the message thread, parallax in the zooms, life (embers, mist, moon glow, flicker), drop-in layers; restyled controls and fonts; part 1 pushed `[skip ci]`
+- [x] V3. Prototype art: the map + Dungeon (5 scenes) + Castle (5 scenes); snapshots incl. a mid-zoom frame; tests; DEVLOG; final push without `[skip ci]`
+- [ ] V4. **Developer:** approve the look in GarageBand (or give notes) before the other eight locations are painted
+- [ ] V5. The other eight locations (Cathedral, Haunted Forest, Caverns, Village, Swamp, Mountains, Necropolis, Wizard's Tower; 30 scenes) in the approved style
+
 ---
 
 ## Lessons carried over (from Worldbuilder's DEVLOG, read first)
