@@ -77,16 +77,38 @@ public:
     // differ from the Location parameters), and whether one of them is steering.
     bool steering() const noexcept { return steered.load(std::memory_order_relaxed); }
     int atmosphereVoices() const noexcept { return atmosphere.activeVoices(); }
+    // Hotfix 1: whether a Journey (on, with a route) or Roam is set to steer.
+    bool journeyRunning() const noexcept;
+    bool roamRunning() const noexcept;
+    // Whether the audio thread has processed a block since the last manual choice of
+    // place: until then steering() and currentDestination still describe the journey
+    // that was just stopped, and the editor must not follow them.
+    bool steeringCurrent() const noexcept { return processedEpoch.load(std::memory_order_acquire) == manualEpoch.load(std::memory_order_acquire); }
+    // A manual choice of place (message thread; map, landmark, place list, hotspot):
+    // stops a running Journey or Roam and any place MIDI chose, then sets Location and
+    // Sub-location. Takes effect in the next audio block. Returns what was stopped
+    // ("Journey", "Roam", "Journey and Roam", or empty), for the editor's note.
+    juce::String travelTo(int location, int sub);
+    // Stops a running Journey or Roam where the sound is now (the Stop button):
+    // Location and Sub-location take the journey's current place.
+    juce::String stopSteering();
 
     // Milestone 11 (message thread). The window's scale (saved with the state).
     std::atomic<float> editorScale { 1.0f };
     int qualityMode() const noexcept;
     // Presets: factory (favourite spots, journeys) and user presets (state files).
     void applyFactoryPreset(int index);
+    // "Init / No preset": every parameter at its default (Quality and Bypass kept), no
+    // route, no journey; the preset name is "Init".
+    void applyInit();
+    // Whether anything changed since the preset (or Init) was loaded; the name then
+    // shows as "Name *".
+    bool presetModified() const;
+    juce::String presetDisplayName() const { return presetName + (presetModified() ? " *" : ""); }
     juce::File userPresetFolder() const;
     bool saveUserPreset(const juce::String& name);
     bool loadUserPreset(const juce::File&);
-    juce::String presetName { "Default" };
+    juce::String presetName { "Init" };
     int presetIndex = -1;   // factory index, or -1
     // A/B compare: two complete settings; switching stores the current one in its slot.
     void selectSlot(int slot);
@@ -117,6 +139,15 @@ private:
     std::array<std::atomic<int>, dc::maxStops> routeStops {};
     std::atomic<int> routeLength { 0 };
     std::atomic<bool> steered { false };
+    std::atomic<int> manualEpoch { 0 }, processedEpoch { 0 };
+    std::atomic<bool> midiCancel { false };
+    juce::String stopSteeringLocked();
+    void setPlain(const char* id, float plain);
+    // The settings the current preset loaded (for "modified"); none after loading a
+    // project saved with a modified preset.
+    Snapshot presetBaseline;
+    bool hasBaseline = false;
+    void markPresetBaseline() { presetBaseline = snapshot(); hasBaseline = true; }
     double freeBeats = 0;          // the position when the host does not play
     int midiLocation = -1, midiSub = 0;
     dc::Engine world;

@@ -32,6 +32,91 @@ DungeonCrawlerProcessor::DungeonCrawlerProcessor()
     atmosDensity = parameters.getRawParameterValue(dc::ids::atmosDensity);
     atmosSeed = parameters.getRawParameterValue(dc::ids::atmosSeed);
     quality = parameters.getRawParameterValue(dc::ids::quality);
+    markPresetBaseline();   // a new instance is "Init", unmodified
+}
+
+bool DungeonCrawlerProcessor::journeyRunning() const noexcept {
+    return journeyOn->load() >= 0.5f && routeLength.load() > 0;
+}
+
+bool DungeonCrawlerProcessor::roamRunning() const noexcept { return roamOn->load() >= 0.5f; }
+
+void DungeonCrawlerProcessor::setPlain(const char* id, float plain) {
+    if (auto* p = parameters.getParameter(id)) {
+        const float value = p->convertTo0to1(plain);
+        if (std::abs(p->getValue() - value) <= 1.0e-7f) return;
+        p->beginChangeGesture();
+        p->setValueNotifyingHost(value);
+        p->endChangeGesture();
+    }
+}
+
+juce::String DungeonCrawlerProcessor::stopSteeringLocked() {
+    const bool journey = journeyRunning(), roam = roamRunning();
+    if (journeyOn->load() >= 0.5f) setPlain(dc::ids::journeyOn, 0.0f);
+    if (roam) setPlain(dc::ids::roamOn, 0.0f);
+    midiCancel.store(true);
+    return journey && roam ? "Journey and Roam" : (journey ? "Journey" : (roam ? "Roam" : ""));
+}
+
+juce::String DungeonCrawlerProcessor::travelTo(int l, int sub) {
+    l = juce::jlimit(0, dc::LocationCount - 1, l);
+    sub = dc::clampSubLocation(l, sub);
+    pushUndo();
+    juce::String stopped;
+    {
+        const juce::ScopedValueSetter<bool> guard(applying, true);   // one undo step
+        stopped = stopSteeringLocked();
+        setPlain(dc::ids::location, static_cast<float>(l));
+        setPlain(dc::ids::subLocation, static_cast<float>(sub));
+    }
+    // After the parameters: a block that sees this epoch also sees them.
+    manualEpoch.fetch_add(1, std::memory_order_acq_rel);
+    return stopped;
+}
+
+juce::String DungeonCrawlerProcessor::stopSteering() {
+    if (!journeyRunning() && !roamRunning()) return {};
+    // Stay where the journey is now.
+    const int l = currentDestination.load(), k = currentSubLocation.load();
+    return travelTo(l, k);
+}
+
+void DungeonCrawlerProcessor::applyInit() {
+    pushUndo();
+    {
+        const juce::ScopedValueSetter<bool> guard(applying, true);
+        for (auto* p : getParameters()) {
+            if (p == getBypassParameter() || p == parameters.getParameter(dc::ids::quality)) continue;
+            if (std::abs(p->getValue() - p->getDefaultValue()) > 1.0e-7f) {
+                p->beginChangeGesture();
+                p->setValueNotifyingHost(p->getDefaultValue());
+                p->endChangeGesture();
+            }
+        }
+        setRoute({});
+        midiCancel.store(true);
+    }
+    manualEpoch.fetch_add(1, std::memory_order_acq_rel);
+    presetIndex = -1;
+    presetName = "Init";
+    markPresetBaseline();
+}
+
+bool DungeonCrawlerProcessor::presetModified() const {
+    if (!hasBaseline) return true;
+    const auto now = snapshot();
+    if (now.route.size() != presetBaseline.route.size()) return true;
+    for (std::size_t k = 0; k < now.route.size(); ++k)
+        if (now.route[k].location != presetBaseline.route[k].location || now.route[k].sub != presetBaseline.route[k].sub) return true;
+    // Quality and Bypass are settings, not part of a preset.
+    const auto& params = getParameters();
+    for (int i = 0; i < params.size() && i < static_cast<int>(now.values.size()) && i < static_cast<int>(presetBaseline.values.size()); ++i) {
+        auto* p = params[i];
+        if (p == getBypassParameter() || p == parameters.getParameter(dc::ids::quality)) continue;
+        if (std::abs(now.values[static_cast<std::size_t>(i)] - presetBaseline.values[static_cast<std::size_t>(i)]) > 1.0e-6f) return true;
+    }
+    return false;
 }
 
 int DungeonCrawlerProcessor::qualityMode() const noexcept {
@@ -131,8 +216,11 @@ void DungeonCrawlerProcessor::applyFactoryPreset(int index) {
             }
         }
     setRoute(preset.route);
+    midiCancel.store(true);
+    manualEpoch.fetch_add(1, std::memory_order_acq_rel);
     presetIndex = index;
     presetName = preset.name;
+    markPresetBaseline();
 }
 
 juce::File DungeonCrawlerProcessor::userPresetFolder() const {
@@ -154,7 +242,7 @@ bool DungeonCrawlerProcessor::saveUserPreset(const juce::String& name) {
     if (xml == nullptr) return false;
     xml->setAttribute("presetName", name.trim());
     const bool ok = xml->writeTo(folder.getChildFile(clean + ".dcpreset"));
-    if (ok) { presetName = name.trim(); presetIndex = -1; }
+    if (ok) { presetName = name.trim(); presetIndex = -1; markPresetBaseline(); }
     return ok;
 }
 
@@ -175,6 +263,8 @@ bool DungeonCrawlerProcessor::loadUserPreset(const juce::File& file) {
     editorScale.store(keepScale);
     presetName = xml->getStringAttribute("presetName", file.getFileNameWithoutExtension());
     presetIndex = -1;
+    manualEpoch.fetch_add(1, std::memory_order_acq_rel);
+    markPresetBaseline();
     return true;
 }
 
@@ -234,6 +324,8 @@ bool DungeonCrawlerProcessor::isBusesLayoutSupported(const BusesLayout& layout) 
 }
 
 void DungeonCrawlerProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) {
+    // A manual choice of place cancels the place MIDI chose.
+    if (midiCancel.exchange(false)) midiLocation = -1;
     // MIDI travel: the last note-on in the travel octave chooses the place.
     if (midiTravel->load() >= 0.5f) {
         const int base = juce::jlimit(0, 8, static_cast<int>(std::lround(midiOctave->load()))) * 12;
@@ -254,6 +346,8 @@ void DungeonCrawlerProcessor::processBlockBypassed(juce::AudioBuffer<float>& buf
 void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool forcedBypass) {
     juce::ScopedNoDenormals noDenormals;
     const auto begin = juce::Time::getHighResolutionTicks();
+    // Read before the parameters (they are written before the epoch moves on).
+    const int epoch = manualEpoch.load(std::memory_order_acquire);
     double bpm = 120, beatsPerBar = 4;
     std::optional<double> hostBeats;
     if (auto* ph = getPlayHead())
@@ -379,6 +473,7 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
     travelProgress.store(world.travelProgress(), std::memory_order_relaxed);
     currentDestination.store(world.destination(), std::memory_order_relaxed);
     currentSubLocation.store(world.destinationSub(), std::memory_order_relaxed);
+    processedEpoch.store(epoch, std::memory_order_release);
     const auto seconds = juce::Time::highResolutionTicksToSeconds(juce::Time::getHighResolutionTicks() - begin);
     cpuLoad.store(0.9f * cpuLoad.load() + 0.1f * static_cast<float>(seconds * rate / numSamples), std::memory_order_relaxed);
 }
@@ -391,6 +486,7 @@ void DungeonCrawlerProcessor::getStateInformation(juce::MemoryBlock& data) {
     state.setProperty("version", 4, nullptr);
     state.setProperty("editorScale", static_cast<double>(editorScale.load()), nullptr);
     state.setProperty("presetName", presetName, nullptr);
+    state.setProperty("presetModified", presetModified(), nullptr);
     juce::StringArray stops;
     for (const auto& st : route()) stops.add(juce::String(st.location) + ":" + juce::String(st.sub));
     state.setProperty("route", stops.joinIntoString(","), nullptr);
@@ -431,6 +527,12 @@ void DungeonCrawlerProcessor::setStateInformation(const void* data, int size) {
             stops.push_back({ juce::jlimit(0, dc::LocationCount - 1, token.upToFirstOccurrenceOf(":", false, false).getIntValue()),
                               juce::jlimit(0, dc::maxSubLocations, token.fromFirstOccurrenceOf(":", false, false).getIntValue()) });
     setRoute(stops);
+    manualEpoch.fetch_add(1, std::memory_order_acq_rel);
+    // Unmodified when saved: what was loaded is the preset; otherwise it stays modified.
+    if (!applying) {
+        if (static_cast<bool>(incoming.getProperty("presetModified", false))) hasBaseline = false;
+        else markPresetBaseline();
+    }
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new DungeonCrawlerProcessor(); }
