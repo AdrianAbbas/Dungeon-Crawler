@@ -1,0 +1,37 @@
+DUNGEON CRAWLER - Dark-fantasy location effect (macOS, Apple Silicon and Intel, macOS 10.15+)
+
+INSTALL
+  1. Quit GarageBand and Logic.
+  2. Open Terminal (Applications > Utilities > Terminal).
+  3. Type "bash " (with a space), drag install-mac.sh from this folder into the
+     Terminal window, and press Return.
+  4. Wait for "DUNGEON CRAWLER is installed and validated."
+
+  Why a script? This build is not signed with an Apple Developer ID. When a browser
+  downloads it, macOS marks every file as quarantined and then refuses to load the
+  plug-in: GarageBand shows a silent slot with plain sliders. The script removes that
+  flag, re-signs the plug-in for this Mac, refreshes the Audio Unit list and runs
+  Apple's validator.
+
+GARAGEBAND
+  Settings > Audio/MIDI: tick "Audio Units". Restart GarageBand.
+  Select a track (software instrument or audio). Smart Controls (B) > Plug-ins >
+  an empty Audio Effect slot > Audio Units > Veil Audio > DUNGEON CRAWLER.
+  Play the track and pick a location in the plug-in window.
+  If you see sliders instead of the DUNGEON CRAWLER interface, switch the plug-in
+  window's view menu from "Controls" to "Editor".
+
+LOGIC PRO
+  Settings > Plug-in Manager > Veil Audio > DUNGEON CRAWLER. If it is marked failed,
+  select it and click "Reset & Rescan Selection". Insert it in an Audio FX slot of
+  any track: Audio Units > Veil Audio > DUNGEON CRAWLER.
+
+UNINSTALL
+  bash uninstall-mac.sh            (add --purge to also delete saved presets)
+
+MANUAL INSTALL (if you prefer not to run the script)
+  cp -R DungeonCrawler.component ~/Library/Audio/Plug-Ins/Components/
+  xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/DungeonCrawler.component
+  codesign --force --deep --sign - ~/Library/Audio/Plug-Ins/Components/DungeonCrawler.component
+  killall -9 AudioComponentRegistrar
+  auval -v aufx Dgcr Veil
