@@ -69,10 +69,11 @@ window (if you see plain sliders, switch the window's view menu from "Controls" 
 | **Output** | Output level. |
 | **Travel** (time + sync) | How long a journey takes: Instant to 10 s, or 1/4 note to 4 bars at the song's tempo. |
 | **Atmosphere** | Level of the place's sparse background sounds; 0 % = off (default). |
-| **Journey** (button) | The Journey panel: route, roaming, MIDI travel, atmosphere density/seed (below). |
+| **Journey** (button) | The Journey panel: route, roaming, MIDI travel, atmosphere density/seed (below). Closes with ✕, a second click on Journey, Esc or a click outside it. |
 | **Bypass** | Bypass (crossfaded). |
-| **Advanced** | Every module parameter as an offset from the place (0 % = as designed) or an override ("Place" = as designed), in nine groups: I Abyss (filters, Tomb resonator), II Ancient Blood (saturation, age), III Choir, IV Wraith (spectral), V Echoes, VI Crypt (reverb), VII Relics (torch flicker, metal, wind, drips), VIII Signature (the place's signature effect: kind, amount, tone, rate). Offsets travel with you. |
-| **Preset name ▾, ◀ ▶** | Factory presets (favourite spots, journeys), your presets, Save as your preset… |
+| **Advanced** | (Closes like the Journey panel.) Every module parameter as an offset from the place (0 % = as designed) or an override ("Place" = as designed), in nine groups: I Abyss (filters, Tomb resonator), II Ancient Blood (saturation, age), III Choir, IV Wraith (spectral), V Echoes, VI Crypt (reverb), VII Relics (torch flicker, metal, wind, drips), VIII Signature (the place's signature effect: kind, amount, tone, rate). Offsets travel with you. |
+| **Preset name ▾, ◀ ▶** | Init / No preset (everything at its default, no journey), factory presets (favourite spots, journeys), your presets, Save as your preset… After any change the name shows a star ("Grand Castle Tour *"). |
+| **Journey active · Stop** (top centre) | Shown while a Journey or Roam runs (journey presets start one). Stop ends it where it is. |
 | **A / B, A→B** | Compare two complete settings; copy the current one to the other slot. |
 | **↶ ↷** | Undo / redo of your edits in the window. |
 | **⚙** | Window size (75–200 %, or drag the corner) and Quality: Eco (lightest: no animation, mono spectral layer), Standard, High (smoothest animation). |
@@ -89,6 +90,12 @@ window (if you see plain sliders, switch the window's view menu from "Controls" 
 | **Randomness / Seed** | 0 % visits the places in order; more is more random. The same seed always gives the same wandering at the same bar. |
 | **MIDI travel** + octave | Notes C–A of the chosen octave pick the ten locations, C–E an octave higher the places (see host support below). |
 | **Atmosphere Density / Seed** | How often background sounds come, and which. |
+
+**A click always wins:** choosing a location on the map, a place in the list or a
+hotspot, or the location in the breadcrumb, takes you there at once and stops a running
+Journey or Roam (a short note says "Journey stopped"; turn it on again in the panel or
+reload the preset). Host automation of Location does not stop a journey: the journey
+steers while it is on.
 
 Journeys, roaming and the atmosphere follow the song's position when it plays (the same
 bar always gives the same result) and keep moving at the song's tempo when it is

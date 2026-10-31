@@ -107,6 +107,23 @@ synth track, walk through all 40 places (location list, then each place) and lis
 - [ ] Advanced drawer: the new "Signature" group (Signature, Amount, Tone, Rate) changes
       the signature; Amount −100 % removes it.
 
+## Hotfixes 1–3 (after the GarageBand test of the painted build)
+
+- [ ] **Stuck in a preset (1):** load "Grand Castle Tour". A "Journey active" plate with
+      Stop appears at the top. Click the Map, then the Dungeon: you go there at once, the
+      plate disappears, a note says "Journey stopped", the preset reads
+      "Grand Castle Tour *". Play for a minute: you stay in the Dungeon.
+- [ ] Load it again; inside the Castle click another place (list or ring): same.
+- [ ] Load it again; press **Stop** on the plate: the sound and picture stay where the
+      journey was.
+- [ ] Preset menu → **Init / No preset**: name "Init", no plate, the Dungeon, defaults.
+- [ ] **Journey panel (2):** press Journey (bottom right): the panel opens on the left.
+      Close it four ways: ✕, Journey again, Esc, a click on the picture. Advanced the same.
+      Bypass, Advanced and the ▾ button stay clickable with a panel open.
+- [ ] **Swamp (3):** load "Swamp Wander" ("Roam active"). Click Bog, Sunken Ruins, Mire
+      in the list and on the rings: each one takes effect, "Roam stopped". With the
+      Journey panel open, the place list (top right) is still clickable.
+
 ## Visual overhaul: the painted map and all 40 places
 
 Painted art for the map and every place (the engraved scenes below are only the fallback

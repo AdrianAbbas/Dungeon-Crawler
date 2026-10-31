@@ -80,6 +80,16 @@ Castle with all their places, then **stop for approval** before the other locati
 - [x] V4. **Developer:** approved the prototype ("looks good, go ahead")
 - [x] V5. The other eight locations (Cathedral, Haunted Forest, Caverns, Village, Swamp, Mountains, Necropolis, Wizard's Tower; 30 scenes) in the approved style; pushed without `[skip ci]`
 
+**Session 5: hotfixes from GarageBand testing** (2026-10-31). The developer approved the
+visual overhaul and reported three bugs. Handoff at the end of this file.
+
+- [x] H1. Stuck in a preset: a manual click always wins within one block and stops a Journey/Roam (note "Journey stopped"); "Journey active" badge with Stop; "Init / No preset"; "Name *" when modified
+- [x] H2. Panels: the Journey panel and the Advanced drawer close with ✕, their button again, Esc and a click outside; they no longer cover the controls; popups checked
+- [x] H3. Swamp (Mire): every place of every location selectable with and without a preset, journey or roam
+- [x] H4. Tests (`navigation` group), full suite 1597 passed; README, MANUAL_TEST, snapshots
+- [x] H5. Painted style: checked, all 40 places and the map are already painted (nothing left)
+- [ ] H6. **Developer:** the GarageBand checks in MANUAL_TEST, "Hotfixes 1–3"
+
 ---
 
 ## Lessons carried over (from Worldbuilder's DEVLOG, read first)
@@ -1321,3 +1331,126 @@ red blobs); the Graveyard camera pulled back. Full renders: about 3 hours on 4 c
 
 **Look at in GarageBand:** every location's places (MANUAL_TEST, "Visual overhaul").
 Known: interiors lean red and dark; some forms are simple; the bundle grew by 54 MB.
+
+## Session 5: hotfixes from GarageBand testing (2026-10-31)
+
+The developer approved the visual overhaul and reported three bugs from GarageBand:
+(1) after a preset such as "Grand Castle Tour" no other place could be chosen; (2) the
+Journey panel could not be closed; (3) in the Swamp (on the Mire) its places could not
+be chosen.
+
+### Causes
+
+1. **Journeys and roaming overrode every manual choice.** The audio thread lets a
+   running Journey or Roam steer the place over the Location / Sub-location parameters,
+   and the editor's 10 Hz follower moved the view to wherever the sound was. A click set
+   the parameter, but the journey kept steering, so the sound stayed and the view
+   snapped back within 100 ms. Journey presets turn Journey or Roam on, so after one the
+   window looked frozen. A second trap: a click on the place the parameter already held
+   (the journey had moved the view elsewhere) did nothing at all, because JUCE's
+   `ParameterAttachment::setValueAsCompleteGesture` ignores an unchanged value.
+2. **The Journey panel covered its own button.** It was opaque, 330 x 496 px at the
+   right edge, down to 8 px above the window's bottom, so it lay over the Journey,
+   Bypass and Advanced buttons and over the place list (top right) from its third row.
+   With no other way to close it, it stayed. The Advanced drawer covered the ▾ (show or
+   hide the controls) button.
+3. **The Swamp was both.** "Swamp Wander" turns on Roam in the Swamp, so the Mire, Bog
+   and Sunken Ruins clicks were overridden (1). With the Journey panel open, the panel
+   also covered the list's third row, Sunken Ruins (2). Nothing in the Swamp's data was
+   wrong.
+
+### Fixes
+
+- **A manual choice always wins** (`DungeonCrawlerProcessor::travelTo`, editor
+  `travelManually`). Every manual click goes through it: a landmark on the map, the
+  place list, a hotspot, the location in the breadcrumb. It turns Journey and Roam off,
+  cancels a place MIDI chose, sets the place and shows it, even when the parameter
+  already had that value, all as one undo step. The audio thread reads the new
+  parameters in its next block, so the sound changes within one block. An epoch counter
+  (`manualEpoch`/`processedEpoch`) tells the editor when the audio thread has seen the
+  change. Until then the follower ignores what the audio thread reports (still the old
+  journey), so the view never jumps back. A short note shows for 2.5 s: "Journey
+  stopped", "Roam stopped".
+- **"Journey active" badge** (top centre, clear of the breadcrumb and the place list),
+  shown while a Journey (on, with a route) or Roam runs: "Journey active",
+  "Roam active" or both, with a **Stop** button. Stop ends it where the sound is now:
+  Location and Sub-location take that place.
+- **Preset menu:** "Init / No preset" at the top: every parameter at its default
+  (Quality and Bypass kept, as for presets), no route, no journey, name "Init".
+  **Modified:** the processor keeps the settings the preset (or Init, or a user preset)
+  loaded; once anything differs (route included, Quality and Bypass not) the name
+  shows "Grand Castle Tour *". Undoing back to the preset removes the star. The flag
+  is saved with the project: a project saved modified reopens with the star.
+- **Panels:** the Journey panel and the Advanced drawer each have a ✕ and close on a
+  second click of their button, on Esc and on a click anywhere outside them (the view
+  listens to mouse-downs on all its children; their own button is left to toggle them).
+  Both now end above the controls and the ▾ button, so every control stays clickable.
+  The Journey panel moved to the **left** so the place list stays free, and its
+  contents scroll under a fixed title row. Hiding the controls closes the panels,
+  because their buttons hide too.
+- **The other popups** are JUCE popup menus (the preset and ⚙ menus and every combo
+  box): they close on Esc and on a click outside. The Save-preset dialog has Cancel and
+  Esc. A/B, undo and redo are plain buttons with no popup. None can get stuck.
+
+### Tests (`navigation` group; shard 2 in CI)
+
+- For each of the 27 factory presets, loaded through the editor with the transport
+  playing: a place of the shown location (the Swamp case), then another location on
+  the map. Each one is in the sound **within one block**, Journey and Roam are off, the
+  note shows, and 9 s later the sound and the view are still there. The follower,
+  run between the click and the audio block, does not snap back. The name shows
+  "Name *". Journey and roam presets show the badge, spots don't.
+- The Stop button on Grand Castle Tour, at its second stop, stays there. Swamp Wander
+  shows "Roam active". Init gives defaults, no route, no badge, "Init". A change after
+  it shows "Init *", and undo removes the star. The modified mark survives save and
+  load.
+- Every panel opens and closes all four ways. While it is open, its button, Journey,
+  Advanced and ▾ are reachable (hit-tested: nothing covers their centres) and its ✕ is
+  reachable. Esc with nothing open is left to the host. Opening one panel closes the
+  other.
+- Every place of every location (40), chosen in the list and on its hotspot. Run four
+  ways: nothing running, Roam on, a Journey through the location's other places, and
+  the Journey panel open. Each entry is reachable, the sound is there within one block,
+  the parameter and the marker follow, and the scene shows it.
+- Full suite (Linux): **1597 passed, 0 failed** (the shards and the cpu report).
+- `DungeonCrawlerTests --hotfix-snapshots dir`:
+  [snapshots/hotfix/](snapshots/hotfix/) (`journey-active`,
+  `journey-stopped-by-a-click`, `journey-panel`, `advanced-drawer`).
+
+### Art
+
+Checked as asked: all 40 places and the map are painted (`assets/painted`, 41 scenes in
+the manifest). No location still has the engraved art; the engraving renderer remains
+only as the fallback.
+
+### Handoff
+
+**Done:** hotfixes 1–3 with tests, pushed with `[skip ci]` in three parts (processor;
+editor; tests). This handoff is the final push, without `[skip ci]`. Fixes 1 and 3
+share their code (the Swamp bug was bug 1 plus the covering panel), so the editor
+changes went in as one commit.
+
+**Look at in GarageBand:** MANUAL_TEST, "Hotfixes 1–3". In short: Grand Castle Tour,
+then click the Map and the Dungeon (you go there, "Journey stopped", the name gets a
+star). Use Stop on the badge. Use Init in the preset menu. Close the Journey panel and
+the Advanced drawer with ✕, their button, Esc and a click outside. In Swamp Wander, try
+every Swamp place.
+
+**Decisions made without asking:**
+1. A manual choice turns Journey/Roam **off** (it does not pause them). Turn them on
+   again in the Journey panel, or reload the preset.
+2. Stop keeps the place the journey reached; it does not return to where the preset
+   started.
+3. Host automation of Location / Sub-location does not stop a journey. A journey is
+   automatable itself, and automation should not switch it off. Only clicks in the
+   window count as manual.
+4. MIDI travel stays on after a click, but the place a note chose is dropped (the next
+   note chooses again).
+5. The Journey panel moved to the left side (it covered the place list on the right).
+6. Clicking the "Map" breadcrumb only changes the view and does not stop a journey.
+
+**Known issues:**
+- Keyboard focus: Esc reaches the plug-in only when its window has focus. Some hosts
+  keep keys for themselves; ✕, the button and a click outside always work.
+- The preset name's star compares every parameter with the preset's. Host automation
+  of any parameter also shows the star.
