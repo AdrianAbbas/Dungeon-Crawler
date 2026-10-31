@@ -1,0 +1,54 @@
+{
+ "scene": "castle/tower-top",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 597.0,
+   "y": 508.4
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 379.6,
+   "y": 493.6
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 602.9,
+   "y": 246.1
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 870.4,
+   "y": 452.6
+  },
+  {
+   "kind": "hotspot",
+   "sub": 4,
+   "x": 480.0,
+   "y": 410.2
+  },
+  {
+   "kind": "window",
+   "radius": 18,
+   "x": 379.6,
+   "y": 500.2
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  520,
+  150,
+  125
+ ],
+ "glows": []
+}

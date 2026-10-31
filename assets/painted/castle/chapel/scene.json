@@ -1,0 +1,73 @@
+{
+ "scene": "castle/chapel",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 327.3,
+   "y": 705.0
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 95.8,
+   "y": 346.5
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 712.1,
+   "y": 351.1
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 478.3,
+   "y": 353.8
+  },
+  {
+   "kind": "hotspot",
+   "sub": 4,
+   "x": 480.6,
+   "y": 200.2
+  },
+  {
+   "kind": "candle",
+   "radius": 22,
+   "x": 478.2,
+   "y": 362.5
+  },
+  {
+   "kind": "candle",
+   "radius": 10,
+   "x": 420.7,
+   "y": 374.6
+  },
+  {
+   "kind": "candle",
+   "radius": 10,
+   "x": 534.9,
+   "y": 374.7
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   480,
+   200,
+   140,
+   0.4
+  ]
+ ]
+}

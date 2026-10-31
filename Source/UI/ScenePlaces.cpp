@@ -1404,7 +1404,24 @@ std::vector<Hotspot> sceneHotspots(int location, int sub) {
         for (int i = 0; i < s->anchorCount; ++i)
             if (s->anchors[i].kind == anchorHotspot)
                 spots.push_back({ juce::roundToInt(s->anchors[i].value), { s->anchors[i].x, s->anchors[i].y }, 26.0f });
-        if (!spots.empty()) return spots;
+        if (!spots.empty()) {
+            // Doors behind the viewer or beside the frame project outside it: keep every
+            // point of interest in the picture, above the controls, and apart.
+            const juce::Rectangle<float> area(40.0f, 70.0f, 880.0f, 310.0f);
+            for (auto& h : spots) h.position = area.getConstrainedPoint(h.position);
+            for (int pass = 0; pass < 8; ++pass)
+                for (std::size_t a = 0; a < spots.size(); ++a)
+                    for (std::size_t b = a + 1; b < spots.size(); ++b) {
+                        auto d = spots[b].position - spots[a].position;
+                        const float len = d.getDistanceFromOrigin();
+                        if (len >= 90.0f) continue;
+                        if (len < 1.0f) d = { 1.0f, 0.0f };
+                        const auto push = d / juce::jmax(1.0f, d.getDistanceFromOrigin()) * ((90.0f - len) * 0.5f);
+                        spots[a].position = area.getConstrainedPoint(spots[a].position - push);
+                        spots[b].position = area.getConstrainedPoint(spots[b].position + push);
+                    }
+            return spots;
+        }
     }
     for (int k = 0; k <= subLocationCount(location); ++k)
         spots.push_back({ k, hotspotPlaces[static_cast<std::size_t>(location)][static_cast<std::size_t>(k)], 26.0f });

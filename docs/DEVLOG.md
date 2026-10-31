@@ -1132,3 +1132,158 @@ Artifacts → `DungeonCrawler-macOS-Universal`.
 - User presets and drop-in scenes live in `~/Library/Application Support/DungeonCrawler`;
   inside a sandboxed host the plug-in may see the host's container instead.
 - CPU (one core of the Linux container, report-only): 4.3 % (Mountains) to 12.9 % (Haunted Forest) per location in Standard, 17.6 % when travelling every second; Eco takes about a fifth off the spectral places (Old Path 10.1 → 8.1 %). Your MacBook Air's cores are faster than this container's; Activity Monitor will tell.
+
+---
+
+## Session 4: visual overhaul, the painted prototype (2026-10-31)
+
+The developer found the engraved map and scenes unconvincing and set a new direction:
+**painterly dark-fantasy concept art** (about 80 % near-black and charcoal; slate,
+purple and grey mists; small intense crimson accents: a huge red moon, lava cracks,
+embers, glowing windows, red rim light), built in Blender from scripts, rendered as
+parallax depth layers, painted by a post-process, and animated subtly by the plug-in.
+Navigation and animations stay as they were (click a place: zoom in; again into its
+places). Two mood images were given (mood only; not copied, not committed). Prototype
+first: the map, the Dungeon and the Castle with all their places; **then stop for
+approval**.
+
+### The pipeline (`tools/painted/`, [README](../tools/painted/README.md))
+
+- **Blender without its download:** download.blender.org is blocked from the cloud
+  container, but Blender 5.2.3 is on PyPI as the `bpy` module (the same Blender,
+  headless). Cycles on 4 CPU cores. Two gaps of the pip build, worked around: the
+  compositor needs a GPU context (no compositor denoise) and multi-layer EXRs carry only
+  the beauty pass (no depth or albedo). So Intel Open Image Denoise, which ships inside
+  the wheel, is called through `ctypes` on the colour, and aerial perspective comes from
+  the depth layers themselves plus self-lit haze on the distant ranges.
+- **Scenes as code:** `blib.py` holds the builders (ridged-noise mountain ranges, crags
+  and mesas, gothic spires and castle clusters, a cathedral, pointed arches and walls
+  with arched openings, vaulted gothic halls, noisy cave tunnels, rocks, dead trees,
+  torches, braziers, candles, bars, chains, gold piles, chests, banners, a throne,
+  steps, pews, the horned and winged lord; stone, lava-crack, emission, metal and
+  volumetric fog materials); `scenes.py` composes the 11 prototype scenes and declares
+  their anchors (hotspots on doors and features, the map's landmarks, fires, windows,
+  lava, eyes), which render.py projects into the 960 x 560 frame.
+- **Layers:** each layer is rendered with only its objects visible to the camera; the
+  others still cast shadows and block light. Fog is its own layer (volumes, half
+  resolution). The sky and moon layer is painted in numpy (zenith to horizon mist, a
+  crimson moon with maria and halo, torn clouds, stars; for interiors a glow in the
+  depth instead).
+- **Painting (`paint.py`):** OIDN denoise, haze by layer, bloom on the lights, tone map,
+  a grade (desaturate everything but red; split-tone the shadows slate-purple; keep red
+  crimson: gamma lifts a bright red's small green and blue into salmon, so they are
+  pulled down), a generalised Kuwahara (eight sectors, larger with distance), brush
+  streaks by line-integral convolution along the structure (sweeping, near horizontal in
+  sky and fog), soft paint dabs, grain and speckle; sharper near layers.
+- **Output:** per scene `sky.jpg` and `far/mid/fog/near` as JPEG colour + PNG alpha
+  (colour bled outwards under the transparent pixels: no fringes); about 1.4 MB a scene
+  at 1920 x 1120, 15 MB for the 11. `build.py` also writes `Source/UI/PaintedManifest.inc`.
+- **Cost:** 2 to 10 minutes per scene (full size, 32 to 48 samples); interiors full of
+  fog and torches are the slow ones. The 11 took about 1.5 hours here.
+
+Iterations that mattered (all at quarter size, seconds each): fog gradients that used
+the box's local coordinates (fog volumes now sit at the world origin); window slabs that
+glowed salmon (grade fix, smaller windows with tracery); a lava lake hidden under the
+cave floor; a red fog veil over the Boss Lair (thinner fog); and above all **the map**:
+a flat world put the top row of landmarks 14 km away, tiny. The land now tilts up
+towards the horizon range (an illustrator's trick), rays are marched against the real
+terrain, and each landmark is scaled with its distance so all ten read.
+
+### In the plug-in
+
+- **Assets ship in the bundles**, not compiled in (a universal binary would carry them
+  twice): CMake copies `assets/painted` into `Contents/Resources/Painted` of the AU,
+  VST3 and app after each build; `ci-check-bundles.sh` fails without them. Development
+  builds and the tests fall back to the source tree (`DC_PAINTED_DIR`).
+- **`Painted.*`:** loads a scene off the message thread into planes at the window's
+  pixel size: back (sky + far, opaque), mid, fog (half size), near (cropped to what it
+  covers), and flat (all of them, for blits). The scene cache keeps planes within a
+  160 MB budget (always the two newest). A painted scene is about 7.7 MB at 960 x 560
+  (about 31 MB at Retina); loading takes about 0.2 s here, on the cache's thread.
+- **Parallax in the zooms:** into a place, the map's layers scale towards the landmark
+  at their own speeds (back 2.5x, mid 3.4x, fog 3.9x, near 4.8x: the cloud wisps rush
+  past) while the place's layers settle from 1.08x to 1.34x; out to the map in reverse.
+  The timing and the path are unchanged. Engraved scenes (the other locations) still
+  zoom as before.
+- **Life** (Standard and High; Eco has none), repainting only small regions: windows
+  breathe and fires flicker (15 fps), embers rise from fires and lava (at most 16, never
+  into the controls; 15 fps), two sheets of mist wisps drift at different speeds over the
+  low ground above the controls (10 fps), the moon's glow breathes (7 s; 5 fps). The map
+  now has life too, so its timer runs (it used to stop when the map was still); with the
+  animation off it still stops. Cost (software renderer here; macOS draws with
+  CoreGraphics): about 7 % of one core for the map, 1 % for a scene's lights.
+- **Points of interest:** each painted scene has its own hotspots (projected from the
+  doors and features). Doors behind the viewer or beside the frame project outside it,
+  so hotspots are kept in the picture above the controls and pushed apart (a test
+  caught this).
+- **The map overlay:** the title in Cinzel over the sky, every landmark's name in small
+  capitals under it, the current one in crimson with a diamond and a crimson glow; hover
+  shows the name and the number of places.
+- **Controls restyled:** no box; a dark veil fading up into the art, a crimson hairline,
+  small Cinzel headings (Character, Levels, Travel), thin dividers, slim faders (2 px
+  track, crimson value from zero for bipolar ones, ivory cap), text buttons with a
+  crimson underline when on, underline combo boxes, darker menus and tooltips.
+  Cormorant Garamond for labels (bold below 15 px), Cinzel for titles; both SIL OFL,
+  embedded (`assets/fonts`, licences beside them).
+- **Drop-in art** (`~/Library/Application Support/DungeonCrawler/scenes/`): a flat PNG
+  as before, or now a folder of layers (`back`, `far`, `mid`, `fog`, `near`) for
+  parallax. See [ART_SOURCES.md](ART_SOURCES.md).
+
+### Tests
+
+- `editor`: the map is layered and its life runs; with the animation off the timer
+  stops; a zoom held half way (snapshot); the painted life's cost per frame rate (each
+  rate's regions merged into one clip, as JUCE does).
+- `art`: every painted scene loads in layers; every painted place has a hotspot for each
+  place of its location, inside the frame; the map's landmarks are in the frame, above
+  the controls and apart; load time and memory reported.
+- `DungeonCrawlerTests --painted-snapshots dir`: the review images below (editor at 200 %).
+- Full suite (Linux): **1535 passed, 0 failed**.
+
+### Snapshots
+
+[snapshots/painted-contact-sheet.jpg](snapshots/painted-contact-sheet.jpg); every image
+at 1920 x 1120 in [snapshots/painted/](snapshots/painted/): `map`,
+`zoom-into-dungeon-mid-frame`, the five Dungeon places, `zoom-into-castle-mid-frame`,
+the five Castle places, `zoom-out-to-map-mid-frame`.
+
+### Handoff (stop for approval)
+
+**Done:** the pipeline, the plug-in side (layers, parallax, life, drop-in layers,
+controls, fonts) and the prototype art: the map, the Dungeon (Corridors, Entrance Hall,
+Prison Cells, Treasure Room, Final Boss Lair) and the Castle (Courtyard, Great Hall,
+Throne Room, Chapel, Tower Top). The other eight locations still show the engraved
+scenes. Pushed in parts with `[skip ci]`, the last without.
+
+**Please look at (GarageBand, MacBook Air):** the map on opening (moon rising behind
+the range, lava rivers, glowing landmarks with their names, the crimson marker); a
+click on the Dungeon or the Castle (the path, then the zoom with parallax); each place
+and its rings; the life (embers, mist, the moon's glow, flicker: gentle?); the
+controls (readable? spacing?); the Air's temperature with the window open; Eco stops
+the animation. The manual-test section "Visual overhaul (prototype)" lists it.
+
+**Decisions made without asking:**
+1. Blender via the PyPI `bpy` module (the download site is blocked here); OIDN through
+   `ctypes`; the sky and moon painted in numpy rather than in Blender.
+2. The art ships as files inside the bundles (not compiled in).
+3. Runtime planes: back (sky + far), mid, fog, near; the fog layer moves only in the
+   zooms, while the steady drift is the mist overlay (cheap: it never repaints the
+   layers below it).
+4. The map's land tilts towards the horizon and its landmarks are scaled with distance
+   (stylised, so all ten read from above).
+5. Painted hotspots are kept inside the frame above the controls.
+6. Labels on the map are always shown (small), not only on hover.
+
+**Known issues / for your notes:**
+- The map is the weakest of the 11: from that height the landmarks are small glowing
+  silhouettes with little detail, and the land reads mostly as dark texture. The
+  developer's notes on it would help most before the other locations.
+- The interiors lean red overall (fog lit by braziers and windows); the exteriors hit
+  the near-black target better.
+- Some forms are simple (the hall and chapel blocks of the Courtyard, the throne, the
+  merlons of the Tower Top); more modelling detail is possible per scene.
+- Size: about 1.4 MB per scene; all 41 scenes would add about 55 MB to each bundle.
+- Not seen on a Mac yet: CoreGraphics cost of the life and the zoom, Retina sharpness.
+
+**Next (after approval):** the other eight locations (30 scenes) in the approved style;
+then retire the engraving renderer (or keep it as the fallback).

@@ -1,0 +1,67 @@
+{
+ "scene": "castle/throne-room",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 632.8
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 19.4,
+   "y": 363.0
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 480.0,
+   "y": 364.7
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 940.6,
+   "y": 363.0
+  },
+  {
+   "kind": "hotspot",
+   "sub": 4,
+   "x": 480.0,
+   "y": 160.4
+  },
+  {
+   "kind": "fire",
+   "radius": 14,
+   "x": 395.2,
+   "y": 382.7
+  },
+  {
+   "kind": "fire",
+   "radius": 14,
+   "x": 564.8,
+   "y": 382.7
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   480,
+   150,
+   160,
+   0.4
+  ]
+ ]
+}

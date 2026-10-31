@@ -61,7 +61,7 @@ EngravedLookAndFeel::EngravedLookAndFeel() {
 void EngravedLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height, float sliderPos, float,
                                            float, juce::Slider::SliderStyle style, juce::Slider& slider) {
     const bool hot = slider.isMouseOverOrDragging();
-    const auto trackColour = colours::ivory.withAlpha(0.13f);
+    const auto trackColour = colours::ivory.withAlpha(0.24f);
     const auto valueColour = slider.isEnabled() ? colours::blood : colours::dust;
     if (style == juce::Slider::LinearHorizontal) {
         // A hairline track, the crimson value, a slim ivory cap. A bipolar range (an
@@ -90,12 +90,20 @@ void EngravedLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
     g.setColour(trackColour);
     g.fillRoundedRectangle(track, 1.0f);
     const float top = juce::jlimit(track.getY(), track.getBottom(), sliderPos);
+    // A bipolar range (macros, gains) runs its value from zero, the others from the bottom.
+    const bool bipolar = slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0;
+    const float origin = bipolar ? juce::jlimit(track.getY(), track.getBottom(), static_cast<float>(slider.getPositionOfValue(0.0))) : track.getBottom();
+    const auto value = juce::Rectangle<float>::leftTopRightBottom(track.getX(), juce::jmin(top, origin), track.getRight(), juce::jmax(top, origin));
     if (slider.isEnabled()) {
         g.setColour(colours::blood.withAlpha(0.18f));
-        g.fillRoundedRectangle(track.withTop(top).expanded(2.0f, 0.0f), 2.0f);
+        g.fillRoundedRectangle(value.expanded(2.0f, 0.0f), 2.0f);
     }
     g.setColour(valueColour);
-    g.fillRoundedRectangle(track.withTop(top), 1.0f);
+    g.fillRoundedRectangle(value, 1.0f);
+    if (bipolar) {
+        g.setColour(colours::ivory.withAlpha(0.35f));
+        g.fillRect(juce::Rectangle<float>(8.0f, 1.0f).withCentre({ cx, origin }));
+    }
     const auto cap = juce::Rectangle<float>(capWidth, capHeight).withCentre({ cx, top });
     g.setColour(juce::Colours::black.withAlpha(0.55f));
     g.fillRoundedRectangle(cap.translated(0.0f, 1.5f).expanded(1.0f), 3.0f);
@@ -136,7 +144,27 @@ void EngravedLookAndFeel::drawButtonBackground(juce::Graphics& g, juce::Button& 
 }
 
 void EngravedLookAndFeel::drawButtonText(juce::Graphics& g, juce::TextButton& button, bool highlighted, bool) {
-    const auto text = button.getButtonText();
+    auto text = button.getButtonText();
+    // A menu button ("name ▾"): the name in the serif, the chevron drawn.
+    const juce::String menuMark = juce::String::fromUTF8("  \xe2\x96\xbe");
+    if (text.endsWith(menuMark)) {
+        text = text.dropLastCharacters(menuMark.length());
+        const float size = juce::jmin(16.0f, static_cast<float>(button.getHeight()) * 0.62f);
+        const auto font = labelFont(size);
+        const float w = juce::GlyphArrangement::getStringWidth(font, text);
+        auto area = button.getLocalBounds().toFloat();
+        const float x0 = area.getCentreX() - (w + 14.0f) * 0.5f, cy = area.getCentreY();
+        g.setFont(font);
+        g.setColour(highlighted ? colours::ivory : colours::ivory.withAlpha(0.88f));
+        g.drawText(text, juce::Rectangle<float>(x0, area.getY(), w + 2.0f, area.getHeight()), juce::Justification::centredLeft, true);
+        juce::Path chevron;
+        chevron.startNewSubPath(x0 + w + 6.0f, cy - 1.5f);
+        chevron.lineTo(x0 + w + 9.5f, cy + 2.0f);
+        chevron.lineTo(x0 + w + 13.0f, cy - 1.5f);
+        g.setColour(colours::ash);
+        g.strokePath(chevron, juce::PathStrokeType(1.2f));
+        return;
+    }
     const float size = juce::jmin(16.0f, static_cast<float>(button.getHeight()) * 0.56f);
     g.setFont(needsSymbols(text) ? symbolFont(size * 0.9f) : labelFont(size));
     const bool on = button.getToggleState();

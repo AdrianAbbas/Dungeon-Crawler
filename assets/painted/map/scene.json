@@ -5,89 +5,89 @@
    "kind": "landmark",
    "index": 0,
    "name": "Dungeon",
-   "x": 560,
-   "y": 300
+   "x": 560.6,
+   "y": 288.6
   },
   {
    "kind": "landmark",
    "index": 1,
    "name": "Castle",
-   "x": 452,
-   "y": 178
+   "x": 451.1,
+   "y": 151.4
   },
   {
    "kind": "landmark",
    "index": 2,
    "name": "Cathedral",
-   "x": 652,
-   "y": 196
+   "x": 655.5,
+   "y": 177.8
   },
   {
    "kind": "landmark",
    "index": 3,
    "name": "Haunted Forest",
-   "x": 250,
-   "y": 268
+   "x": 247.9,
+   "y": 255.5
   },
   {
    "kind": "landmark",
    "index": 4,
    "name": "Caverns",
-   "x": 770,
-   "y": 372
+   "x": 776.0,
+   "y": 329.1
   },
   {
    "kind": "landmark",
    "index": 5,
    "name": "Village",
-   "x": 408,
-   "y": 378
+   "x": 403.6,
+   "y": 341.8
   },
   {
    "kind": "landmark",
    "index": 6,
    "name": "Swamp",
-   "x": 176,
-   "y": 392
+   "x": 166.7,
+   "y": 337.6
   },
   {
    "kind": "landmark",
    "index": 7,
    "name": "Mountains",
-   "x": 812,
-   "y": 150
+   "x": 818.7,
+   "y": 138.9
   },
   {
    "kind": "landmark",
    "index": 8,
    "name": "Necropolis",
-   "x": 876,
-   "y": 282
+   "x": 884.3,
+   "y": 260.6
   },
   {
    "kind": "landmark",
    "index": 9,
    "name": "Wizard's Tower",
-   "x": 130,
-   "y": 196
+   "x": 108.0,
+   "y": 123.0
   },
   {
    "kind": "lava",
    "radius": 30,
-   "x": 760.1,
-   "y": 212.4
+   "x": 760.0,
+   "y": 212.6
   },
   {
    "kind": "lava",
    "radius": 30,
    "x": 610.0,
-   "y": 289.7
+   "y": 289.8
   },
   {
    "kind": "lava",
    "radius": 30,
    "x": 530.0,
-   "y": 376.5
+   "y": 376.4
   },
   {
    "kind": "lava",
@@ -99,37 +99,37 @@
    "kind": "lava",
    "radius": 30,
    "x": 720.0,
-   "y": 299.3
+   "y": 299.1
   },
   {
    "kind": "lava",
    "radius": 30,
-   "x": 829.9,
-   "y": 415.1
+   "x": 830.0,
+   "y": 415.0
   },
   {
    "kind": "lava",
    "radius": 30,
    "x": 300.0,
-   "y": 328.2
+   "y": 328.1
   },
   {
    "kind": "lava",
    "radius": 30,
    "x": 450.0,
-   "y": 328.2
+   "y": 328.1
   },
   {
    "kind": "window",
    "radius": 10,
-   "x": 94.8,
-   "y": 42.3
+   "x": 93.5,
+   "y": 60.7
   },
   {
    "kind": "fire",
    "radius": 16,
    "x": 560.3,
-   "y": 298.3
+   "y": 298.2
   }
  ],
  "layers": [
@@ -142,7 +142,7 @@
  "moon": [
   262,
   70,
-  64
+  54
  ],
  "glows": []
 }

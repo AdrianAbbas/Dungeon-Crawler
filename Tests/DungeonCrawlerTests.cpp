@@ -1787,7 +1787,7 @@ void testArt(Suite& s) {
             bool inside = true;
             for (const auto& h : spots) {
                 subs.insert(h.sub);
-                inside = inside && h.position.x > 20 && h.position.x < 940 && h.position.y > 50 && h.position.y < 410;
+                inside = inside && h.position.x >= 39 && h.position.x <= 921 && h.position.y >= 69 && h.position.y <= 381;
             }
             hotspotsOk += static_cast<int>(subs.size()) == dc::subLocationCount(id.location) + 1 && inside ? 1 : 0;
             if (static_cast<int>(subs.size()) != dc::subLocationCount(id.location) + 1 || !inside)

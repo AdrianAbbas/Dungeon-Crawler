@@ -1,0 +1,157 @@
+{
+ "scene": "castle/great-hall",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 654.4
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 480.0,
+   "y": 361.2
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 480.0,
+   "y": 323.2
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 223.4,
+   "y": 326.3
+  },
+  {
+   "kind": "hotspot",
+   "sub": 4,
+   "x": 674.4,
+   "y": 326.9
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 77.4,
+   "y": 100.0
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 882.6,
+   "y": 100.0
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 281.9,
+   "y": 216.1
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 678.1,
+   "y": 216.1
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 348.6,
+   "y": 254.0
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 611.4,
+   "y": 254.0
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 381.7,
+   "y": 272.8
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 578.3,
+   "y": 272.8
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 401.5,
+   "y": 284.1
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 558.5,
+   "y": 284.1
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 414.7,
+   "y": 291.5
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 545.3,
+   "y": 291.5
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 424.0,
+   "y": 296.9
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 536.0,
+   "y": 296.9
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 431.1,
+   "y": 300.9
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 528.9,
+   "y": 300.9
+  },
+  {
+   "kind": "fire",
+   "radius": 14,
+   "x": 480.0,
+   "y": 342.1
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   480,
+   230,
+   160,
+   0.4
+  ]
+ ]
+}
