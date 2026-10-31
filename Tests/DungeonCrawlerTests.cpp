@@ -3,6 +3,7 @@
 //   DungeonCrawlerTests --only a,b           run only some groups (smoke, locations, travel...)
 //   DungeonCrawlerTests --snapshot f.png     also write an image of the editor
 //   DungeonCrawlerTests --painted-snapshots dir   review images of the painted map and places (200 %)
+//   DungeonCrawlerTests --hotfix-snapshots dir    review images of the Journey badge, note and panels
 //   DungeonCrawlerTests --render f.wav location [seconds]   a test phrase through a location (listening aid)
 //   DungeonCrawlerTests --calibrate Source/World/LevelTrims.h  measure and write the per-place level trims
 //   DungeonCrawlerTests --listen dir         listening renders: guitar + synth phrase through every place
@@ -1720,6 +1721,266 @@ void testJourneys(Suite& s) {
 
 // Milestone 8: every place has its own illustration, distinct from every other, with
 // lights for the animated life where it has flames, water or fog.
+// Hotfixes from GarageBand testing: a preset, Journey or Roam never traps the place (a
+// manual choice always wins, within one block, and stops it); every panel opens and
+// closes; every place of every location can be chosen, with and without a journey.
+namespace nav {
+// What a mouse click on a button runs (triggerClick is asynchronous: no message loop here).
+void click(juce::Button& b) {
+    if (b.getClickingTogglesState()) b.setToggleState(!b.getToggleState(), juce::dontSendNotification);
+    if (b.onClick) b.onClick();
+}
+// Whether a click at the centre of a component reaches it (nothing visible covers it).
+bool reachable(DungeonCrawlerView& view, juce::Component& c) {
+    for (auto* q = &c; q != nullptr && q != &view; q = q->getParentComponent())
+        if (!q->isVisible()) return false;
+    const auto centre = view.getLocalPoint(&c, c.getLocalBounds().getCentre());
+    auto* hit = view.getComponentAt(centre);
+    return hit == &c || (hit != nullptr && c.isParentOf(hit));
+}
+float plain(DungeonCrawlerProcessor& p, const char* id) { return p.parameters.getRawParameterValue(id)->load(); }
+bool steeringOff(DungeonCrawlerProcessor& p) { return plain(p, dc::ids::journeyOn) < 0.5f && plain(p, dc::ids::roamOn) < 0.5f && !p.steering(); }
+}
+
+void testNavigation(Suite& s) {
+    using namespace nav;
+    s.section("navigation: presets and journeys never trap the place; panels close; every place selectable");
+    const auto& presets = dc::factoryPresets();
+    const auto oneBlock = [](Host& h) { h.render(static_cast<double>(h.block) / h.sr, plucks(0.3f)); };
+    {
+        // After every factory preset: a sub-location of the shown location (the Swamp
+        // case), then another location on the map. Each takes effect in the next block,
+        // stops a Journey or Roam (with a note) and stays.
+        std::string subFail, locFail, stopFail, stayFail, noteFail, badgeFail, markFail, followFail;
+        for (int k = 0; k < static_cast<int>(presets.size()); ++k) {
+            const auto& preset = presets[static_cast<std::size_t>(k)];
+            Host h;
+            h.useTransport = true; h.transport.playing = true;
+            std::unique_ptr<juce::AudioProcessorEditor> base(h.p->createEditor());
+            auto& view = dynamic_cast<DungeonCrawlerEditor&>(*base).view();
+            view.settleForTest();
+            view.choosePresetForTest(k);
+            bool steers = false;
+            for (const auto& [id, value] : preset.values)
+                if ((juce::String(id) == dc::ids::journeyOn || juce::String(id) == dc::ids::roamOn) && value >= 0.5f) steers = true;
+            h.render(2.5, plucks(0.3f));
+            view.followForTest();
+            const std::string name = preset.name;
+            if (steers && !(view.steerBadgeVisible() && h.p->steering())) badgeFail += name + "; ";
+            if (!steers && view.steerBadgeVisible()) badgeFail += name + " (badge without a journey); ";
+            if (view.presetLabel().contains("*")) markFail += name + " (marked before any change); ";
+            // a) A place of the location shown now.
+            const int l = view.shownLocation();
+            const int cur = dc::clampSubLocation(l, view.shownSubLocation());
+            const int target = (cur + 1) % (dc::subLocationCount(l) + 1);
+            view.subLocationButton(target).onClick();
+            view.followForTest();   // the follower runs before the audio thread: must not snap back
+            if (view.shownLocation() != l || view.shownSubLocation() != target) followFail += name + "; ";
+            oneBlock(h);
+            if (h.p->engine().destination() != l || h.p->engine().destinationSub() != target)
+                subFail += name + " (" + placeName(h.p->engine().destination(), h.p->engine().destinationSub()) + ", wanted " + placeName(l, target) + "); ";
+            if (!steeringOff(*h.p)) stopFail += name + "; ";
+            if (steers && !view.noticeText().endsWith("stopped")) noteFail += name + "; ";
+            view.followForTest();
+            if (view.steerBadgeVisible()) badgeFail += name + " (badge after the stop); ";
+            if (!view.presetLabel().contains(juce::String(preset.name) + " *")) markFail += name + " (" + view.presetLabel().toStdString() + "); ";
+            // b) Another location, on the map.
+            view.mapButton().onClick();
+            view.settleForTest();
+            const int other = (l + 3) % dc::LocationCount;
+            view.locationButton(other).onClick();
+            oneBlock(h);
+            if (h.p->engine().destination() != other || h.p->engine().destinationSub() != 0) locFail += name + "; ";
+            // It stays (a journey of 2 bars would have moved twice by now).
+            h.render(9.0, plucks(0.3f));
+            view.followForTest();
+            view.settleForTest();
+            if (h.p->engine().destination() != other || view.shownLocation() != other || view.shownScene().location != other || !steeringOff(*h.p))
+                stayFail += name + "; ";
+        }
+        s.check(badgeFail.empty(), "presets that start a Journey or Roam show the \"Journey active\" badge (and only they)", badgeFail);
+        s.check(followFail.empty(), "after any preset, a manual choice of place is shown at once (the follower does not snap back)", followFail);
+        s.check(subFail.empty(), "after any preset, a manual sub-location takes effect within one block", subFail);
+        s.check(locFail.empty(), "after any preset, a manual location takes effect within one block", locFail);
+        s.check(stopFail.empty(), "a manual choice stops a running Journey or Roam", stopFail);
+        s.check(noteFail.empty(), "with a short note (\"Journey stopped\")", noteFail);
+        s.check(stayFail.empty(), "and the place stays where it was chosen (sound and view)", stayFail);
+        s.check(markFail.empty(), "after a manual change the preset shows as modified (\"Name *\")", markFail);
+    }
+    {
+        // The badge's Stop button: stops where the journey is.
+        Host h;
+        h.useTransport = true; h.transport.playing = true;
+        std::unique_ptr<juce::AudioProcessorEditor> base(h.p->createEditor());
+        auto& view = dynamic_cast<DungeonCrawlerEditor&>(*base).view();
+        view.settleForTest();
+        int castle = -1, swamp = -1;
+        for (int k = 0; k < static_cast<int>(presets.size()); ++k) {
+            if (juce::String(presets[static_cast<std::size_t>(k)].name) == "Grand Castle Tour") castle = k;
+            if (juce::String(presets[static_cast<std::size_t>(k)].name) == "Swamp Wander") swamp = k;
+        }
+        if (s.check(castle >= 0 && swamp >= 0, "the Grand Castle Tour and Swamp Wander presets exist")) {
+            view.choosePresetForTest(castle);
+            h.render(9.0, plucks(0.3f));   // 4 bars per stop at 120 BPM: now at the second stop
+            view.followForTest();
+            s.check(view.steerBadgeVisible() && view.steerBadgeText() == "Journey active" && reachable(view, view.stopButton()),
+                    "Grand Castle Tour shows \"Journey active\" with a Stop button", view.steerBadgeText().toStdString());
+            const int l = h.p->engine().destination(), sub = h.p->engine().destinationSub();
+            view.stopButton().onClick();
+            oneBlock(h);
+            h.render(9.0, plucks(0.3f));
+            view.followForTest();
+            s.check(steeringOff(*h.p) && h.p->engine().destination() == l && h.p->engine().destinationSub() == sub && !view.steerBadgeVisible()
+                    && view.noticeText() == "Journey stopped", "Stop ends the journey where it is (" + placeName(l, sub) + ") with a note",
+                    view.noticeText().toStdString());
+            s.check(h.p->locationIndex() == l && juce::roundToInt(plain(*h.p, dc::ids::subLocation)) == sub,
+                    "and Location / Sub-location keep that place");
+            view.choosePresetForTest(swamp);
+            h.render(1.0, plucks(0.3f));
+            view.followForTest();
+            s.check(view.steerBadgeText() == "Roam active", "Swamp Wander shows \"Roam active\"", view.steerBadgeText().toStdString());
+            view.stopButton().onClick();
+            oneBlock(h);
+            s.check(steeringOff(*h.p) && view.noticeText() == "Roam stopped", "Stop ends the roam", view.noticeText().toStdString());
+        }
+        // Init / No preset: a neutral state.
+        view.choosePresetForTest(castle >= 0 ? castle : 0);
+        h.render(1.0, plucks(0.3f));
+        view.chooseInitForTest();
+        oneBlock(h);
+        view.followForTest();
+        bool defaults = true;
+        for (auto* parameter : h.p->getParameters())
+            if (parameter != h.p->getBypassParameter() && parameter != h.p->parameters.getParameter(dc::ids::quality))
+                defaults = defaults && std::abs(parameter->getValue() - parameter->getDefaultValue()) < 1.0e-6f;
+        s.check(defaults && h.p->route().empty() && steeringOff(*h.p) && !view.steerBadgeVisible(), "Init / No preset: every parameter at its default, no route, no journey");
+        s.check(view.presetLabel().startsWith("Init") && !view.presetLabel().contains("*"), "Init shows as \"Init\", unmodified", view.presetLabel().toStdString());
+        view.locationButton(dc::Swamp).onClick();
+        view.followForTest();
+        s.check(view.presetLabel().contains("Init *"), "a change after Init shows \"Init *\"", view.presetLabel().toStdString());
+        h.p->undo();
+        view.followForTest();
+        s.check(!view.presetLabel().contains("*"), "undoing the change makes it unmodified again", view.presetLabel().toStdString());
+        // The modified mark is saved with the project.
+        view.choosePresetForTest(0);
+        h.p->parameters.getParameter(dc::ids::macros[1])->setValueNotifyingHost(0.9f);
+        juce::MemoryBlock block;
+        h.p->getStateInformation(block);
+        DungeonCrawlerProcessor copy;
+        copy.setStateInformation(block.getData(), static_cast<int>(block.getSize()));
+        s.check(copy.presetDisplayName() == juce::String(presets[0].name) + " *", "a project saved modified reopens modified", copy.presetDisplayName().toStdString());
+        view.choosePresetForTest(0);
+        h.p->getStateInformation(block);
+        DungeonCrawlerProcessor clean;
+        clean.setStateInformation(block.getData(), static_cast<int>(block.getSize()));
+        s.check(clean.presetDisplayName() == presets[0].name, "and one saved unmodified reopens unmodified", clean.presetDisplayName().toStdString());
+    }
+    {
+        // Every panel opens and closes: its button (again), its close button, Esc, a
+        // click outside. While open, its own button and the controls stay clickable.
+        DungeonCrawlerProcessor p;
+        p.setRateAndBufferSizeDetails(48000, 512);
+        p.prepareToPlay(48000, 512);
+        std::unique_ptr<juce::AudioProcessorEditor> base(p.createEditor());
+        auto& view = dynamic_cast<DungeonCrawlerEditor&>(*base).view();
+        view.settleForTest();
+        view.locationButton(dc::Swamp).onClick();
+        view.settleForTest();
+        struct Panel { const char* name; juce::Button& toggle; juce::Button& close; juce::Component& panel; std::function<bool()> open; };
+        std::vector<Panel> panels {
+            { "Journey panel", view.journeyButton(), view.journeyCloseButton(), view.journeyPanelForTest(), [&] { return view.journeyOpen(); } },
+            { "Advanced drawer", view.advancedButton(), view.advancedCloseButton(), view.drawerForTest(), [&] { return view.advancedOpen(); } },
+        };
+        for (auto& panel : panels) {
+            const std::string n = panel.name;
+            click(panel.toggle);
+            s.check(panel.open(), n + ": its button opens it");
+            s.check(reachable(view, panel.toggle) && reachable(view, view.advancedButton()) && reachable(view, view.journeyButton())
+                    && reachable(view, view.controlsButton()), n + ": while open, its button and the other controls are not covered");
+            s.check(reachable(view, panel.close), n + ": has a reachable close button");
+            click(panel.toggle);
+            s.check(!panel.open() && !panel.toggle.getToggleState(), n + ": a second click on its button closes it");
+            click(panel.toggle);
+            click(panel.close);
+            s.check(!panel.open() && !panel.toggle.getToggleState(), n + ": its close button closes it");
+            click(panel.toggle);
+            s.check(view.pressEscapeForTest() && !panel.open() && !panel.toggle.getToggleState(), n + ": Esc closes it");
+            s.check(!view.pressEscapeForTest(), n + ": Esc with nothing open is left to the host");
+            click(panel.toggle);
+            view.pointerDownForTest(panel.panel);
+            s.check(panel.open(), n + ": a click inside keeps it open");
+            view.pointerDownForTest(panel.toggle);
+            s.check(panel.open(), n + ": a mouse-down on its own button is left to the button");
+            view.pointerDownForTest(view.subLocationButton(1));
+            s.check(!panel.open() && !panel.toggle.getToggleState(), n + ": a click outside closes it");
+            view.pointerDownForTest(view);
+            click(panel.toggle);
+            view.pointerDownForTest(view);
+            s.check(!panel.open(), n + ": a click on the art closes it");
+        }
+        click(view.journeyButton());
+        click(view.advancedButton());
+        s.check(view.advancedOpen() && !view.journeyOpen() && !view.journeyButton().getToggleState(), "opening one panel closes the other");
+        click(view.controlsButton());
+        s.check(!view.advancedOpen() && !view.journeyOpen(), "hiding the controls closes the panels (their buttons hide with them)");
+        click(view.controlsButton());
+        // With the Journey panel open, every place of the location stays in reach in the list.
+        click(view.journeyButton());
+        bool listFree = true;
+        for (int k = 0; k <= dc::subLocationCount(dc::Swamp); ++k) listFree = listFree && reachable(view, view.subLocationButton(k));
+        s.check(listFree, "the Journey panel never covers the place list");
+        s.check(!view.steerBadgeVisible(), "no badge without a journey");
+        click(view.journeyButton());
+        // The popups (preset and settings menus, combo boxes) are JUCE popup menus: they
+        // close on Esc and on a click outside; the Save dialog has Cancel and Esc.
+    }
+    {
+        // Every place of every location, chosen in the list and on its hotspot, without
+        // and with a Journey / Roam running and with the Journey panel open.
+        std::string listFail, spotFail, soundFail, sceneFail, reachFail;
+        for (int mode = 0; mode < 4; ++mode) {
+            Host h;
+            h.useTransport = true; h.transport.playing = true;
+            std::unique_ptr<juce::AudioProcessorEditor> base(h.p->createEditor());
+            auto& view = dynamic_cast<DungeonCrawlerEditor&>(*base).view();
+            view.settleForTest();
+            for (int l = 0; l < dc::LocationCount; ++l) {
+                view.mapButton().onClick();
+                view.settleForTest();
+                view.locationButton(l).onClick();
+                view.settleForTest();
+                const int count = dc::subLocationCount(l);
+                for (int k = 0; k <= count; ++k)
+                    for (int how = 0; how < 2; ++how) {
+                        // Start something that steers before every choice.
+                        if (mode == 1) { h.set(dc::ids::roamBars, 0.0f); h.set(dc::ids::roamOn, 1.0f); }
+                        // A journey through the location's other places (as Grand Castle Tour).
+                        if (mode == 2) { h.p->setRoute({ { l, (k + 1) % (count + 1) }, { l, (k + 2) % (count + 1) } }); h.set(dc::ids::journeyBars, 1.0f); h.set(dc::ids::journeyOn, 1.0f); }
+                        if (mode == 3 && !view.journeyOpen()) click(view.journeyButton());
+                        if (mode == 1 || mode == 2) { h.render(0.3, plucks(0.3f)); view.followForTest(); view.settleForTest(); }
+                        const std::string where = placeName(l, k) + (how == 0 ? " (list)" : " (hotspot)") + " mode " + std::to_string(mode);
+                        auto& button = how == 0 ? view.subLocationButton(k) : view.hotspotButton(k);
+                        // A hotspot under the open Journey panel is reached after the click
+                        // that closes the panel; the list is always in reach.
+                        if (how == 0 || mode != 3) { if (!reachable(view, button)) reachFail += where + "; "; }
+                        button.onClick();
+                        oneBlock(h);
+                        if (h.p->engine().destination() != l || h.p->engine().destinationSub() != k) soundFail += where + "; ";
+                        if (juce::roundToInt(plain(*h.p, dc::ids::subLocation)) != k || view.shownSubLocation() != k) (how == 0 ? listFail : spotFail) += where + "; ";
+                        view.followForTest();
+                        view.settleForTest();
+                        if (!(view.shownScene().location == l && view.shownScene().sub == k)) sceneFail += where + "; ";
+                    }
+            }
+        }
+        s.check(reachFail.empty(), "every place's list entry and hotspot can be clicked (nothing covers them)", reachFail);
+        s.check(listFail.empty(), "every place of every location can be chosen in the list", listFail);
+        s.check(spotFail.empty(), "every place of every location can be chosen on its hotspot", spotFail);
+        s.check(soundFail.empty(), "the sound is there within one block, with or without a Journey or Roam running", soundFail);
+        s.check(sceneFail.empty(), "and the scene shows it", sceneFail);
+    }
+}
+
 void testArt(Suite& s) {
     s.section("art: the map and an illustration for every place");
     std::vector<juce::Image> images;
@@ -1894,6 +2155,52 @@ int renderArt(const juce::String& directory, int width) {
 // Visual overhaul: snapshots of the painted art for review, the editor at 200 %
 // (Retina-sized art): the map, zooms held half way (Dungeon, Castle), every place, the
 // zoom back out. JPEG files in `directory`.
+// Review images of the hotfixes (100 %): the Journey badge, the note after a manual
+// stop, the Journey panel and the Advanced drawer with their close buttons.
+int hotfixSnapshots(const juce::String& directory) {
+    juce::File dir(directory);
+    dir.createDirectory();
+    Host h;
+    h.useTransport = true; h.transport.playing = true;
+    std::unique_ptr<juce::AudioProcessorEditor> base(h.p->createEditor());
+    auto& view = dynamic_cast<DungeonCrawlerEditor&>(*base).view();
+    const auto shot = [&](const juce::String& name) {
+        view.advanceLifeForTest(40);
+        const auto image = base->createComponentSnapshot(base->getLocalBounds(), true, 1.0f);
+        auto file = dir.getChildFile(name + ".jpg");
+        file.deleteFile();
+        juce::FileOutputStream stream(file);
+        juce::JPEGImageFormat jpeg;
+        jpeg.setQuality(0.88f);
+        jpeg.writeImageToStream(image, stream);
+        std::cout << file.getFullPathName() << "\n";
+    };
+    view.settleForTest();
+    int castle = 0;
+    for (int k = 0; k < static_cast<int>(dc::factoryPresets().size()); ++k)
+        if (juce::String(dc::factoryPresets()[static_cast<std::size_t>(k)].name) == "Grand Castle Tour") castle = k;
+    view.choosePresetForTest(castle);
+    view.locationButton(dc::Castle).onClick();
+    view.settleForTest();
+    view.choosePresetForTest(castle);   // the click stopped it: start it again
+    h.render(9.0, silence());
+    view.followForTest();
+    view.settleForTest();
+    shot("journey-active");
+    view.subLocationButton(3).onClick();
+    h.render(0.05, silence());
+    view.followForTest();
+    view.settleForTest();
+    shot("journey-stopped-by-a-click");
+    view.journeyButton().setToggleState(true, juce::dontSendNotification);
+    view.journeyButton().onClick();
+    shot("journey-panel");
+    view.advancedButton().setToggleState(true, juce::dontSendNotification);
+    view.advancedButton().onClick();
+    shot("advanced-drawer");
+    return 0;
+}
+
 int paintedSnapshots(const juce::String& directory) {
     juce::File dir(directory);
     dir.createDirectory();
@@ -1961,6 +2268,7 @@ int main(int argc, char** argv) {
         else if (arg == "--art" && i + 1 < argc) return renderArt(argv[i + 1], i + 2 < argc ? juce::String(argv[i + 2]).getIntValue() : 960);
         else if (arg == "--tail-debug") return tailDebug();
         else if (arg == "--painted-snapshots" && i + 1 < argc) return paintedSnapshots(argv[i + 1]);
+        else if (arg == "--hotfix-snapshots" && i + 1 < argc) return hotfixSnapshots(argv[i + 1]);
         else if (arg == "--render" && i + 2 < argc)
             return renderToFile(argv[i + 1], juce::String(argv[i + 2]).getIntValue(), i + 3 < argc ? juce::String(argv[i + 3]).getDoubleValue() : 8.0);
     }
@@ -1983,6 +2291,7 @@ int main(int argc, char** argv) {
     if (run("editor")) testEditor(s, snapshot);
     if (run("art")) testArt(s);
     if (run("journeys")) testJourneys(s);
+    if (run("navigation")) testNavigation(s);
     if (run("atmosphere")) testAtmosphere(s);
     if (run("workflow")) testWorkflow(s);
     if (only.contains("qa")) testQa(s);   // long (130 journeys): run explicitly
