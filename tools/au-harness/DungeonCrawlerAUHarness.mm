@@ -860,8 +860,15 @@ void auAudioUnitSuite(Report& r, AudioComponentDescription description, bool use
         while (doneFrames < total) {
             pacer.wait(doneFrames, 48000.0);
             const auto frames = AVAudioFrameCount(std::min<size_t>(512, total - doneFrames));
+            // The output buffer list must advertise room for the block: a fresh
+            // AVAudioPCMBuffer has frameLength 0, so its byte sizes are 0, and the
+            // manual renderer rejects it with -50 (paramErr) before pulling any input
+            // (CI, first run of this route). The render may also shrink the sizes.
+            buffer.frameLength = frames;
+            AudioBufferList* out = buffer.mutableAudioBufferList;
+            for (UInt32 b = 0; b < out->mNumberBuffers; ++b) out->mBuffers[b].mDataByteSize = frames * UInt32(sizeof(float));
             OSStatus status = noErr;
-            const auto rendered = renderBlock(frames, buffer.mutableAudioBufferList, &status);
+            const auto rendered = renderBlock(frames, out, &status);
             if (rendered != AVAudioEngineManualRenderingStatusSuccess) {
                 result.status = status != noErr ? status : OSStatus(rendered);
                 break;

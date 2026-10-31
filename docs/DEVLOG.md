@@ -33,6 +33,7 @@ unticked item.
 - [x] 2a-2. Distinctness test across all places + closest pairs listed; musicality group (guitar, synth, piano, vocal)
 - [x] 2a-3. Listening render (same guitar and synth phrase through every place) to WAV in the test-logs artifact
 - [x] 2a-4. DEVLOG, manual test, ASan run, final push without `[skip ci]`
+- [ ] 0c. CI run of `cc34c95`: AUAudioUnit route failed (-50, also the AULowpass control). Fix attempt 1 pushed (output buffer sizes); waiting for CI
 
 **Next: Milestone 2b** (sound design of Village, Swamp, Mountains, Necropolis, Wizard's
 Tower: all their places to the 10 dB-eq distinctness gate; the Village's three places
@@ -548,3 +549,19 @@ there, 15 ms in the normal build.
 1040 checks on Linux (full suite in three shards, 2.5 min on 4 cores). New groups:
 `musicality`, and the gated `locations` fingerprint. CPU (one core of this container,
 48 kHz stereo, report only): 3.0–7.0 % per location; travelling every second 9–11 %.
+
+### CI run of `cc34c95`: the AUAudioUnit route (fix attempt 1)
+
+Everything passed except the new AUAudioUnit suite: auval (both architectures), v2
+out-of-process 37/37 and v2 in-process 35/35 on arm64 and x86_64. The suite failed on
+both architectures, and so did the AULowpass control, in exactly the same way:
+`manualRenderingBlock` returned **−50 (`paramErr`)** on the first call, with no input
+pulled. As the control failed too, this was the harness, not the plug-in.
+
+**Cause (most likely):** the output `AVAudioPCMBuffer` was fresh, so `frameLength` was 0
+and every `mDataByteSize` in its buffer list was 0. The manual renderer rejects a
+buffer list with no room for the requested frames.
+
+**Fix:** before each render, set `frameLength` and every buffer's `mDataByteSize` to
+the block size. If the next run still fails, that is the second and last attempt;
+the route then goes back to diagnostic, with this explanation.
