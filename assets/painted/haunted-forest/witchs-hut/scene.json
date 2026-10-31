@@ -1,0 +1,54 @@
+{
+ "scene": "haunted-forest/witchs-hut",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 545.7,
+   "y": 411.2
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 329.0,
+   "y": 290.4
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 551.4,
+   "y": 277.7
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 651.2,
+   "y": 275.0
+  },
+  {
+   "kind": "fire",
+   "radius": 14,
+   "x": 415.4,
+   "y": 332.6
+  },
+  {
+   "kind": "window",
+   "radius": 8,
+   "x": 551.4,
+   "y": 277.7
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  260,
+  120,
+  85
+ ],
+ "glows": []
+}

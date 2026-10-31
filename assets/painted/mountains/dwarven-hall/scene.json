@@ -1,0 +1,139 @@
+{
+ "scene": "mountains/dwarven-hall",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 565.6
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 279.7,
+   "y": 315.1
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 680.3,
+   "y": 315.1
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 480.0,
+   "y": 298.4
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 107.1,
+   "y": 400.0
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 852.9,
+   "y": 400.0
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 324.1,
+   "y": 360.3
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 635.9,
+   "y": 360.3
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 381.4,
+   "y": 349.9
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 578.6,
+   "y": 349.9
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 407.9,
+   "y": 345.0
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 552.1,
+   "y": 345.0
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 423.2,
+   "y": 342.2
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 536.8,
+   "y": 342.2
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 433.1,
+   "y": 340.4
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 526.9,
+   "y": 340.4
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 440.1,
+   "y": 339.1
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 519.9,
+   "y": 339.1
+  },
+  {
+   "kind": "lava",
+   "radius": 30,
+   "x": 480.0,
+   "y": 405.0
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   480,
+   230,
+   120,
+   0.5
+  ]
+ ]
+}
