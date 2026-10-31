@@ -1,0 +1,48 @@
+{
+ "scene": "haunted-forest/ancient-grove",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 488.5
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 290.4,
+   "y": 342.6
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 656.9,
+   "y": 341.7
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 480.0,
+   "y": 351.0
+  },
+  {
+   "kind": "lava",
+   "radius": 26,
+   "x": 480.0,
+   "y": 363.8
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  690,
+  110,
+  90
+ ],
+ "glows": []
+}

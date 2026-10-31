@@ -1,0 +1,67 @@
+{
+ "scene": "caverns/crystal-cavern",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 503.3
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 480.0,
+   "y": 271.1
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 310.0,
+   "y": 314.8
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 613.5,
+   "y": 311.1
+  },
+  {
+   "kind": "glint",
+   "radius": 30,
+   "x": 480.0,
+   "y": 271.1
+  },
+  {
+   "kind": "glint",
+   "radius": 14,
+   "x": 246.2,
+   "y": 321.2
+  },
+  {
+   "kind": "glint",
+   "radius": 14,
+   "x": 650.0,
+   "y": 314.8
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   480,
+   260,
+   90,
+   0.4
+  ]
+ ]
+}

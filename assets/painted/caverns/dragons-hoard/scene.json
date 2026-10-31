@@ -1,0 +1,67 @@
+{
+ "scene": "caverns/dragons-hoard",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": -241.2,
+   "y": 371.1
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 234.9,
+   "y": 330.0
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 744.8,
+   "y": 335.0
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 510.8,
+   "y": 259.3
+  },
+  {
+   "kind": "glint",
+   "radius": 60,
+   "x": 480.0,
+   "y": 305.5
+  },
+  {
+   "kind": "glint",
+   "radius": 26,
+   "x": 234.5,
+   "y": 349.7
+  },
+  {
+   "kind": "eyes",
+   "radius": 5,
+   "x": 305.4,
+   "y": 212.6
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   480,
+   250,
+   120,
+   0.4
+  ]
+ ]
+}

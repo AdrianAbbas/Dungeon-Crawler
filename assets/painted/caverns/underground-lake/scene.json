@@ -1,0 +1,67 @@
+{
+ "scene": "caverns/underground-lake",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": -236.1,
+   "y": 382.3
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 334.6,
+   "y": 282.3
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 480.0,
+   "y": 304.6
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 564.3,
+   "y": 301.7
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 564.4,
+   "y": 312.9
+  },
+  {
+   "kind": "glint",
+   "radius": 50,
+   "x": 480.0,
+   "y": 316.7
+  },
+  {
+   "kind": "glint",
+   "radius": 30,
+   "x": 527.2,
+   "y": 330.0
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   480,
+   270,
+   160,
+   0.5
+  ]
+ ]
+}

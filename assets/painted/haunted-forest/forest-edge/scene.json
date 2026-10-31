@@ -1,0 +1,48 @@
+{
+ "scene": "haunted-forest/forest-edge",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 158.9,
+   "y": 345.9
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 480.0,
+   "y": 321.7
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 261.7,
+   "y": 302.6
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 676.9,
+   "y": 293.7
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 577.2,
+   "y": 321.4
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  480,
+  175,
+  100
+ ],
+ "glows": []
+}

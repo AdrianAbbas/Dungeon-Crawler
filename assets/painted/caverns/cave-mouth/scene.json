@@ -1,0 +1,48 @@
+{
+ "scene": "caverns/cave-mouth",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 439.2
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 320.9,
+   "y": 339.1
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 544.2,
+   "y": 371.3
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 433.2,
+   "y": 260.8
+  },
+  {
+   "kind": "lava",
+   "radius": 40,
+   "x": 432.1,
+   "y": 355.1
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  760,
+  95,
+  75
+ ],
+ "glows": []
+}

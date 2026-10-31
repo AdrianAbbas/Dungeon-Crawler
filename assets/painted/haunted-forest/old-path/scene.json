@@ -1,0 +1,48 @@
+{
+ "scene": "haunted-forest/old-path",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 419.3
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 480.0,
+   "y": 320.3
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 409.8,
+   "y": 299.7
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 522.7,
+   "y": 300.4
+  },
+  {
+   "kind": "lava",
+   "radius": 40,
+   "x": 480.0,
+   "y": 307.2
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  520,
+  120,
+  60
+ ],
+ "glows": []
+}

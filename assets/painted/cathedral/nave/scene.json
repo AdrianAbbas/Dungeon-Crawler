@@ -1,0 +1,55 @@
+{
+ "scene": "cathedral/nave",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 147.9,
+   "y": 330.4
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 480.0,
+   "y": 359.8
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 519.6,
+   "y": 353.9
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 655.0,
+   "y": 335.5
+  },
+  {
+   "kind": "candle",
+   "radius": 26,
+   "x": 480.0,
+   "y": 338.2
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   480,
+   200,
+   150,
+   0.4
+  ]
+ ]
+}
