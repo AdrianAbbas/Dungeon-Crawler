@@ -1,0 +1,42 @@
+{
+ "scene": "swamp/bog",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 382.6
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 302.1,
+   "y": 305.2
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 613.4,
+   "y": 297.8
+  },
+  {
+   "kind": "lava",
+   "radius": 30,
+   "x": 533.4,
+   "y": 298.7
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  300,
+  130,
+  60
+ ],
+ "glows": []
+}

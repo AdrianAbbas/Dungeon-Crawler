@@ -77,8 +77,8 @@ Castle with all their places, then **stop for approval** before the other locati
 - [x] V1. Pipeline: scripted Blender scenes (`tools/painted`), depth-layer renders, painterly post-process, manifest
 - [x] V2. Plug-in: painted planes off the message thread, parallax in the zooms, life (embers, mist, moon glow, flicker), drop-in layers; restyled controls and fonts; part 1 pushed `[skip ci]`
 - [x] V3. Prototype art: the map + Dungeon (5 scenes) + Castle (5 scenes); snapshots incl. a mid-zoom frame; tests; DEVLOG; final push without `[skip ci]`
-- [ ] V4. **Developer:** approve the look in GarageBand (or give notes) before the other eight locations are painted
-- [ ] V5. The other eight locations (Cathedral, Haunted Forest, Caverns, Village, Swamp, Mountains, Necropolis, Wizard's Tower; 30 scenes) in the approved style
+- [x] V4. **Developer:** approved the prototype ("looks good, go ahead")
+- [x] V5. The other eight locations (Cathedral, Haunted Forest, Caverns, Village, Swamp, Mountains, Necropolis, Wizard's Tower; 30 scenes) in the approved style; pushed without `[skip ci]`
 
 ---
 
@@ -1287,3 +1287,37 @@ the animation. The manual-test section "Visual overhaul (prototype)" lists it.
 
 **Next (after approval):** the other eight locations (30 scenes) in the approved style;
 then retire the engraving renderer (or keep it as the fallback).
+
+## Session 4b: the other eight locations painted (2026-10-31)
+
+The developer approved the prototype. The other 30 places are painted in the same style
+(`tools/painted/scenes2.py`, new builders in `blib.py`: cottages, crystals, a bell,
+bookshelves, a cauldron, an anvil, standing stones, a sleeping dragon, market stalls,
+tombstones, an iron gate, a mausoleum, spiral stairs, a telescope, round tower rooms):
+
+| Location | Places |
+|---|---|
+| Cathedral | Cloister (arcades, the facade under the moon), Nave (rose window, pews, altar candles, light shafts), Crypt (sarcophagi, candles), Bell Tower (the bell in the great arch, the moon behind) |
+| Haunted Forest | Forest Edge (signpost, lantern, wisps), Old Path (leaning trees, wisps), Witch's Hut (crooked hut on stilts, cauldron), Ancient Grove (standing stones, the old tree, the glowing altar) |
+| Caverns | Cave Mouth, Crystal Cavern (red and pale crystals), Underground Lake (stalactites, lantern on an islet), Dragon's Hoard (the sleeping dragon on its gold) |
+| Village | Village Green (cottages, well, steeple), Tavern (hearth, tables, candles), Market Square (stalls, lanterns, fountain), Blacksmith (forge, anvil, sparks) |
+| Swamp | Mire (boardwalk, dead trees), Bog (roots, wisps), Sunken Ruins (a drowned chapel) |
+| Mountains | Foothills (road, watchtower), Mountain Pass (the canyon), Frozen Peak (above the clouds), Dwarven Hall (pillars, braziers, the river of fire, the great gate) |
+| Necropolis | Gates (the iron gate, urns), Graveyard, Mausoleum (sarcophagus and effigy) |
+| Wizard's Tower | Stairwell (spiral stair), Library (shelves, desk, globe), Alchemy Lab (flasks, cauldron, herbs), Observatory (the dome's slit onto the moon, telescope, armillary) |
+
+Quarter-size review first: the darkest interiors (Crypt, Mausoleum, Library, Stairwell)
+got warm fill lights; forest and village ground made finer (coarse facets caught the
+rim light as red stripes); the Cave Mouth and the Sunken Ruins' arch dimmed (flat
+red blobs); the Graveyard camera pulled back. Full renders: about 3 hours on 4 cores at
+32 samples. All 41 scenes are painted now; the engraving renderer is only the fallback.
+
+- Size: the painted art is 54 MB (shipped in each bundle).
+- Tests: `art` now checks all 41 painted scenes (layers load; every place has a hotspot
+  for each place of its location inside the frame); editor and art groups pass (42 checks).
+- Snapshots of the 30 new places were skipped at the developer's request (the prototype's
+  remain in `docs/snapshots/painted/`); `DungeonCrawlerTests --painted-snapshots dir` now
+  writes every place.
+
+**Look at in GarageBand:** every location's places (MANUAL_TEST, "Visual overhaul").
+Known: interiors lean red and dark; some forms are simple; the bundle grew by 54 MB.

@@ -1,0 +1,67 @@
+{
+ "scene": "wizards-tower/alchemy-lab",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 386.5,
+   "y": 537.2
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 334.0,
+   "y": 272.5
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 487.4,
+   "y": 300.6
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 661.4,
+   "y": 272.2
+  },
+  {
+   "kind": "fire",
+   "radius": 24,
+   "x": 487.4,
+   "y": 305.5
+  },
+  {
+   "kind": "glint",
+   "radius": 30,
+   "x": 252.4,
+   "y": 316.2
+  },
+  {
+   "kind": "glint",
+   "radius": 30,
+   "x": 723.2,
+   "y": 319.4
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   480,
+   280,
+   60,
+   0.3
+  ]
+ ]
+}

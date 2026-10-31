@@ -1,0 +1,55 @@
+{
+ "scene": "wizards-tower/library",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 602.9
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 480.0,
+   "y": 348.0
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 323.1,
+   "y": 301.1
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 480.0,
+   "y": 226.6
+  },
+  {
+   "kind": "candle",
+   "radius": 10,
+   "x": 492.8,
+   "y": 348.8
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   480,
+   240,
+   80,
+   0.3
+  ]
+ ]
+}

@@ -1,0 +1,42 @@
+{
+ "scene": "necropolis/gates",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 301.8
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 296.3,
+   "y": 319.4
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 550.4,
+   "y": 298.4
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 367.1,
+   "y": 197.2
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  480,
+  120,
+  90
+ ],
+ "glows": []
+}

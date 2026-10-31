@@ -1,0 +1,66 @@
+{
+ "scene": "village/market-square",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 418.3
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 166.6,
+   "y": 313.5
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 480.0,
+   "y": 304.2
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 793.4,
+   "y": 313.5
+  },
+  {
+   "kind": "fire",
+   "radius": 7,
+   "x": 340.8,
+   "y": 311.2
+  },
+  {
+   "kind": "fire",
+   "radius": 7,
+   "x": 607.2,
+   "y": 310.8
+  },
+  {
+   "kind": "fire",
+   "radius": 7,
+   "x": 366.7,
+   "y": 309.4
+  },
+  {
+   "kind": "fire",
+   "radius": 7,
+   "x": 586.5,
+   "y": 309.2
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  640,
+  110,
+  70
+ ],
+ "glows": []
+}

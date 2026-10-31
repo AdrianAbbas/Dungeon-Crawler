@@ -1,0 +1,48 @@
+{
+ "scene": "swamp/mire",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 353.5
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 294.7,
+   "y": 291.6
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 651.1,
+   "y": 292.2
+  },
+  {
+   "kind": "fire",
+   "radius": 8,
+   "x": 513.9,
+   "y": 306.0
+  },
+  {
+   "kind": "glint",
+   "radius": 50,
+   "x": 480.0,
+   "y": 307.5
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  480,
+  150,
+  85
+ ],
+ "glows": []
+}

@@ -1,0 +1,73 @@
+{
+ "scene": "wizards-tower/stairwell",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 996.0
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 198.7,
+   "y": 333.0
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 701.3,
+   "y": 125.5
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 480.0,
+   "y": 78.4
+  },
+  {
+   "kind": "candle",
+   "radius": 6,
+   "x": 935.1,
+   "y": 411.0
+  },
+  {
+   "kind": "candle",
+   "radius": 6,
+   "x": 473.6,
+   "y": 290.0
+  },
+  {
+   "kind": "candle",
+   "radius": 6,
+   "x": 211.7,
+   "y": 6.8
+  },
+  {
+   "kind": "candle",
+   "radius": 6,
+   "x": 431.4,
+   "y": -668.8
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   480,
+   120,
+   140,
+   0.3
+  ]
+ ]
+}

@@ -29,6 +29,21 @@ static const PaintedAnchor anchors22[] = { { 1, 560.6f, 288.6f, 0.0f }, { 1, 451
 static const PaintedAnchor anchors23[] = { { 0, 480.0f, 565.6f, 0.0f }, { 0, 279.7f, 315.1f, 1.0f }, { 0, 680.3f, 315.1f, 2.0f }, { 0, 480.0f, 298.4f, 3.0f }, { 2, 107.1f, 400.0f, 10.0f }, { 2, 852.9f, 400.0f, 10.0f }, { 2, 324.1f, 360.3f, 10.0f }, { 2, 635.9f, 360.3f, 10.0f }, { 2, 381.4f, 349.9f, 10.0f }, { 2, 578.6f, 349.9f, 10.0f }, { 2, 407.9f, 345.0f, 10.0f }, { 2, 552.1f, 345.0f, 10.0f }, { 2, 423.2f, 342.2f, 10.0f }, { 2, 536.8f, 342.2f, 10.0f }, { 2, 433.1f, 340.4f, 10.0f }, { 2, 526.9f, 340.4f, 10.0f }, { 2, 440.1f, 339.1f, 10.0f }, { 2, 519.9f, 339.1f, 10.0f }, { 4, 480.0f, 405.0f, 30.0f } };
 static const PaintedAnchor anchors24[] = { { 0, 480.0f, 626.9f, 0.0f }, { 0, 480.0f, 444.6f, 1.0f }, { 0, 538.7f, 187.9f, 2.0f }, { 0, 258.8f, 307.5f, 3.0f }, { 3, 252.1f, 307.3f, 8.0f } };
 static const PaintedAnchor anchors25[] = { { 0, 480.0f, 640.2f, 0.0f }, { 0, 104.2f, 280.0f, 1.0f }, { 0, 851.2f, 242.4f, 2.0f }, { 0, 574.2f, 462.6f, 3.0f } };
+static const PaintedAnchor anchors26[] = { { 0, 480.0f, 471.4f, 0.0f }, { 0, 480.0f, 350.1f, 1.0f }, { 0, 388.9f, 116.3f, 2.0f }, { 0, 658.6f, 320.5f, 3.0f } };
+static const PaintedAnchor anchors27[] = { { 0, 480.0f, 301.8f, 0.0f }, { 0, 296.3f, 319.4f, 1.0f }, { 0, 550.4f, 298.4f, 2.0f }, { 2, 367.1f, 197.2f, 8.0f } };
+static const PaintedAnchor anchors28[] = { { 0, 480.0f, 257.7f, 0.0f }, { 0, 529.0f, 319.2f, 1.0f }, { 0, 436.5f, 288.7f, 2.0f }, { 5, 553.6f, 358.5f, 6.0f }, { 5, 332.8f, 348.1f, 5.0f } };
+static const PaintedAnchor anchors29[] = { { 0, 480.0f, 522.4f, 0.0f }, { 0, 302.0f, 319.1f, 1.0f }, { 0, 480.0f, 293.9f, 2.0f }, { 5, 541.1f, 345.4f, 5.0f }, { 5, 422.2f, 342.4f, 5.0f }, { 5, 534.8f, 339.7f, 5.0f }, { 5, 427.9f, 337.2f, 5.0f }, { 5, 529.7f, 335.0f, 5.0f }, { 5, 432.5f, 332.9f, 5.0f } };
+static const PaintedAnchor anchors30[] = { { 0, 480.0f, 382.6f, 0.0f }, { 0, 302.1f, 305.2f, 1.0f }, { 0, 613.4f, 297.8f, 2.0f }, { 4, 533.4f, 298.7f, 30.0f } };
+static const PaintedAnchor anchors31[] = { { 0, 480.0f, 353.5f, 0.0f }, { 0, 294.7f, 291.6f, 1.0f }, { 0, 651.1f, 292.2f, 2.0f }, { 2, 513.9f, 306.0f, 8.0f }, { 6, 480.0f, 307.5f, 50.0f } };
+static const PaintedAnchor anchors32[] = { { 0, 480.0f, 389.8f, 0.0f }, { 0, 315.0f, 302.1f, 1.0f }, { 0, 480.0f, 275.4f, 2.0f }, { 3, 480.0f, 286.6f, 30.0f }, { 6, 480.0f, 350.0f, 40.0f } };
+static const PaintedAnchor anchors33[] = { { 0, 1118.7f, 392.8f, 0.0f }, { 0, 81.4f, 314.8f, 1.0f }, { 0, 700.5f, 311.9f, 2.0f }, { 0, 550.9f, 334.8f, 3.0f }, { 2, 426.9f, 300.5f, 30.0f }, { 2, 550.9f, 342.3f, 10.0f } };
+static const PaintedAnchor anchors34[] = { { 0, 480.0f, 418.3f, 0.0f }, { 0, 166.6f, 313.5f, 1.0f }, { 0, 480.0f, 304.2f, 2.0f }, { 0, 793.4f, 313.5f, 3.0f }, { 2, 340.8f, 311.2f, 7.0f }, { 2, 607.2f, 310.8f, 7.0f }, { 2, 366.7f, 309.4f, 7.0f }, { 2, 586.5f, 309.2f, 7.0f } };
+static const PaintedAnchor anchors35[] = { { 0, -218.8f, 312.9f, 0.0f }, { 0, 468.9f, 314.3f, 1.0f }, { 0, 347.8f, 298.9f, 2.0f }, { 0, 495.4f, 290.5f, 3.0f }, { 2, 495.2f, 301.3f, 26.0f }, { 5, 182.4f, 328.0f, 5.0f }, { 5, 658.9f, 318.1f, 5.0f }, { 5, 347.8f, 303.3f, 5.0f }, { 5, 599.6f, 300.4f, 5.0f } };
+static const PaintedAnchor anchors36[] = { { 0, 480.0f, 345.2f, 0.0f }, { 0, 193.7f, 329.5f, 1.0f }, { 0, 630.2f, 326.1f, 2.0f }, { 0, 816.3f, 330.4f, 3.0f }, { 2, 627.0f, 323.3f, 10.0f }, { 3, 196.6f, 335.6f, 8.0f }, { 3, 812.7f, 336.9f, 8.0f } };
+static const PaintedAnchor anchors37[] = { { 0, 386.5f, 537.2f, 0.0f }, { 0, 334.0f, 272.5f, 1.0f }, { 0, 487.4f, 300.6f, 2.0f }, { 0, 661.4f, 272.2f, 3.0f }, { 2, 487.4f, 305.5f, 24.0f }, { 6, 252.4f, 316.2f, 30.0f }, { 6, 723.2f, 319.4f, 30.0f } };
+static const PaintedAnchor anchors38[] = { { 0, 480.0f, 602.9f, 0.0f }, { 0, 480.0f, 348.0f, 1.0f }, { 0, 323.1f, 301.1f, 2.0f }, { 0, 480.0f, 226.6f, 3.0f }, { 5, 492.8f, 348.8f, 10.0f } };
+static const PaintedAnchor anchors39[] = { { 0, 480.0f, 902.7f, 0.0f }, { 0, 99.1f, 550.2f, 1.0f }, { 0, 881.9f, 555.5f, 2.0f }, { 0, 480.0f, 263.4f, 3.0f }, { 5, 97.9f, 571.5f, 10.0f } };
+static const PaintedAnchor anchors40[] = { { 0, 480.0f, 996.0f, 0.0f }, { 0, 198.7f, 333.0f, 1.0f }, { 0, 701.3f, 125.5f, 2.0f }, { 0, 480.0f, 78.4f, 3.0f }, { 5, 935.1f, 411.0f, 6.0f }, { 5, 473.6f, 290.0f, 6.0f }, { 5, 211.7f, 6.8f, 6.0f }, { 5, 431.4f, -668.8f, 6.0f } };
 
 static const PaintedScene paintedScenes[] = {
     { "castle/chapel", "sky|far|mid|fog|near", { 0.0f, -999.0f, 0.0f }, anchors0, 8 },
@@ -57,4 +72,19 @@ static const PaintedScene paintedScenes[] = {
     { "mountains/dwarven-hall", "sky|far|mid|fog|near", { 0.0f, -999.0f, 0.0f }, anchors23, 19 },
     { "mountains/foothills", "sky|far|mid|fog|near", { 700.0f, 100.0f, 80.0f }, anchors24, 5 },
     { "mountains/frozen-peak", "sky|far|mid|fog|near", { 520.0f, 130.0f, 120.0f }, anchors25, 4 },
+    { "mountains/mountain-pass", "sky|far|mid|fog|near", { 480.0f, 105.0f, 70.0f }, anchors26, 4 },
+    { "necropolis/gates", "sky|far|mid|fog|near", { 480.0f, 120.0f, 90.0f }, anchors27, 4 },
+    { "necropolis/graveyard", "sky|far|mid|fog|near", { 300.0f, 110.0f, 85.0f }, anchors28, 5 },
+    { "necropolis/mausoleum", "sky|far|mid|fog|near", { 0.0f, -999.0f, 0.0f }, anchors29, 9 },
+    { "swamp/bog", "sky|far|mid|fog|near", { 300.0f, 130.0f, 60.0f }, anchors30, 4 },
+    { "swamp/mire", "sky|far|mid|fog|near", { 480.0f, 150.0f, 85.0f }, anchors31, 5 },
+    { "swamp/sunken-ruins", "sky|far|mid|fog|near", { 560.0f, 120.0f, 80.0f }, anchors32, 5 },
+    { "village/blacksmith", "sky|far|mid|fog|near", { 0.0f, -999.0f, 0.0f }, anchors33, 6 },
+    { "village/market-square", "sky|far|mid|fog|near", { 640.0f, 110.0f, 70.0f }, anchors34, 8 },
+    { "village/tavern", "sky|far|mid|fog|near", { 0.0f, -999.0f, 0.0f }, anchors35, 9 },
+    { "village/village-green", "sky|far|mid|fog|near", { 300.0f, 120.0f, 80.0f }, anchors36, 7 },
+    { "wizards-tower/alchemy-lab", "sky|far|mid|fog|near", { 0.0f, -999.0f, 0.0f }, anchors37, 7 },
+    { "wizards-tower/library", "sky|far|mid|fog|near", { 0.0f, -999.0f, 0.0f }, anchors38, 5 },
+    { "wizards-tower/observatory", "sky|far|mid|near", { 520.0f, 110.0f, 60.0f }, anchors39, 5 },
+    { "wizards-tower/stairwell", "sky|far|mid|fog|near", { 0.0f, -999.0f, 0.0f }, anchors40, 8 },
 };

@@ -1,0 +1,60 @@
+{
+ "scene": "village/village-green",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 345.2
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 193.7,
+   "y": 329.5
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 630.2,
+   "y": 326.1
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 816.3,
+   "y": 330.4
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 627.0,
+   "y": 323.3
+  },
+  {
+   "kind": "window",
+   "radius": 8,
+   "x": 196.6,
+   "y": 335.6
+  },
+  {
+   "kind": "window",
+   "radius": 8,
+   "x": 812.7,
+   "y": 336.9
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  300,
+  120,
+  80
+ ],
+ "glows": []
+}

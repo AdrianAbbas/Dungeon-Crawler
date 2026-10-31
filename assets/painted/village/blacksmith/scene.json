@@ -1,0 +1,61 @@
+{
+ "scene": "village/blacksmith",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 1118.7,
+   "y": 392.8
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 81.4,
+   "y": 314.8
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 700.5,
+   "y": 311.9
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 550.9,
+   "y": 334.8
+  },
+  {
+   "kind": "fire",
+   "radius": 30,
+   "x": 426.9,
+   "y": 300.5
+  },
+  {
+   "kind": "fire",
+   "radius": 10,
+   "x": 550.9,
+   "y": 342.3
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   400,
+   300,
+   80,
+   0.3
+  ]
+ ]
+}

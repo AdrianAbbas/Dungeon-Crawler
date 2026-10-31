@@ -1,0 +1,79 @@
+{
+ "scene": "necropolis/mausoleum",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 522.4
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 302.0,
+   "y": 319.1
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 480.0,
+   "y": 293.9
+  },
+  {
+   "kind": "candle",
+   "radius": 5,
+   "x": 541.1,
+   "y": 345.4
+  },
+  {
+   "kind": "candle",
+   "radius": 5,
+   "x": 422.2,
+   "y": 342.4
+  },
+  {
+   "kind": "candle",
+   "radius": 5,
+   "x": 534.8,
+   "y": 339.7
+  },
+  {
+   "kind": "candle",
+   "radius": 5,
+   "x": 427.9,
+   "y": 337.2
+  },
+  {
+   "kind": "candle",
+   "radius": 5,
+   "x": 529.7,
+   "y": 335.0
+  },
+  {
+   "kind": "candle",
+   "radius": 5,
+   "x": 432.5,
+   "y": 332.9
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   480,
+   260,
+   60,
+   0.3
+  ]
+ ]
+}

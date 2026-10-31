@@ -1,0 +1,79 @@
+{
+ "scene": "village/tavern",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": -218.8,
+   "y": 312.9
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 468.9,
+   "y": 314.3
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 347.8,
+   "y": 298.9
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 495.4,
+   "y": 290.5
+  },
+  {
+   "kind": "fire",
+   "radius": 26,
+   "x": 495.2,
+   "y": 301.3
+  },
+  {
+   "kind": "candle",
+   "radius": 5,
+   "x": 182.4,
+   "y": 328.0
+  },
+  {
+   "kind": "candle",
+   "radius": 5,
+   "x": 658.9,
+   "y": 318.1
+  },
+  {
+   "kind": "candle",
+   "radius": 5,
+   "x": 347.8,
+   "y": 303.3
+  },
+  {
+   "kind": "candle",
+   "radius": 5,
+   "x": 599.6,
+   "y": 300.4
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   480,
+   300,
+   80,
+   0.3
+  ]
+ ]
+}

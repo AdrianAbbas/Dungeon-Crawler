@@ -1,0 +1,48 @@
+{
+ "scene": "necropolis/graveyard",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 257.7
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 529.0,
+   "y": 319.2
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 436.5,
+   "y": 288.7
+  },
+  {
+   "kind": "candle",
+   "radius": 6,
+   "x": 553.6,
+   "y": 358.5
+  },
+  {
+   "kind": "candle",
+   "radius": 5,
+   "x": 332.8,
+   "y": 348.1
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  300,
+  110,
+  85
+ ],
+ "glows": []
+}

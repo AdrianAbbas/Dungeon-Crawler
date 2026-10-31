@@ -1,0 +1,47 @@
+{
+ "scene": "wizards-tower/observatory",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 902.7
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 99.1,
+   "y": 550.2
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 881.9,
+   "y": 555.5
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 480.0,
+   "y": 263.4
+  },
+  {
+   "kind": "candle",
+   "radius": 10,
+   "x": 97.9,
+   "y": 571.5
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "near"
+ ],
+ "moon": [
+  520,
+  110,
+  60
+ ],
+ "glows": []
+}

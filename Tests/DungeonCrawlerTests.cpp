@@ -1891,9 +1891,9 @@ int renderArt(const juce::String& directory, int width) {
     return failures == 0 ? 0 : 1;
 }
 
-// Visual overhaul: snapshots of the painted prototype for review, the editor at 200 %
-// (Retina-sized art): the map, a zoom held half way, every place of the Dungeon and the
-// Castle, the zoom back out. JPEG files in `directory`.
+// Visual overhaul: snapshots of the painted art for review, the editor at 200 %
+// (Retina-sized art): the map, zooms held half way (Dungeon, Castle), every place, the
+// zoom back out. JPEG files in `directory`.
 int paintedSnapshots(const juce::String& directory) {
     juce::File dir(directory);
     dir.createDirectory();
@@ -1919,7 +1919,8 @@ int paintedSnapshots(const juce::String& directory) {
     };
     view.settleForTest();
     shot("map");
-    for (const int location : { static_cast<int>(dc::Dungeon), static_cast<int>(dc::Castle) }) {
+    for (int location = 0; location < dc::LocationCount; ++location) {
+        const bool zoomShot = location == dc::Dungeon || location == dc::Castle;
         view.mapButton().onClick();
         view.settleForTest();
         view.locationButton(location == dc::Dungeon ? dc::Castle : dc::Dungeon).onClick();   // start elsewhere
@@ -1928,8 +1929,10 @@ int paintedSnapshots(const juce::String& directory) {
         view.settleForTest();
         view.locationButton(location).onClick();
         const auto slug = juce::String(dc::locationNames[static_cast<std::size_t>(location)]).toLowerCase();
-        view.holdTransitionForTest(0.5f);
-        shot("zoom-into-" + slug + "-mid-frame");
+        if (zoomShot) {
+            view.holdTransitionForTest(0.5f);
+            shot("zoom-into-" + slug + "-mid-frame");
+        }
         view.settleForTest();
         for (int k = 0; k <= dc::subLocationCount(location); ++k) {
             view.subLocationButton(k).onClick();
