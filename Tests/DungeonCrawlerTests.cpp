@@ -232,6 +232,14 @@ void testSmoke(Suite& s) {
     s.metric("harness sequence: residual Cathedral", cathedral, " dB");
     s.check(std::abs(cathedral - village) > 4.0, "Village and Cathedral differ from the input by clearly different amounts (the harness needs > 3 dB)",
             fmt(village) + " vs " + fmt(cathedral));
+    // The harness's Intensity check: from the Dungeon (3 s) to Intensity 0, 3 s, the
+    // last 1 s measured. CI measured -39.6 dB here before the matcher fix.
+    Host hi;
+    hi.render(3.0, sine(440.0, 0.25f));
+    hi.set(dc::ids::intensity, 0.0f); hi.render(3.0, sine(440.0, 0.25f));
+    s.metric("harness sequence: Intensity 0 residual", hi.residualDb(hi.end() - hi.at(1.0), hi.end()), " dB");
+    s.check(hi.residualDb(hi.end() - hi.at(1.0), hi.end()) < -60.0, "Intensity 0 after the Dungeon is transparent within 2 s (the harness needs < -40 dB)",
+            fmt(hi.residualDb(hi.end() - hi.at(1.0), hi.end())) + " dB");
     // Intensity 0 is transparent.
     Host n; n.set(dc::ids::intensity, 0.0f); n.render(3.0, sine(440.0, 0.25f));
     s.check(n.residualDb(n.at(1.0), n.end()) < -60.0, "Intensity 0 passes the input through", fmt(n.residualDb(n.at(1.0), n.end())) + " dB");

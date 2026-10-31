@@ -89,6 +89,7 @@ void Engine::process(float* l, float* r, int n, const float* dryL, const float* 
         travel = 0;
     } else if (intensity != targetIntensity) {
         targetIntensity = intensity;
+        settle = settleSamples;   // the matcher follows an Intensity change quickly
         to = targetFrame(location, intensity);
         if (travel >= 1.0f) current = to;   // the modules smooth the change themselves
     }
@@ -102,6 +103,8 @@ void Engine::process(float* l, float* r, int n, const float* dryL, const float* 
     // skipped (and starts clean when it is needed again).
     const auto& p = current;
     const bool abyssActive = p[Cutoff] < 19500.0f || p[HighPass] > 21.0f || p[Darkness] > 1.0e-3f || p[Tomb] > 1.0e-3f;
+    const bool wetActive = p[ChoirBlend] > 1.0e-4f || p[Drone] > 1.0e-4f || p[WraithMix] > 1.0e-4f
+                        || p[DelayMix] > 1.0e-4f || p[ReverbMix] > 1.0e-4f || p[BloodMix] > 1.0e-4f;
     runSlot(abyss, slots[0], abyssActive, l, r, n);
     blood.process(l, r, n, p, context);
     runSlot(choir, slots[1], p[ChoirBlend] > 1.0e-4f || p[Drone] > 1.0e-4f, l, r, n);
@@ -109,7 +112,9 @@ void Engine::process(float* l, float* r, int n, const float* dryL, const float* 
     runSlot(echoes, slots[3], p[DelayMix] > 1.0e-4f, l, r, n);
     runSlot(crypt, slots[4], p[ReverbMix] > 1.0e-4f, l, r, n);
     // The matcher stays agile while travelling and for half a second after arriving.
+    // At neutral nothing changes the level, so the matcher returns to unity (a held
+    // correction from the last place left Intensity 0 at -40 dB instead of transparent).
     settle = travel < 1.0f ? settleSamples : std::max(0, settle - n);
-    levelMatcher.process(dryL, dryR, l, r, n, true, settle > 0);
+    levelMatcher.process(dryL, dryR, l, r, n, abyssActive || wetActive, settle > 0);
 }
 }

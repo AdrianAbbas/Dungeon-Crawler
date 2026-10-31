@@ -15,8 +15,9 @@ unticked item.
 - [x] 1. Pipeline from Worldbuilder, adapted for an effect: CMake, CI workflow, scripts, packaging, AU host harness
 - [x] 2. VEIL DSP audited and imported (six modules, gain stages), defects fixed
 - [x] 3. Minimal effect skeleton: engine with travel between ten sketched locations, host parameters, state, editor
-- [x] 4. Linux test suite (243 checks) passing; CPU report
+- [x] 4. Linux test suite (244 checks) passing, also under AddressSanitizer + UBSan; CPU report
 - [x] 5. DEVLOG, README, manual test; pushed without `[skip ci]`
+- [x] 5b. First macOS CI run: one harness gate failed (Intensity 0 at -39.6 dB); fixed, pushed again
 - [ ] 6. **Developer:** GarageBand check on the MacBook Air ([MANUAL_TEST.md](MANUAL_TEST.md))
 
 **Next: Milestone 1** (place engine): sub-locations, Travel Time, calibrated per-place
@@ -59,7 +60,7 @@ level trims, macros, Advanced drawer.
 | | |
 |---|---|
 | Machine | Linux cloud container (Ubuntu 24.04, x86_64). No macOS, Xcode, GarageBand or Logic. |
-| Verified here | Linux build (VST3, Standalone, tests) with JUCE 8.0.16: **243 checks pass, 0 fail**. Editor rendered to an image and inspected. |
+| Verified here | Linux build (VST3, Standalone, tests) with JUCE 8.0.16: **244 checks pass, 0 fail**, also under AddressSanitizer + UBSan (regular groups). Editor rendered to an image and inspected. |
 | Not verified here | Anything macOS: the AU build, `auval`, the adapted harness (it has **never been compiled**: CI is its first compile), the install script with the new identity, GarageBand. |
 
 ### Identity
@@ -185,7 +186,7 @@ loudness compensation tracks only 80 ms windows.
 - **Mood image not used or committed**: the look is drawn in code from the brief's
   description (charcoal, hatching, ivory, one red accent).
 
-### Tests (Linux, through `processBlock`), 243 checks
+### Tests (Linux, through `processBlock`), 244 checks
 
 `Tests/DungeonCrawlerTests.cpp`, groups: `parameters`, `smoke`, `state`, `layouts`,
 `transparency`, `locations`, `travel`, `modules`, `rates`, `extremes`, `realtime`,
@@ -208,6 +209,25 @@ place (listening aid).
 
 CPU (one core of this container, 48 kHz stereo, report only): 1.8 % (Castle) to 5.5 %
 (Necropolis); travelling every second 5.9 %.
+
+### First macOS CI run
+
+Reported by the developer from the run of e5d8791:
+
+- Install from a quarantined (Chrome-style) download, `auval` arm64 and x86_64: **pass**.
+  (`auval` on the quarantined copy without the script also passed: as for VEIL, the
+  runner does not reproduce the Gatekeeper rejection.)
+- Harness, AUv2 in- and out-of-process, arm64 and x86_64: **every check passed but one**:
+  "Intensity 0 passes the input through" measured −39.6 dB against −40 dB.
+  **Cause:** going from the Dungeon to Intensity 0, the level matcher kept the
+  Dungeon's correction and released it only through its 1 s windows; 2 s later about
+  1 % remained. The Linux test had started fresh at Intensity 0, so it never saw that.
+  **Fix:** when nothing in the chain is active the matcher is disabled (it returns to
+  unity), and an Intensity change makes it agile for 0.5 s, as travelling does. The
+  smoke group now replays the harness's sequence: −82.9 dB.
+- AUAudioUnit route (diagnostic, not a gate): silence, as for VEIL and Worldbuilder with
+  this harness route. AULowpass control exit 0.
+- No crash reports.
 
 ### Milestone 0 handoff
 
