@@ -33,11 +33,37 @@ unticked item.
 - [x] 2a-2. Distinctness test across all places + closest pairs listed; musicality group (guitar, synth, piano, vocal)
 - [x] 2a-3. Listening render (same guitar and synth phrase through every place) to WAV in the test-logs artifact
 - [x] 2a-4. DEVLOG, manual test, ASan run, final push without `[skip ci]`
-- [ ] 0c. CI run of `cc34c95`: AUAudioUnit route failed (-50, also the AULowpass control). Fix attempt 1 pushed (output buffer sizes); waiting for CI
+- [x] 0c. CI run of `cc34c95`: AUAudioUnit route failed (-50, also the AULowpass control). Fix attempt 1 (output buffer sizes) passed: run 41182793128 green on arm64 and x86_64
 
-**Next: Milestone 2b** (sound design of Village, Swamp, Mountains, Necropolis, Wizard's
-Tower: all their places to the 10 dB-eq distinctness gate; the Village's three places
-are currently the closest in the world, 6.2–7.7). Then Milestone 3 (art pipeline + map).
+**Session 3: overnight plan, Direction Update 1** (2026-10-31, unattended). Direction
+Update 1 ([DIRECTION_UPDATE_1.md](DIRECTION_UPDATE_1.md)) replaces the brief's remaining
+milestones (2b, 3, 4, 5) with Milestones 6–12. Push with `[skip ci]` after each part,
+without after each milestone. Resume from the first unticked item.
+
+- [ ] 6a. Signature module (VIII): one signature effect per place, 40 kinds, crossfaded kind changes
+- [ ] 6b. Sound design: Village, Swamp, Mountains, Necropolis, Wizard's Tower with all sub-locations; signatures on all 40 places
+- [ ] 6c. Distinctness gate over all pairs (closest listed), musicality over all 40 places, trims recalibrated, listening render updated
+- [ ] 6d. DEVLOG, manual test; push without `[skip ci]` (Milestone 6 build)
+- [ ] 7a. Engraving renderer: tone + hatch-direction fields to hatched line art, off the message thread, cached
+- [ ] 7b. The engraved map: landmarks, compass rose, cartouche, parchment; hover names, current place marked, travel path line
+- [ ] 7c. Map ↔ location transitions (zoom/fade), double-buffered; drop-in override folder; `docs/ART_SOURCES.md`
+- [ ] 7d. Snapshots, tests, DEVLOG; push without `[skip ci]` (Milestone 7 build)
+- [ ] 8a. Scenes for all 10 locations (their own scene)
+- [ ] 8b. Scenes for all 30 sub-locations
+- [ ] 8c. Clickable points of interest + compact list, breadcrumb/back; subtle life (torch glow, fog, candles, water glints), cached, ≤ 30 fps
+- [ ] 8d. Snapshots of every scene, tests, DEVLOG; push without `[skip ci]` (Milestone 8 build)
+- [ ] 9a. Journey path: route of places over bars per stop, loop/one-way, tempo-synced, automatable
+- [ ] 9b. Roam mode: rate, randomness, seed; deterministic
+- [ ] 9c. MIDI travel (optional), host support documented; Travel Time in seconds or bars; tests
+- [ ] 9d. DEVLOG; push without `[skip ci]` (Milestone 9 build)
+- [ ] 10a. Atmosphere layer: synthesised one-shots/beds per place, level/density/seed, off by default, tempo-aware, never masking
+- [ ] 10b. Tests, DEVLOG; push without `[skip ci]` (Milestone 10 build)
+- [ ] 11a. Preset browser (factory spots + journeys, user presets), A/B compare, undo/redo
+- [ ] 11b. Resizable window (fixed aspect), Eco/Standard/High quality modes
+- [ ] 11c. State restoration (versioned), stable IDs; CPU report; tests, DEVLOG; push without `[skip ci]` (Milestone 11 build)
+- [ ] 12a. 20+ factory presets, README, MANUAL_TEST, install docs
+- [ ] 12b. Final QA pass (distinctness, levels, clicks on every travel, animation, editor CPU)
+- [ ] 12c. Final DEVLOG handoff (GarageBand: what to listen for and look at per milestone); push without `[skip ci]`
 
 ---
 
