@@ -845,3 +845,7 @@ def world_map():
         "exposure": 1.5,
         "anchors": anchors,
     }
+
+
+# The other eight locations.
+import scenes2  # noqa: E402,F401

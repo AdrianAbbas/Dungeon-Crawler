@@ -1110,3 +1110,256 @@ def tracery(x, y, z, width, height, layer, columns=3, rows=4):
     for r in range(1, rows):
         zz = z + height * r / rows
         tube([(x - width / 2, y - 0.15, zz), (x + width / 2, y - 0.15, zz)], width * 0.018, layer, mull, name="transom")
+
+
+# ------------------------------------------------------- builders for the other locations
+def prism_roof(location, width, length, height, layer, material, rotation_z=0.0, name="roof"):
+    """A gabled roof (a prism along local Y)."""
+    hw, hl = width / 2, length / 2
+    verts = [(-hw, -hl, 0), (hw, -hl, 0), (0, -hl, height), (-hw, hl, 0), (hw, hl, 0), (0, hl, height)]
+    faces = [(0, 1, 2), (3, 5, 4), (0, 3, 4, 1), (1, 4, 5, 2), (0, 2, 5, 3)]
+    ob = mesh_object(name, verts, faces, layer, material)
+    ob.location = Vector(location)
+    ob.rotation_euler = (0, 0, rotation_z)
+    return ob
+
+
+def cottage(location, width, length, height, layer, wall, roof, window=None, rotation_z=0.0, seed=0, chimney=True, crooked=0.0):
+    """A cottage: walls, a steep gabled roof (overhanging), a chimney, lit windows."""
+    rnd = random.Random(seed)
+    x, y, z = location
+    rot = Matrix.Rotation(rotation_z, 4, "Z")
+    def at(dx, dy, dz):
+        p = rot @ Vector((dx, dy, dz))
+        return (x + p.x, y + p.y, z + p.z)
+    box(at(0, 0, height / 2), (width, length, height), layer, wall, rotation=(crooked * 0.5, crooked, rotation_z), name="cottagewall")
+    prism_roof(at(0, 0, height), width * 1.25, length * 1.12, height * 0.95, layer, roof, rotation_z=rotation_z + crooked * 0.6)
+    if chimney:
+        box(at(width * 0.25, length * 0.3, height * 1.5), (width * 0.16, width * 0.16, height * 0.9), layer, wall, rotation=(0, 0, rotation_z), name="chimney")
+    if window is not None:
+        for k in range(2):
+            if rnd.random() < 0.75:
+                wx = (-0.25 + 0.5 * k) * width
+                ob = box(at(wx, -length / 2 - 0.02, height * 0.45), (width * 0.14, 0.04, height * 0.2), layer, window, rotation=(0, 0, rotation_z), name="cwin")
+        box(at(0, -length / 2 - 0.02, height * 0.2), (width * 0.16, 0.04, height * 0.4), layer, mat_stone("door", (0.01, 0.008, 0.006)), rotation=(0, 0, rotation_z), name="cdoor")
+
+
+def crystal(location, height, radius, layer, material, tilt=(0.0, 0.0), sides=6):
+    """A crystal: a hexagonal prism with a pointed tip, tilted."""
+    verts, faces = [], []
+    for s in range(sides):
+        a = 2 * math.pi * s / sides
+        verts.append((math.cos(a) * radius, math.sin(a) * radius, 0))
+    for s in range(sides):
+        a = 2 * math.pi * s / sides
+        verts.append((math.cos(a) * radius * 0.9, math.sin(a) * radius * 0.9, height * 0.78))
+    verts.append((0, 0, height))
+    for s in range(sides):
+        faces.append((s, (s + 1) % sides, sides + (s + 1) % sides, sides + s))
+        faces.append((sides + s, sides + (s + 1) % sides, 2 * sides))
+    faces.append(tuple(range(sides - 1, -1, -1)))
+    ob = mesh_object("crystal", verts, faces, layer, material)
+    ob.location = Vector(location)
+    ob.rotation_euler = (tilt[0], tilt[1], 0)
+    return ob
+
+
+def mat_crystal(colour=(1.0, 0.12, 0.08), glow=1.5):
+    key = ("crystal", colour, glow)
+    if key in _materials:
+        return _materials[key]
+    m = bpy.data.materials.new("crystal")
+    nt, out = _nodes(m)
+    bsdf = nt.nodes.new("ShaderNodeBsdfPrincipled")
+    bsdf.inputs["Base Color"].default_value = (*colour, 1)
+    bsdf.inputs["Roughness"].default_value = 0.08
+    bsdf.inputs["Transmission Weight"].default_value = 0.6
+    bsdf.inputs["Emission Color"].default_value = (*colour, 1)
+    bsdf.inputs["Emission Strength"].default_value = glow
+    nt.links.new(bsdf.outputs[0], out.inputs["Surface"])
+    _materials[key] = m
+    return m
+
+
+def mat_water(colour=(0.012, 0.012, 0.016)):
+    return mat_metal(colour, 0.06, "water")
+
+
+def lathe(location, profile, layer, material, sides=24, name="lathe"):
+    """A surface of revolution from a profile [(radius, z), ...] (bells, cauldrons, urns)."""
+    verts, faces = [], []
+    n = len(profile)
+    for s in range(sides):
+        a = 2 * math.pi * s / sides
+        for r, z in profile:
+            verts.append((math.cos(a) * r, math.sin(a) * r, z))
+    for s in range(sides):
+        for i in range(n - 1):
+            a0 = s * n + i
+            a1 = ((s + 1) % sides) * n + i
+            faces.append((a0, a1, a1 + 1, a0 + 1))
+    ob = mesh_object(name, verts, faces, layer, material, smooth=True)
+    ob.location = Vector(location)
+    return ob
+
+
+def bell(location, size, layer):
+    prof = [(0.05, 1.0), (0.35, 0.98), (0.42, 0.85), (0.45, 0.6), (0.55, 0.3), (0.75, 0.08), (0.8, 0.0), (0.72, 0.02)]
+    return lathe(location, [(r * size, z * size * 1.1) for r, z in prof][::-1], layer, mat_metal((0.35, 0.22, 0.12), 0.35, "bronze"), name="bell")
+
+
+def cauldron(location, size, layer, glow=6.0):
+    x, y, z = location
+    prof = [(0.2, 0.0), (0.5, 0.1), (0.62, 0.35), (0.6, 0.6), (0.52, 0.72), (0.56, 0.75)]
+    lathe(location, [(r * size, zz * size) for r, zz in prof], layer, mat_metal((0.05, 0.05, 0.05), 0.5, "iron"), name="cauldron")
+    brew = cylinder((x, y, z + 0.66 * size), 0.5 * size, 0.02 * size, layer, mat_emission((1.0, 0.1, 0.04), glow, "brew"), sides=20, name="brew")
+    brew.visible_shadow = False
+    light("POINT", (x, y, z + 0.9 * size), (1.0, 0.15, 0.05), 300 * size * size, size=0.3 * size, name="brewlight")
+    brazier((x, y, z - 0.2 * size), layer, strength=400 * size, size=0.6 * size)
+
+
+def bookshelf(location, width, height, depth, layer, seed, rotation_z=0.0):
+    rnd = random.Random(seed)
+    wood = mat_stone("shelfwood", (0.02, 0.012, 0.008), bump=0.2)
+    x, y, z = location
+    rot = Matrix.Rotation(rotation_z, 4, "Z")
+    def at(dx, dy, dz):
+        p = rot @ Vector((dx, dy, dz))
+        return (x + p.x, y + p.y, z + p.z)
+    box(at(0, depth / 2, height / 2), (width, 0.1, height), layer, wood, rotation=(0, 0, rotation_z), name="shelfback")
+    shelves = max(3, int(height / 0.9))
+    for k in range(shelves + 1):
+        box(at(0, 0, k * height / shelves), (width, depth, 0.06), layer, wood, rotation=(0, 0, rotation_z), name="shelf")
+        if k == shelves:
+            break
+        xx = -width / 2 + 0.05
+        while xx < width / 2 - 0.1:
+            bw = 0.05 + rnd.random() * 0.07
+            bh = height / shelves * (0.6 + rnd.random() * 0.3)
+            shade = 0.015 + rnd.random() * 0.03
+            col = (shade * (1.6 if rnd.random() < 0.3 else 1.0), shade * 0.8, shade * 0.7)
+            box(at(xx + bw / 2, 0, k * height / shelves + bh / 2 + 0.03), (bw, depth * 0.8, bh), layer, mat_stone("book", col, bump=0.1), rotation=(0, 0, rotation_z), name="book")
+            xx += bw + 0.01
+    for side in (-1, 1):
+        box(at(side * width / 2, 0, height / 2), (0.08, depth, height), layer, wood, rotation=(0, 0, rotation_z), name="shelfside")
+
+
+def anvil(location, size, layer):
+    x, y, z = location
+    iron = mat_metal((0.07, 0.065, 0.06), 0.35, "iron")
+    box((x, y, z + 0.25 * size), (0.35 * size, 0.3 * size, 0.5 * size), layer, iron, name="anvilfoot")
+    box((x, y, z + 0.6 * size), (0.9 * size, 0.3 * size, 0.2 * size), layer, iron, name="anviltop")
+    cone((x + 0.45 * size, y, z + 0.6 * size), 0.12 * size, 0.4 * size, layer, iron, sides=6, name="horn").rotation_euler = (0, math.pi / 2, 0)
+
+
+def menhir(location, height, seed, layer, material, lean=0.08):
+    rnd = random.Random(seed)
+    ob = rock(location, 1.0, seed, layer, material, squash=(0.35, 0.25, 1.0), detail=1.4)
+    ob.scale = (height * 0.5, height * 0.5, height * 0.55)
+    ob.location = (location[0], location[1], location[2] + height * 0.4)
+    ob.rotation_euler = ((rnd.random() - 0.5) * lean, (rnd.random() - 0.5) * lean, rnd.random() * 3.14)
+    return ob
+
+
+def tombstone(location, size, layer, material, seed=0, cross=False):
+    rnd = random.Random(seed)
+    x, y, z = location
+    tilt = ((rnd.random() - 0.5) * 0.25, (rnd.random() - 0.5) * 0.2, (rnd.random() - 0.5) * 0.4)
+    if cross:
+        box((x, y, z + 0.9 * size), (0.14 * size, 0.12 * size, 1.8 * size), layer, material, rotation=tilt, name="cross")
+        box((x, y, z + 1.3 * size), (0.7 * size, 0.12 * size, 0.14 * size), layer, material, rotation=tilt, name="crossbar")
+        return
+    ob = arch_shape((0, 0, 0), 0.8 * size, 1.25 * size, layer, material, pointed=rnd.random() < 0.5, name="tomb")
+    # Give the slab thickness: a box behind the outline.
+    box((x, y + 0.08 * size, z + 0.45 * size), (0.8 * size, 0.16 * size, 0.9 * size), layer, material, rotation=tilt, name="tombbody")
+    ob.location = (x, y, z)
+    ob.rotation_euler = tilt
+
+
+def iron_gate(location, width, height, layer, rotation_z=0.0):
+    iron = mat_metal((0.06, 0.055, 0.055), 0.45, "iron")
+    x, y, z = location
+    n = int(width / 0.35)
+    for k in range(n + 1):
+        xx = x - width / 2 + width * k / n
+        hh = height * (0.85 + 0.15 * math.sin(math.pi * k / n))
+        cylinder((xx, y, z), 0.045, hh, layer, iron, sides=6, name="gatebar")
+        cone((xx, y, z + hh), 0.09, 0.3, layer, iron, sides=4, name="spike")
+    for f in (0.25, 0.7):
+        box((x, y, z + height * f), (width, 0.08, 0.1), layer, iron, name="gaterail")
+
+
+def market_stall(location, width, depth, layer, cloth_colour, rotation_z=0.0):
+    wood = mat_stone("stallwood", (0.02, 0.013, 0.009), bump=0.2)
+    x, y, z = location
+    rot = Matrix.Rotation(rotation_z, 4, "Z")
+    def at(dx, dy, dz):
+        p = rot @ Vector((dx, dy, dz))
+        return (x + p.x, y + p.y, z + p.z)
+    box(at(0, 0, 0.5), (width, depth, 1.0), layer, wood, rotation=(0, 0, rotation_z), name="counter")
+    for dx in (-1, 1):
+        for dy in (-1, 1):
+            cylinder(at(dx * width / 2, dy * depth / 2, 0), 0.05, 2.4, layer, wood, sides=6, name="post")
+    prism_roof(at(0, 0, 2.4), width * 1.15, depth * 1.3, 0.6, layer, mat_cloth(cloth_colour), rotation_z=rotation_z + math.pi / 2, name="canopy")
+
+
+def dragon(location, scale, layer, rotation_z=0.0, eye_strength=40.0):
+    """A sleeping dragon curled on its hoard: body, coiled tail, folded wings, horns."""
+    x, y, z = location
+    s = scale
+    skin = mat_stone("dragonskin", (0.012, 0.009, 0.009), rough=0.5, bump=1.2, scale=4)
+    mb = bpy.data.metaballs.new("dragon")
+    mb.resolution = 0.25 * s
+    mb.render_resolution = 0.12 * s
+    def ball(px, py, pz, r, size=None):
+        e = mb.elements.new()
+        e.type = "ELLIPSOID" if size else "BALL"
+        e.co = (px, py, pz)
+        e.radius = r
+        if size:
+            e.size_x, e.size_y, e.size_z = size
+    ball(0, 0, 1.4 * s, 2.4 * s, (1.6, 1.0, 0.75))
+    ball(-2.4 * s, -0.6 * s, 1.6 * s, 1.4 * s, (1.0, 0.9, 0.9))
+    ball(-3.6 * s, -1.6 * s, 2.4 * s, 0.9 * s, (0.9, 0.8, 0.8))   # neck
+    ball(-4.4 * s, -2.6 * s, 2.0 * s, 0.9 * s, (1.4, 0.8, 0.7))   # head
+    ob = bpy.data.objects.new("dragon", mb)
+    bpy.context.scene.collection.objects.link(ob)
+    ob.location = Vector(location)
+    ob.rotation_euler = (0, 0, rotation_z)
+    mb.materials.append(skin)
+    put(ob, layer)
+    rot = Matrix.Rotation(rotation_z, 4, "Z")
+    def at(dx, dy, dz):
+        p = rot @ Vector((dx * s, dy * s, dz * s))
+        return (x + p.x, y + p.y, z + p.z)
+    tail = [at(3.0 + 2.5 * math.cos(t * 3.2), -1.5 + 2.5 * math.sin(t * 3.2) - t * 1.0, 0.8 - 0.4 * t) for t in [k / 20 for k in range(21)]]
+    tube(tail, 0.9 * s, layer, skin, name="tail", taper=lambda u: 1.0 - 0.92 * u)
+    for side in (-1, 1):
+        wing = [at(0.5, side * 1.0, 2.6), at(1.8, side * 2.4, 4.2), at(3.4, side * 1.6, 3.0), at(2.0, side * 0.6, 2.2)]
+        mesh_object("wing", [tuple(v) for v in wing], [(0, 1, 2, 3)], layer, mat_stone("membrane", (0.012, 0.004, 0.005), bump=0.2))
+        tube([at(0.5, side * 1.0, 2.6), at(1.8, side * 2.4, 4.2), at(3.4, side * 1.6, 3.0)], 0.15 * s, layer, skin, name="wingbone")
+        tube([at(-4.6, -2.4 + side * 0.4, 2.6), at(-4.2, -1.6 + side * 0.9, 3.6), at(-3.4, -1.2 + side * 1.0, 4.0)], 0.18 * s, layer,
+             mat_stone("horn", (0.015, 0.013, 0.015), bump=0.3), name="horn", taper=lambda u: 1 - 0.9 * u)
+        e = cone(at(-5.2, -3.1, 2.25 + 0.0), 0.08 * s, 0.03 * s, layer, mat_emission((1.0, 0.25, 0.05), eye_strength, "dragoneye"), sides=6, name="eye")
+        e.location = at(-5.25, -3.0 + side * 0.35, 2.3)
+        e.rotation_euler = (math.pi / 2, 0, rotation_z)
+    return ob
+
+
+def spiral_stair(centre, radius, height, turns, layer, material, steps_per_turn=16, start_angle=0.0):
+    x, y, z = centre
+    n = int(turns * steps_per_turn)
+    for k in range(n):
+        a = start_angle + 2 * math.pi * k / steps_per_turn
+        zz = z + height * k / n
+        r = radius * 0.55
+        box((x + math.cos(a) * r, y + math.sin(a) * r, zz), (radius * 0.9, 0.55, 0.18), layer, material, rotation=(0, 0, a), name="spiralstep")
+    cylinder((x, y, z), radius * 0.12, height + 2, layer, material, sides=12, name="newel")
+
+
+def telescope(location, length, layer, aim=(0.5, 0.8)):
+    brass = mat_metal((0.4, 0.25, 0.12), 0.3, "brass")
+    x, y, z = location
+    tube([(x, y, z), (x + length * 0.35 * aim[0], y + length * 0.35, z + length * aim[1])], length * 0.06, layer, brass, name="telescope",
+         taper=lambda u: 1.0 - 0.35 * u)
+    tube([(x, y, z - length * 0.4), (x, y, z)], length * 0.03, layer, brass, name="mount")
