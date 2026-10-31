@@ -135,6 +135,11 @@ jobs:
       # (report-only) so its timings are not disturbed.
       - name: Processor tests (full suite)
         run: bash scripts/run-tests-parallel.sh build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests build/test-logs
+      # The same guitar and synth phrase through every place (and dry), plus a journey
+      # through the designed places, as WAV files in the test-logs artifact.
+      - name: Listening renders (every place, WAV)
+        if: always()
+        run: build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen build/test-logs/listening
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4

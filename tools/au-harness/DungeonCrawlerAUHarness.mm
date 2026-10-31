@@ -636,10 +636,10 @@ void v2Suite(Report& r, AudioComponent component, bool outOfProcess, bool useWin
             r.skip("AudioUnitSetParameter(Output) is audible", "no parameter named Output");
         }
         // 3b. Intensity 0 is transparent, and the Location parameter (a choice published as
-        // an indexed parameter) changes the sound: the Village (a small warm room with
-        // saturation) and the Cathedral (a long gothic reverb) depart from the input by
-        // clearly different amounts. The Linux suite measures the same figure for the
-        // same sine (Tests, group "smoke").
+        // an indexed parameter) changes the sound: the Castle's courtyard (open air with
+        // a slap) and the Dungeon's corridors (a dark, damp, saturated room) depart from
+        // the input by clearly different amounts. The Linux suite measures the same
+        // figure for the same sine (Tests, group "smoke": -13.8 vs +2.8 dB).
         const auto* location = findParameter(params, { "Location" });
         const auto* intensity = findParameter(params, { "Intensity" });
         if (location != nullptr && intensity != nullptr) {
@@ -651,16 +651,16 @@ void v2Suite(Report& r, AudioComponent component, bool outOfProcess, bool useWin
             auto neutral = host.render(3.0, 2.0);
             r.check(neutral.finite && neutral.diffDb() < -40.0, "Intensity 0 passes the input through (residual < -40 dB)", neutral.describe());
             setParameter(unit, intensity->id, intensity->info.maxValue);
-            s = setParameter(unit, location->id, at(5));   // Village
-            auto village = host.render(3.5, 2.5);
-            const OSStatus s2 = setParameter(unit, location->id, at(2));   // Cathedral
-            auto cathedral = host.render(3.5, 2.5);
-            r.check(s == noErr && s2 == noErr && std::abs(getParameter(unit, location->id) - at(2)) < 0.01f, "AudioUnitSetParameter(Location) is accepted",
+            s = setParameter(unit, location->id, at(1));   // Castle
+            auto castle = host.render(3.5, 2.5);
+            const OSStatus s2 = setParameter(unit, location->id, at(0));   // Dungeon
+            auto dungeon = host.render(3.5, 2.5);
+            r.check(s == noErr && s2 == noErr && std::abs(getParameter(unit, location->id) - at(0)) < 0.01f, "AudioUnitSetParameter(Location) is accepted",
                     strf("read back %g", double(getParameter(unit, location->id))));
-            r.check(village.finite && cathedral.finite && village.rmsDb() > -40.0 && cathedral.rmsDb() > -40.0,
-                    "Village and Cathedral are audible", strf("%.1f / %.1f dBFS", village.rmsDb(), cathedral.rmsDb()));
-            r.check(std::abs(cathedral.diffDb() - village.diffDb()) > 3.0, "changing the Location changes the sound (residual vs input differs > 3 dB)",
-                    strf("Village %.1f dB, Cathedral %.1f dB", village.diffDb(), cathedral.diffDb()));
+            r.check(castle.finite && dungeon.finite && castle.rmsDb() > -40.0 && dungeon.rmsDb() > -40.0,
+                    "Castle and Dungeon are audible", strf("%.1f / %.1f dBFS", castle.rmsDb(), dungeon.rmsDb()));
+            r.check(std::abs(dungeon.diffDb() - castle.diffDb()) > 3.0, "changing the Location changes the sound (residual vs input differs > 3 dB)",
+                    strf("Castle %.1f dB, Dungeon %.1f dB", castle.diffDb(), dungeon.diffDb()));
             setParameter(unit, location->id, locationWas);
             setParameter(unit, intensity->id, intensityWas);
             host.render(1.5, 0.0);

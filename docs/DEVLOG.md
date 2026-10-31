@@ -29,10 +29,14 @@ unticked item.
 - [x] 1c. Level matching across places (calibrated per-place trims + matcher)
 - [x] 1d. Macros (3–4 themed per location) and the Advanced drawer; simple editor (location list, sub-location list, macros)
 - [x] 1e. Tests (512 checks), DEVLOG, push `[skip ci]`
-- [ ] 2a-1. Sound design: Dungeon, Castle, Cathedral, Haunted Forest, Caverns with all sub-locations
-- [ ] 2a-2. Distinctness test across all places + closest pairs listed
-- [ ] 2a-3. Listening render (same guitar and synth phrase through every place) to WAV in the test-logs artifact
-- [ ] 2a-4. DEVLOG, manual test, final push without `[skip ci]`
+- [x] 2a-1. Sound design: Dungeon, Castle, Cathedral, Haunted Forest, Caverns with all sub-locations
+- [x] 2a-2. Distinctness test across all places + closest pairs listed; musicality group (guitar, synth, piano, vocal)
+- [x] 2a-3. Listening render (same guitar and synth phrase through every place) to WAV in the test-logs artifact
+- [ ] 2a-4. DEVLOG, manual test, ASan run, final push without `[skip ci]`
+
+**Next: Milestone 2b** (sound design of Village, Swamp, Mountains, Necropolis, Wizard's
+Tower: all their places to the 10 dB-eq distinctness gate; the Village's three places
+are currently the closest in the world, 6.2–7.7). Then Milestone 3 (art pipeline + map).
 
 ---
 
@@ -401,3 +405,141 @@ side: the 61 module parameters in two columns grouped by module, sliders for off
 
 CPU (one core of this container, 48 kHz stereo, report only): 3.0 % (Wizard's Tower)
 to 7.0 % (Necropolis); travelling every second 9.5–10 % (two rooms and the dips).
+
+---
+
+## Milestone 2a: sound design, first five locations (2026-10-31)
+
+### The places
+
+Every place has a **signature**: a combination of room (size, chamber, decay,
+pre-delay), brightness, echo pattern, movement, pitch layers, resonances and beds
+that no other place shares. Levels are matched by the calibrated trims.
+
+| Place | Signature |
+|---|---|
+| **Dungeon · Corridors** | dark, damp mid-sized stone room (Underground Crypt chamber, 2.5 s), short diffuse slap down the passage, torch flicker, distant drips, a touch of grit |
+| Entrance Hall | a bigger, darker vault (3.5 s, 38 ms pre-delay), the strongest torch flicker, a wide slap from the far door |
+| Prison Cells | tiny boxy cell (0.7 s), muffled resonant low-pass at 1.9 kHz, a 55 ms flutter between the walls, iron bars ringing (Relics metal, D), grime (Age, Dust), drips |
+| Treasure Room | the brightest: crystal glints (A), an octave of sparkle above, shimmer, ping-pong echoes on the eighth note |
+| Final Boss Lair | huge and menacing: 18 dB drive, a three-voice choir a fifth below with a drone, a low D resonance, slow echoes that sink a semitone each time, the Endless Void (8 s), slow flicker |
+| **Castle · Courtyard** | open air between walls: a crisp, wide 210 ms slap, a short open reverb, a breeze, thinner lows |
+| Great Hall | timber over stone: warm (damped, a little drive), wide, medium-large (2.8 s), a fire's flicker |
+| Throne Room | regal: the widest bright hall (4.2 s, 50 ms pre-delay), an organ-like fifth above, a halo of shimmer |
+| Chapel | sacred: a long reverb (6.5 s) with a soft choir an octave below and a drone |
+| Tower Top | thin (230 Hz high-pass), windy, distant: echoes across the valley (520 ms), a smeared haze, a small far reverb |
+| **Cathedral · Cloister** | arcades: a 92 ms flutter between the arches feeding a long, bright stone reverb |
+| Nave | the longest, wettest place in the world (12 s, 80 ms pre-delay), a breath of choir |
+| Crypt | very dark and close (1.5 kHz, 2 s, heavily damped), a low D resonance, a murmur an octave down, drips |
+| Bell Tower | the instrument strikes a minor-third church bell (Relics bell, D3, 5 s), wind through the louvres, open echoes |
+| **Haunted Forest · Forest Edge** | soft damped open air, strong wind in the leaves, a faint spectral haze, diffuse echoes from the trunks |
+| Old Path | eerie: strong spectral ghosts (Wraith blur, ghost, drift), echoes played backwards, slow filter movement, dark |
+| Witch's Hut | a small wooden hut (0.5 s), woody saturation and wow, a candle's fast flicker, a hollow resonance, a crooked choir a fifth below, a 48 ms box echo |
+| Ancient Grove | mystical: a vast soft halo with shimmer, a choir an octave and a fifth above, heavy spectral blur, slow filter movement |
+| **Caverns · Cave Mouth** | big rock (4.5 s, 55 ms pre-delay), discrete echoes from deep inside (290 ms, wide), drips, a draught |
+| Crystal Cavern | everything rings: crystal resonances (E5, 4.5 s), very bright glassy echoes, drips |
+| Underground Lake | watery: a resonant low-pass that wavers, wow, spectral drift, long dark echoes, the Endless Void (8 s), many drips |
+| Dragon's Hoard | massive and dark: a sub-octave choir and a held drone, a deep resonance, saturation, a huge dark hall (7 s), glints of gold (crystal, D6) above it |
+
+Macros: Dungeon Depth/Damp/Echo/Dread; Castle Hall Size/Grandeur/Distance; Cathedral
+Vastness/Choir/Bells/Gloom; Haunted Forest Mist/Whispers/Wind/Shadows; Caverns
+Depth/Drips/Echo/Rumble. Each maps to 1–6 parameters (`Source/World/Locations.cpp`).
+
+The other five locations got clearer **sketches** where the distinctness test needed
+them (Foothills: almost dry with one long echo; Mountain Pass: echo-dominated;
+Observatory: the Crypt's Rising mode, a swelling reverse halo). Their design is 2b.
+
+### Distinctness (group `locations`, gated)
+
+A **fingerprint** of each place, from one render: 3 s of plucks, 3 s of a saw chord,
+silence, a 330 Hz sine, silence, and three clicks. 23 features in dB-like units, each
+with a floor below which differences are not audible:
+
+- octave-band balance of the chord (8 bands);
+- tail levels 0.2–0.6 s and 1–2 s after the chord;
+- stereo width;
+- flutter (10 ms level spread);
+- pluck smear;
+- impulse-response energy in six windows (0–20 ms … 1–2 s), averaged over the three clicks;
+- harmonics, new pitches and pitch wobble around the sine (half weight: they move
+  with the random modulation of some layers);
+- noisiness (spectral flatness).
+
+The distance is Euclidean (dB-equivalent).
+
+- **Scale:** the most sensitive designed place moves by **9.0** when only its
+  Intensity drops from 100 % to 90 %.
+- **Gate:** any pair involving a place of the five designed locations must be at
+  least **10** apart, further than that small step.
+- **Two small misses** after two design rounds are **report-only**:
+  Castle Courtyard ↔ Crystal Cavern (9.7) and Final Boss Lair ↔ Underground Lake
+  (9.9). Both are far apart by ear (an open slap against ringing glass; a distorted
+  choir against a watery wobble). The fingerprint has no feature for "metallic
+  ringing" or "choir" as such.
+
+**Closest pairs in the world** (all 40 places, current build):
+
+| Distance | Pair | Largest differing feature |
+|---|---|---|
+| 6.2 | Village · Village Green ↔ Village · Market Square | tail 0.2–0.6 s (3.1) |
+| 7.0 | Village · Tavern ↔ Village · Market Square | 8 kHz (4.0) |
+| 7.7 | Village · Village Green ↔ Village · Tavern | 8 kHz (5.2) |
+| 9.7 | Castle · Courtyard ↔ Caverns · Crystal Cavern | tail 1–2 s (5.7) (report-only) |
+| 9.8 | Village · Market Square ↔ Village · Blacksmith | harmonics (6.9) |
+| 9.9 | Dungeon · Final Boss Lair ↔ Caverns · Underground Lake | new pitches (6.6) (report-only) |
+| 10.0 | Cathedral · Bell Tower ↔ Caverns · Crystal Cavern | IR 20–80 ms (5.2) |
+| 10.2 | Cathedral · Nave ↔ Mountains · Mountain Pass | tail 0.2–0.6 s (4.6) |
+| 10.3 | Castle · Courtyard ↔ Cathedral · Bell Tower | IR 0.5–1 s (5.4) |
+| 10.4 | Cathedral · Cloister ↔ Caverns · Cave Mouth | pluck smear (4.7) |
+
+The Village pairs are 2b sketches (reported, not gated); 2b must bring them to 10.
+
+### Musicality (group `musicality`, gated)
+
+Four stand-ins, each a 4 s phrase at −18 dBFS RMS, looped for 8 s and measured over
+the last 4 s:
+
+- guitar: Karplus-Strong plucked strings, an Am–F–C–G arpeggio;
+- synth: a two-saw pad, the same chords;
+- piano: stretched partials with per-partial decay, chords and a melody;
+- vocal: a sung "ah", a glottal saw with vibrato through three formants, a melody
+  with breaths.
+
+They run through all 22 designed places (88 renders). Gates per render:
+
+| Gate | Threshold | Result |
+|---|---|---|
+| Finite, below 0 dBFS | | yes |
+| Level | within 4 dB | −0.4 … +1.0 dB |
+| The instrument stays recognisable: best correlation with the aligned input over 0–2 ms lags | > 0.25 | 0.27 (Tower Top, synth: a thin, distant place by design) … 0.92 |
+| No boom (63 Hz band vs the dry) | < +9 dB | up to +8.4 dB (Dragon's Hoard, guitar: the rumble is the point) |
+| No fizz (8 kHz band vs the dry) | < +9 dB | up to +4.5 dB |
+| The tail falls away after the phrase | > 12 dB down at the end | yes |
+
+### Listening renders
+
+`DungeonCrawlerTests --listen <dir>`, run in the Linux CI job into
+`build/test-logs/listening` (artifact `DungeonCrawler-linux-test-logs`), 44.1 kHz
+16-bit stereo, ~92 MB:
+
+- `00-dry.wav`: the phrase dry, 4 s of guitar, then 4 s of synth, then 3 s of silence
+  (the tail);
+- `01-Dungeon-Corridors.wav` … `40-WizardsTower-Observatory.wav`: the same phrase
+  through every place;
+- `journey-2a.wav`: the guitar phrase looping while travelling (1.5 s) through the 22
+  places of 2a, 4 s in each.
+
+Measured locally: every place within ±1 dB RMS of the dry file, peaks −2.7 to −5.3 dBFS.
+
+### The AU harness's Location check
+
+It compared the Village with the Cathedral; with the new scenes they differ by only
+1.4 dB for a sine (the harness needs 3). It now compares the Castle (Courtyard,
+−13.8 dB residual) with the Dungeon (Corridors, +2.9 dB). These are the most
+different pair for its sine, among all locations. The `smoke` group replays it.
+
+### Tests
+
+1040 checks on Linux (full suite in three shards, 2.5 min on 4 cores). New groups:
+`musicality`, and the gated `locations` fingerprint. CPU (one core of this container,
+48 kHz stereo, report only): 3.0–7.0 % per location; travelling every second 9–11 %.

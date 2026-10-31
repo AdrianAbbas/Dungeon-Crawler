@@ -10,7 +10,7 @@ mkdir -p "$logs"
 
 "$tests" --only smoke,parameters,state,layouts,transparency,editor,levels > "$logs/1-basics.txt" 2>&1 &
 "$tests" --only rates,extremes,realtime,place > "$logs/2-robustness.txt" 2>&1 &
-"$tests" --only locations,travel,modules > "$logs/3-locations.txt" 2>&1 &
+"$tests" --only locations,travel,modules,musicality > "$logs/3-locations.txt" 2>&1 &
 wait
 "$tests" --only cpu > "$logs/4-cpu.txt" 2>&1
 
