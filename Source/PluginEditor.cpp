@@ -101,30 +101,41 @@ float ease(float t) { t = juce::jlimit(0.0f, 1.0f, t); return t * t * (3.0f - 2.
 
 void DungeonCrawlerView::LandmarkButton::paintButton(juce::Graphics& g, bool highlighted, bool) {
     if (!highlighted) return;
+    // A soft pale halo and a hairline ring around the landmark.
     const auto r = getLocalBounds().toFloat().reduced(3.0f);
-    g.setColour(colours::ivory.withAlpha(0.18f));
+    g.setGradientFill(juce::ColourGradient(colours::ivory.withAlpha(0.14f), r.getCentre(), colours::ivory.withAlpha(0.0f),
+                                           r.getCentre().translated(r.getWidth() * 0.5f, 0.0f), true));
     g.fillEllipse(r);
-    g.setColour(colours::ivory.withAlpha(0.85f));
-    g.drawEllipse(r, 1.4f);
+    g.setColour(colours::ivory.withAlpha(0.7f));
+    g.drawEllipse(r.reduced(2.0f), 0.9f);
 }
 
 void DungeonCrawlerView::HotspotButton::paintButton(juce::Graphics& g, bool highlighted, bool) {
     const auto r = getLocalBounds().toFloat();
     const auto ring = juce::Rectangle<float>(22.0f, 22.0f).withCentre({ r.getCentreX(), 14.0f });
     const bool here = getToggleState();
-    g.setColour(juce::Colours::black.withAlpha(0.55f));
-    g.fillEllipse(ring.expanded(3.0f));
-    g.setColour(here ? colours::blood : colours::ivory.withAlpha(highlighted ? 1.0f : 0.8f));
-    g.drawEllipse(ring, here ? 2.6f : 1.6f);
-    g.fillEllipse(ring.reduced(7.0f));
+    // A dark halo, a hairline ring and a small centre: crimson where you are.
+    g.setGradientFill(juce::ColourGradient(juce::Colours::black.withAlpha(0.55f), ring.getCentre(), juce::Colours::black.withAlpha(0.0f),
+                                           ring.getCentre().translated(ring.getWidth() * 0.9f, 0.0f), true));
+    g.fillEllipse(ring.expanded(8.0f));
+    if (here) {
+        g.setGradientFill(juce::ColourGradient(colours::blood.withAlpha(0.45f), ring.getCentre(), colours::blood.withAlpha(0.0f),
+                                               ring.getCentre().translated(ring.getWidth() * 0.8f, 0.0f), true));
+        g.fillEllipse(ring.expanded(6.0f));
+    }
+    g.setColour(here ? colours::blood.brighter(0.2f) : colours::ivory.withAlpha(highlighted ? 0.95f : 0.7f));
+    g.drawEllipse(ring.reduced(2.0f), here ? 1.6f : 1.0f);
+    g.fillEllipse(ring.reduced(8.0f));
     if (highlighted || here) {
-        g.setFont(labelFont(13.0f));
+        const auto font = labelFont(14.0f);
         const auto text = getButtonText();
-        const float width = juce::GlyphArrangement::getStringWidth(labelFont(13.0f), text) + 14.0f;
+        const float width = juce::GlyphArrangement::getStringWidth(font, text) + 18.0f;
         const auto plate = juce::Rectangle<float>(width, 20.0f).withCentre({ r.getCentreX(), 38.0f });
-        g.setColour(juce::Colours::black.withAlpha(0.68f));
-        g.fillRoundedRectangle(plate, 3.0f);
-        g.setColour(here ? colours::blood.brighter(0.4f) : colours::ivory);
+        g.setGradientFill(juce::ColourGradient(juce::Colours::black.withAlpha(0.75f), plate.getCentre(), juce::Colours::black.withAlpha(0.0f),
+                                               plate.getCentre().translated(plate.getWidth() * 0.62f, 0.0f), true));
+        g.fillRect(plate.expanded(8.0f, 4.0f));
+        g.setFont(font);
+        g.setColour(here ? colours::blood.brighter(0.45f) : colours::ivory);
         g.drawText(text, plate, juce::Justification::centred);
     }
 }
@@ -177,7 +188,7 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
         if (view == View::Map) goTo(View::Place, { shown, dc::clampSubLocation(shown, shownSub) }, 1);
         else subLocationAttachment->setValueAsCompleteGesture(0.0f);
     };
-    placeCrumb.setFont(titleFont(18.0f));
+    placeCrumb.setFont(titleFont(16.0f));
     placeCrumb.setColour(juce::Label::textColourId, colours::ivory);
     addAndMakeVisible(mapCrumb);
     addAndMakeVisible(locationCrumb);
@@ -193,8 +204,8 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
     setUpFader(mix, dc::ids::mix, "Mix");
     setUpFader(output, dc::ids::output, "Output");
 
-    travelLabel.setText("Travel", juce::dontSendNotification);
-    travelLabel.setFont(labelFont(14.0f));
+    travelLabel.setText("Time", juce::dontSendNotification);
+    travelLabel.setFont(labelFont(14.5f));
     addAndMakeVisible(travelLabel);
     travelTime.setTextBoxStyle(juce::Slider::TextBoxRight, true, 62, 18);
     travelTime.setDoubleClickReturnValue(true, 1.5);
@@ -202,7 +213,8 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
     travelTimeAttachment = std::make_unique<juce::SliderParameterAttachment>(*processor.parameters.getParameter(dc::ids::travelTime), travelTime);
     addAndMakeVisible(travelTime);
     atmosphereLabel.setText("Atmosphere", juce::dontSendNotification);
-    atmosphereLabel.setFont(labelFont(13.0f));
+    atmosphereLabel.setFont(labelFont(14.5f));
+    atmosphereLabel.setJustificationType(juce::Justification::centredRight);
     atmosphereLabel.setTooltip("Sparse sounds of the place (torches, drips, wind, crows...). Off at 0 %.");
     addAndMakeVisible(atmosphereLabel);
     atmosphere.setTextBoxStyle(juce::Slider::TextBoxRight, true, 48, 18);
@@ -285,14 +297,15 @@ DungeonCrawlerView::~DungeonCrawlerView() {
 }
 
 void DungeonCrawlerView::setUpFader(Fader& fader, const juce::String& id, const juce::String& name) {
-    fader.slider.setTextBoxStyle(juce::Slider::TextBoxBelow, true, 60, 16);
+    fader.slider.setTextBoxStyle(juce::Slider::TextBoxBelow, true, 60, 15);
     fader.slider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
     fader.slider.setDoubleClickReturnValue(true, static_cast<double>(
         processor.parameters.getParameter(id)->convertFrom0to1(processor.parameters.getParameter(id)->getDefaultValue())));
     fader.attachment = std::make_unique<juce::SliderParameterAttachment>(*processor.parameters.getParameter(id), fader.slider);
     fader.label.setText(name, juce::dontSendNotification);
     fader.label.setJustificationType(juce::Justification::centred);
-    fader.label.setFont(labelFont(13.0f));
+    fader.label.setFont(labelFont(14.5f));
+    fader.label.setColour(juce::Label::textColourId, colours::ivory.withAlpha(0.92f));
     addAndMakeVisible(fader.slider);
     addAndMakeVisible(fader.label);
 }
@@ -409,6 +422,9 @@ void DungeonCrawlerView::timerCallback() {
             transition.kind = pendingKind;
             transition.from = cache.get(scene, px.x, px.y);
             transition.to = cache.get(pendingScene, px.x, px.y);
+            transition.fromPlanes = cache.planes(scene, px.x, px.y);
+            transition.toPlanes = cache.planes(pendingScene, px.x, px.y);
+            embers.clear();
             transition.start = now;
             transition.length = pendingKind == 0 ? 0.32 : 0.5;
             transition.focus = dc::art::mapLandmarks()[static_cast<std::size_t>(juce::jlimit(0, dc::LocationCount - 1,
@@ -423,10 +439,12 @@ void DungeonCrawlerView::timerCallback() {
     }
     if (transition.active) {
         busy = true;
-        if (now - transition.start >= transition.length) {
+        if (transition.held < 0.0f && now - transition.start >= transition.length) {
             transition.active = false;
             transition.from = {};
             transition.to = {};
+            transition.fromPlanes = {};
+            transition.toPlanes = {};
             layoutOverlays();
             refreshLights();
         }
@@ -441,11 +459,25 @@ void DungeonCrawlerView::timerCallback() {
         else pathTo = -1;
         repaint();
     }
-    // Life: at 15 fps, only the small regions around the lights are repainted.
-    if (view == View::Place && !transition.active && !pending && animateLife && !lights.empty()) {
+    // Life, only small regions repainted: lights and embers at 15 fps, the mist at 10 fps,
+    // the moon's glow at 5 fps.
+    const bool painted = planes.layered();
+    if (!transition.active && !pending && animateLife && (!lights.empty() || painted)) {
         busy = true;
-        if ((++lifeTick & 1) == 0)
-            for (const auto& l : lights) repaint(lifeArea(l));
+        ++lifeTick;
+        if ((lifeTick & 1) == 0) {
+            for (const auto& l : lights)
+                if (l.kind != 5) repaint(lifeArea(l));
+            if (!emberSources.empty()) {
+                std::vector<juce::Rectangle<int>> dirty;
+                for (const auto& e : embers) dirty.push_back(juce::Rectangle<float>(e.size * 8.0f, e.size * 8.0f).withCentre(e.p).getSmallestIntegerContainer());
+                stepEmbers(2.0f / 30.0f);
+                for (const auto& e : embers) dirty.push_back(juce::Rectangle<float>(e.size * 8.0f, e.size * 8.0f).withCentre(e.p).getSmallestIntegerContainer());
+                for (const auto& r : dirty) repaint(r);
+            }
+        }
+        if (painted && lifeTick % 3 == 0 && !mistArea().isEmpty()) repaint(mistArea());
+        if (painted && lifeTick % 6 == 0 && !moonArea().isEmpty()) repaint(moonArea());
     }
     if (!busy) stopTimer();
 }
@@ -556,22 +588,27 @@ void DungeonCrawlerView::followSteering() {
 
 void DungeonCrawlerView::refreshLights() {
     const auto px = pixelSize();
-    lights = view == View::Place ? cache.lights(scene, px.x, px.y) : std::vector<dc::art::LightSource> {};
-    if (!lights.empty()) wakeTimer();
+    planes = cache.planes(scene, px.x, px.y);
+    lights = cache.lights(scene, px.x, px.y);
+    emberSources.clear();
+    for (const auto& l : lights)
+        if (planes.layered() && (l.kind == 0 || l.kind == 5)) emberSources.push_back(l);
+    embers.clear();
+    if (!lights.empty() || planes.layered()) wakeTimer();
 }
 
 juce::Rectangle<int> DungeonCrawlerView::lifeArea(const dc::art::LightSource& l) const {
     const float sx = static_cast<float>(getWidth()) / dc::art::virtualWidth;
     const auto c = toLocal(l.position);
     if (l.kind == 3) return juce::Rectangle<float>(static_cast<float>(getWidth()), 70.0f * sx).withCentre({ static_cast<float>(getWidth()) * 0.5f, c.y }).toNearestInt();
-    const float r = (l.kind == 2 ? 10.0f : l.radius * 1.15f) * sx;
+    const float r = (l.kind == 2 ? 10.0f : (l.kind == 6 ? 14.0f : l.radius * 1.15f)) * sx;
     return juce::Rectangle<float>(2 * r, 2 * r).withCentre(c).toNearestInt().expanded(2);
 }
 
 void DungeonCrawlerView::paintLife(juce::Graphics& g, double now) {
     const float sx = static_cast<float>(getWidth()) / dc::art::virtualWidth;
     const auto t = static_cast<float>(std::fmod(now, 1000.0));
-    const juce::Colour warm(0xffd06a2a), pale = colours::ivory;
+    const juce::Colour pale = colours::ivory;
     int index = 0;
     for (const auto& l : lights) {
         const auto area = lifeArea(l);
@@ -582,8 +619,25 @@ void DungeonCrawlerView::paintLife(juce::Graphics& g, double now) {
         switch (l.kind) {
             case 0: case 1: {
                 const float r = l.radius * sx * (l.kind == 0 ? 1.05f : 0.9f);
+                const juce::Colour warm = planes.layered() ? colours::ember : juce::Colour(0xffd06a2a);
                 const float alpha = (l.kind == 0 ? 0.05f : 0.035f) + (l.kind == 0 ? 0.12f : 0.07f) * n;
                 g.setGradientFill(juce::ColourGradient(warm.withAlpha(alpha), c, warm.withAlpha(0.0f), c.translated(r, 0), true));
+                g.fillEllipse(juce::Rectangle<float>(2 * r, 2 * r).withCentre(c));
+                break;
+            }
+            case 4: {
+                // A lit window: a slow, faint breathing of its red glow.
+                const float r = l.radius * sx;
+                const float alpha = 0.04f + 0.09f * n;
+                g.setGradientFill(juce::ColourGradient(colours::blood.withAlpha(alpha), c, colours::blood.withAlpha(0.0f), c.translated(r, 0), true));
+                g.fillEllipse(juce::Rectangle<float>(2 * r, 2 * r).withCentre(c));
+                break;
+            }
+            case 6: {
+                // The lord's eyes: a slow, menacing pulse.
+                const float pulse = 0.5f + 0.5f * std::sin(t * 1.3f + static_cast<float>(index));
+                const float r = 12.0f * sx;
+                g.setGradientFill(juce::ColourGradient(colours::ember.withAlpha(0.1f + 0.35f * pulse), c, colours::blood.withAlpha(0.0f), c.translated(r, 0), true));
                 g.fillEllipse(juce::Rectangle<float>(2 * r, 2 * r).withCentre(c));
                 break;
             }
@@ -616,14 +670,160 @@ void DungeonCrawlerView::settleForTest() {
     if (zoomAt > 0) { zoomAt = 0; goTo(View::Place, { shown, dc::clampSubLocation(shown, shownSub) }, 1); }
     if (pending) cache.renderNow(pendingScene, px.x, px.y);
     if (!cache.ready(scene, px.x, px.y)) cache.renderNow(scene, px.x, px.y);
+    transition.held = -1.0f;
     timerCallback();
     transition.active = false;
     transition.from = {};
     transition.to = {};
+    transition.fromPlanes = {};
+    transition.toPlanes = {};
     pathTo = -1;
     layoutOverlays();
     refreshLights();
     stopTimer();
+}
+
+void DungeonCrawlerView::holdTransitionForTest(float t) {
+    const auto px = pixelSize();
+    if (zoomAt > 0) { zoomAt = 0; goTo(View::Place, { shown, dc::clampSubLocation(shown, shownSub) }, 1); }
+    if (!cache.ready(scene, px.x, px.y)) cache.renderNow(scene, px.x, px.y);
+    if (pending && !cache.ready(pendingScene, px.x, px.y)) cache.renderNow(pendingScene, px.x, px.y);
+    timerCallback();
+    transition.held = juce::jlimit(0.0f, 1.0f, t);
+    stopTimer();
+}
+
+void DungeonCrawlerView::advanceLifeForTest(int frames) {
+    for (int k = 0; k < frames; ++k) stepEmbers(1.0f / 15.0f);
+}
+
+juce::Rectangle<int> DungeonCrawlerView::moonArea() const {
+    if (planes.moonRadius <= 0.0f) return {};
+    const float sx = static_cast<float>(getWidth()) / dc::art::virtualWidth;
+    const auto c = toLocal(planes.moon);
+    const float r = planes.moonRadius * sx * 2.1f;
+    return juce::Rectangle<float>(2 * r, 2 * r).withCentre(c).getSmallestIntegerContainer().getIntersection(getLocalBounds());
+}
+
+juce::Rectangle<int> DungeonCrawlerView::mistArea() const {
+    // The low ground where the mist drifts (only scenes with a fog layer).
+    // Above the controls: under them the mist would only make the controls repaint.
+    if (!planes.fog.isValid()) return {};
+    const float sy = static_cast<float>(getHeight()) / dc::art::virtualHeight;
+    const float bottom = controlsShown ? controlsArea().getY() - 36.0f : 540.0f * sy;
+    return juce::Rectangle<float>(0.0f, bottom - 150.0f * sy, static_cast<float>(getWidth()), 150.0f * sy).getSmallestIntegerContainer();
+}
+
+void DungeonCrawlerView::paintMoonGlow(juce::Graphics& g, double now) {
+    const auto area = moonArea();
+    if (area.isEmpty() || !g.clipRegionIntersects(area)) return;
+    // A faint, slow pulse of crimson light around the moon (about 7 s per breath).
+    const float sx = static_cast<float>(getWidth()) / dc::art::virtualWidth;
+    const auto c = toLocal(planes.moon);
+    const float r = planes.moonRadius * sx;
+    const float pulse = 0.5f + 0.5f * std::sin(static_cast<float>(std::fmod(now, 1000.0)) * juce::MathConstants<float>::twoPi / 7.0f);
+    juce::ColourGradient glow(colours::blood.withAlpha(0.0f), c, colours::blood.withAlpha(0.0f), c.translated(r * 2.1f, 0.0f), true);
+    glow.addColour(0.42, colours::blood.withAlpha(0.03f + 0.07f * pulse));
+    g.setGradientFill(glow);
+    g.fillEllipse(juce::Rectangle<float>(4.2f * r, 4.2f * r).withCentre(c));
+}
+
+void DungeonCrawlerView::paintMist(juce::Graphics& g, double now) {
+    const auto area = mistArea();
+    if (area.isEmpty() || !g.clipRegionIntersects(area)) return;
+    // Two sheets of wisps, tileable, drifting slowly at different speeds (parallax),
+    // tinted slate: slow fog drift over the low ground.
+    const auto& tex = dc::art::mistTexture();
+    const float t = static_cast<float>(std::fmod(now, 10000.0));
+    const auto band = area.toFloat();
+    const struct { float height, speed, alpha; } sheets[] = { { 1.0f, 7.0f, 0.5f }, { 0.7f, -4.5f, 0.38f } };
+    g.saveState();
+    g.reduceClipRegion(area);
+    for (const auto& sheet : sheets) {
+        const float h = band.getHeight() * sheet.height;
+        const float w = h * static_cast<float>(tex.getWidth()) / static_cast<float>(tex.getHeight());
+        const float y = band.getBottom() - h;
+        float x = std::fmod(t * sheet.speed * static_cast<float>(getWidth()) / dc::art::virtualWidth, w);
+        if (x > 0) x -= w;
+        g.setOpacity(sheet.alpha);
+        for (; x < band.getRight(); x += w)
+            g.drawImage(tex, juce::Rectangle<float>(x, y, w + 1.0f, h), juce::RectanglePlacement::stretchToFit);
+    }
+    g.restoreState();
+}
+
+void DungeonCrawlerView::stepEmbers(float dt) {
+    if (emberSources.empty()) { embers.clear(); return; }
+    const float sx = static_cast<float>(getWidth()) / dc::art::virtualWidth;
+    for (auto& e : embers) {
+        e.age += dt;
+        e.phase += dt * 2.3f;
+        e.v.x += std::sin(e.phase) * 9.0f * sx * dt;
+        e.p += e.v * dt;
+    }
+    // Embers die when they burn out or drift into the controls (no repaints there).
+    const float floor = controlsShown ? controlsArea().getY() - 40.0f : static_cast<float>(getHeight());
+    embers.erase(std::remove_if(embers.begin(), embers.end(), [floor](const Ember& e) { return e.age >= e.life || e.p.y > floor || e.p.y < 0.0f; }), embers.end());
+    std::vector<const dc::art::LightSource*> sources;
+    for (const auto& src : emberSources)
+        if (toLocal(src.position).y < floor - 10.0f) sources.push_back(&src);
+    if (sources.empty()) return;
+    const int wanted = juce::jlimit(6, 16, static_cast<int>(sources.size()) * 5);
+    while (static_cast<int>(embers.size()) < wanted) {
+        const auto& src = *sources[static_cast<std::size_t>(random.nextInt(static_cast<int>(sources.size())))];
+        const float spread = juce::jmax(6.0f, src.radius * 0.8f) * sx;
+        Ember e;
+        e.p = toLocal(src.position) + juce::Point<float>((random.nextFloat() - 0.5f) * 2.0f * spread, (random.nextFloat() - 0.6f) * spread * 0.5f);
+        e.v = { (random.nextFloat() - 0.5f) * 8.0f * sx, -(10.0f + 22.0f * random.nextFloat()) * sx };
+        e.age = 0;
+        e.life = 1.8f + 3.0f * random.nextFloat();
+        e.size = (0.9f + 1.3f * random.nextFloat()) * sx;
+        e.phase = random.nextFloat() * 6.28f;
+        embers.push_back(e);
+    }
+}
+
+void DungeonCrawlerView::paintEmbers(juce::Graphics& g) {
+    for (const auto& e : embers) {
+        const auto box = juce::Rectangle<float>(e.size * 8.0f, e.size * 8.0f).withCentre(e.p);
+        if (!g.clipRegionIntersects(box.getSmallestIntegerContainer())) continue;
+        const float u = e.age / e.life;
+        const float alpha = juce::jlimit(0.0f, 1.0f, std::min(u * 6.0f, 1.0f) * (1.0f - u));
+        g.setGradientFill(juce::ColourGradient(colours::ember.withAlpha(0.35f * alpha), e.p, colours::blood.withAlpha(0.0f), e.p.translated(e.size * 3.5f, 0.0f), true));
+        g.fillEllipse(juce::Rectangle<float>(e.size * 7.0f, e.size * 7.0f).withCentre(e.p));
+        g.setColour(juce::Colour(0xffff9a5a).withAlpha(0.9f * alpha));
+        g.fillEllipse(juce::Rectangle<float>(e.size, e.size).withCentre(e.p));
+    }
+}
+
+void DungeonCrawlerView::drawPlanes(juce::Graphics& g, const dc::art::Planes& p, const juce::Image& flat, std::array<float, 4> scales,
+                                    juce::Point<float> about, float alpha) {
+    // Each layer scaled about a point by its own factor (back, mid, fog, near): parallax.
+    if (alpha <= 0.0f) return;
+    const auto bounds = getLocalBounds().toFloat();
+    const auto draw = [&](const juce::Image& image, float scale, juce::Rectangle<int> area, int fullW, int fullH) {
+        if (image.isNull()) return;
+        const float fx = bounds.getWidth() / static_cast<float>(fullW), fy = bounds.getHeight() / static_cast<float>(fullH);
+        const auto place = juce::AffineTransform::scale(static_cast<float>(area.getWidth()) / static_cast<float>(image.getWidth()),
+                                                        static_cast<float>(area.getHeight()) / static_cast<float>(image.getHeight()))
+                               .translated(static_cast<float>(area.getX()), static_cast<float>(area.getY()))
+                               .scaled(fx, fy)
+                               .followedBy(juce::AffineTransform::scale(scale, scale, about.x, about.y));
+        g.setOpacity(alpha);
+        g.drawImageTransformed(image, place);
+    };
+    if (!p.layered()) {
+        const auto& image = flat.isValid() ? flat : p.flat;
+        if (image.isValid()) draw(image, scales[1], image.getBounds(), image.getWidth(), image.getHeight());
+        g.setOpacity(1.0f);
+        return;
+    }
+    const int w = p.back.getWidth(), h = p.back.getHeight();
+    draw(p.back, scales[0], p.back.getBounds(), w, h);
+    draw(p.mid, scales[1], { 0, 0, w, h }, w, h);
+    draw(p.fog, scales[2], { 0, 0, w, h }, w, h);
+    draw(p.near, scales[3], p.nearArea, w, h);
+    g.setOpacity(1.0f);
 }
 
 void DungeonCrawlerView::layoutOverlays() {
@@ -665,41 +865,83 @@ void DungeonCrawlerView::layoutOverlays() {
 }
 
 void DungeonCrawlerView::paintTransition(juce::Graphics& g, double now) {
-    const float t = ease(static_cast<float>((now - transition.start) / transition.length));
+    const float t = ease(transition.held >= 0.0f ? transition.held : static_cast<float>((now - transition.start) / transition.length));
     const auto bounds = getLocalBounds().toFloat();
     const auto focus = toLocal(transition.focus);
-    const auto drawScaled = [&](const juce::Image& image, float scale, juce::Point<float> about, float alpha) {
-        if (image.isNull() || alpha <= 0.0f) return;
-        const auto fit = juce::AffineTransform::scale(bounds.getWidth() / static_cast<float>(image.getWidth()), bounds.getHeight() / static_cast<float>(image.getHeight()));
-        g.setOpacity(alpha);
-        g.drawImageTransformed(image, fit.followedBy(juce::AffineTransform::scale(scale, scale, about.x, about.y)));
-        g.setOpacity(1.0f);
-    };
+    const auto centre = bounds.getCentre();
     g.fillAll(colours::ink);
-    if (transition.kind == 1) {          // into a place: the map zooms towards the landmark, the scene settles in
-        drawScaled(transition.from, 1.0f + 2.4f * t, focus, 1.0f);
-        drawScaled(transition.to, 1.18f - 0.18f * t, bounds.getCentre(), t);
-    } else if (transition.kind == 2) {   // out to the map
-        drawScaled(transition.from, 1.0f + 0.18f * t, bounds.getCentre(), 1.0f);
-        drawScaled(transition.to, 3.4f - 2.4f * t, focus, t);
+    const auto& from = transition.fromPlanes;
+    const auto& to = transition.toPlanes;
+    if (transition.kind == 1) {
+        // Into a place: the map's layers rush past at their own speeds towards the
+        // landmark (the clouds fastest), while the place's layers settle in.
+        drawPlanes(g, from, transition.from, { 1.0f + 1.5f * t, 1.0f + 2.4f * t, 1.0f + 2.9f * t, 1.0f + 3.8f * t }, focus, 1.0f);
+        drawPlanes(g, to, transition.to, { 1.08f - 0.08f * t, 1.16f - 0.16f * t, 1.22f - 0.22f * t, 1.34f - 0.34f * t }, centre, t);
+    } else if (transition.kind == 2) {
+        // Out to the map: the place recedes, the map's layers fall back into place.
+        drawPlanes(g, from, transition.from, { 1.0f + 0.1f * t, 1.0f + 0.18f * t, 1.0f + 0.24f * t, 1.0f + 0.34f * t }, centre, 1.0f);
+        const float u = 1.0f - t;
+        drawPlanes(g, to, transition.to, { 1.0f + 1.5f * u, 1.0f + 2.4f * u, 1.0f + 2.9f * u, 1.0f + 3.8f * u }, focus, t);
     } else {
-        drawScaled(transition.from, 1.0f, bounds.getCentre(), 1.0f);
-        drawScaled(transition.to, 1.0f, bounds.getCentre(), t);
+        drawPlanes(g, {}, transition.from, { 1, 1, 1, 1 }, centre, 1.0f);
+        drawPlanes(g, {}, transition.to, { 1, 1, 1, 1 }, centre, t);
     }
 }
 
 void DungeonCrawlerView::paintMapOverlay(juce::Graphics& g) {
     const auto& marks = dc::art::mapLandmarks();
-    // The current location: a blood-red ring with a soft glow.
+    const float sx = static_cast<float>(getWidth()) / dc::art::virtualWidth;
+    // The title, small, over the sky.
+    {
+        const auto font = titleFont(19.0f).withExtraKerningFactor(0.22f);
+        const juce::String title("DUNGEON CRAWLER");
+        const auto box = juce::Rectangle<float>(static_cast<float>(getWidth()) * 0.5f - 160.0f, 14.0f, 320.0f, 26.0f).translated(150.0f, 0.0f);
+        g.setFont(font);
+        g.setColour(juce::Colours::black.withAlpha(0.6f));
+        g.drawText(title, box.translated(0.0f, 1.5f), juce::Justification::centred);
+        g.setColour(colours::ivory.withAlpha(0.88f));
+        g.drawText(title, box, juce::Justification::centred);
+        juce::ColourGradient rule(colours::blood.withAlpha(0.0f), box.getX() + 40.0f, 0, colours::blood.withAlpha(0.0f), box.getRight() - 40.0f, 0, false);
+        rule.addColour(0.5, colours::blood.withAlpha(0.9f));
+        g.setGradientFill(rule);
+        g.fillRect(juce::Rectangle<float>(box.getX() + 40.0f, box.getBottom() + 2.0f, box.getWidth() - 80.0f, 1.0f));
+    }
+    // The current location: a crimson glow beneath it and a small diamond above.
     if (shown >= 0) {
         const auto& l = marks[static_cast<std::size_t>(shown)];
         const auto c = toLocal(l.position);
-        const float r = l.radius * static_cast<float>(getWidth()) / dc::art::virtualWidth;
-        g.setGradientFill(juce::ColourGradient(colours::blood.withAlpha(0.32f), c, colours::blood.withAlpha(0.0f), c.translated(r * 1.5f, 0), true));
-        g.fillEllipse(juce::Rectangle<float>(3 * r, 3 * r).withCentre(c));
-        g.setColour(colours::blood);
-        g.drawEllipse(juce::Rectangle<float>(2 * r, 2 * r).withCentre(c), 2.2f);
-        g.drawEllipse(juce::Rectangle<float>(2 * r + 7, 2 * r + 7).withCentre(c), 0.8f);
+        const float r = l.radius * sx;
+        juce::ColourGradient glow(colours::blood.withAlpha(0.42f), c, colours::blood.withAlpha(0.0f), c.translated(r * 1.7f, 0), true);
+        glow.addColour(0.5, colours::blood.withAlpha(0.16f));
+        g.setGradientFill(glow);
+        g.fillEllipse(juce::Rectangle<float>(3.4f * r, 3.4f * r).withCentre(c));
+        g.setColour(colours::blood.withAlpha(0.85f));
+        g.drawEllipse(juce::Rectangle<float>(2 * r, 1.25f * r).withCentre(c.translated(0.0f, r * 0.55f)), 1.0f);
+    }
+    // Every landmark's name, small, under it: crimson for where you are.
+    for (int i = 0; i < dc::LocationCount; ++i) {
+        const auto& l = marks[static_cast<std::size_t>(i)];
+        const auto c = toLocal(l.position);
+        const bool here = i == shown;
+        const auto font = titleFont(12.0f).withExtraKerningFactor(0.1f);
+        const juce::String name = juce::String(dc::locationNames[static_cast<std::size_t>(i)]).toUpperCase();
+        const float width = juce::GlyphArrangement::getStringWidth(font, name) + 10.0f;
+        auto box = juce::Rectangle<float>(width, 16.0f).withCentre({ c.x, c.y + l.radius * sx * 0.62f + 14.0f });
+        box = box.withX(juce::jlimit(4.0f, static_cast<float>(getWidth()) - width - 4.0f, box.getX()));
+        if (!g.clipRegionIntersects(box.expanded(14.0f, 8.0f).getSmallestIntegerContainer())) continue;
+        g.setGradientFill(juce::ColourGradient(juce::Colours::black.withAlpha(0.6f), box.getCentre(), juce::Colours::black.withAlpha(0.0f),
+                                               box.getCentre().translated(box.getWidth() * 0.62f, 0.0f), true));
+        g.fillRect(box.expanded(10.0f, 4.0f));
+        g.setFont(font);
+        g.setColour(here ? colours::blood.brighter(0.45f) : (i == hovered ? colours::ivory : colours::ivory.withAlpha(0.78f)));
+        g.drawText(name, box, juce::Justification::centred);
+        if (here) {
+            juce::Path diamond;
+            const auto d = juce::Point<float>(box.getX() - 4.0f, box.getCentreY());
+            diamond.addQuadrilateral(d.x, d.y - 3.5f, d.x + 3.5f, d.y, d.x, d.y + 3.5f, d.x - 3.5f, d.y);
+            g.setColour(colours::blood.brighter(0.2f));
+            g.fillPath(diamond);
+        }
     }
     // The journey: a dashed red path, drawn as far as the sound has travelled.
     if (pathFrom >= 0 && pathTo >= 0 && pathFrom != pathTo) {
@@ -761,10 +1003,13 @@ void DungeonCrawlerView::paintMapOverlay(juce::Graphics& g) {
         const float width = juce::GlyphArrangement::getStringWidth(font, juce::String::fromUTF8(text.toRawUTF8())) + 24.0f;
         auto plate = juce::Rectangle<float>(width, 28.0f).withCentre({ c.x, c.y - l.radius * static_cast<float>(getWidth()) / dc::art::virtualWidth - 22.0f });
         plate = plate.withX(juce::jlimit(6.0f, static_cast<float>(getWidth()) - width - 6.0f, plate.getX()));
-        g.setColour(juce::Colours::black.withAlpha(0.78f));
-        g.fillRoundedRectangle(plate, 4.0f);
-        g.setColour(colours::blood);
-        g.drawRoundedRectangle(plate, 4.0f, 1.0f);
+        g.setGradientFill(juce::ColourGradient(juce::Colours::black.withAlpha(0.82f), plate.getCentre(), juce::Colours::black.withAlpha(0.0f),
+                                               plate.getCentre().translated(plate.getWidth() * 0.6f, 0.0f), true));
+        g.fillRect(plate.expanded(14.0f, 6.0f));
+        juce::ColourGradient rule(colours::blood.withAlpha(0.0f), plate.getX(), 0, colours::blood.withAlpha(0.0f), plate.getRight(), 0, false);
+        rule.addColour(0.5, colours::blood);
+        g.setGradientFill(rule);
+        g.fillRect(plate.withTop(plate.getBottom() - 1.0f));
         g.setColour(colours::ivory);
         g.setFont(font);
         g.drawText(juce::String::fromUTF8(text.toRawUTF8()), plate, juce::Justification::centred);
@@ -783,70 +1028,112 @@ void DungeonCrawlerView::paint(juce::Graphics& g) {
             g.fillAll(colours::ink);
             g.setColour(colours::ash.withAlpha(0.6f));
             g.setFont(labelFont(14.0f));
-            g.drawText(scene.isMap() ? "engraving the map..." : "engraving...", getLocalBounds(), juce::Justification::centred);
+            g.drawText(scene.isMap() ? "unrolling the map..." : "travelling...", getLocalBounds(), juce::Justification::centred);
         }
+        if (animateLife && planes.layered()) {
+            paintMoonGlow(g, now);
+            paintLife(g, now);
+            paintMist(g, now);
+            paintEmbers(g);
+        } else if (view == View::Place && animateLife) paintLife(g, now);
         if (view == View::Map && !pending) paintMapOverlay(g);
-        else if (view == View::Place && animateLife) paintLife(g, now);
     }
     // Breadcrumb plate.
-    const auto crumbs = juce::Rectangle<float>(8, 8, static_cast<float>((placeCrumb.isVisible() ? placeCrumb.getX() + juce::roundToInt(juce::GlyphArrangement::getStringWidth(titleFont(18.0f), placeCrumb.getText())) + 14 : locationCrumb.getRight()) + 6 - 8), 40);
-    g.setColour(juce::Colours::black.withAlpha(0.62f));
-    g.fillRoundedRectangle(crumbs, 5.0f);
-    // The place list plate.
+    // Soft dark vignettes behind the breadcrumb (top left) and the place list (top right).
+    const auto vignette = [&g](juce::Rectangle<float> r) {
+        // An elliptical soft shade (a small radial falloff image stretched over the area).
+        static const juce::Image falloff = [] {
+            juce::Image image(juce::Image::ARGB, 64, 64, true, juce::SoftwareImageType());
+            juce::Graphics ig(image);
+            juce::ColourGradient shade(juce::Colours::black.withAlpha(0.72f), 32.0f, 32.0f, juce::Colours::black.withAlpha(0.0f), 64.0f, 32.0f, true);
+            shade.addColour(0.55, juce::Colours::black.withAlpha(0.5f));
+            ig.setGradientFill(shade);
+            ig.fillAll();
+            return image;
+        }();
+        g.drawImage(falloff, r.expanded(r.getWidth() * 0.25f, r.getHeight() * 0.45f), juce::RectanglePlacement::stretchToFit);
+    };
+    const float crumbRight = static_cast<float>(placeCrumb.isVisible() ? placeCrumb.getX() + juce::roundToInt(juce::GlyphArrangement::getStringWidth(titleFont(16.0f), placeCrumb.getText())) + 14
+                                                                     : locationCrumb.getRight());
+    vignette(juce::Rectangle<float>(0.0f, 0.0f, crumbRight + 10.0f, 52.0f));
     if (view == View::Place && !transition.active && shown >= 0) {
         const int count = dc::subLocationCount(shown);
-        g.fillRoundedRectangle(juce::Rectangle<float>(static_cast<float>(getWidth()) - 194.0f, 8.0f, 186.0f, static_cast<float>((count + 1) * 26 + 16)), 5.0f);
+        vignette(juce::Rectangle<float>(static_cast<float>(getWidth()) - 200.0f, 0.0f, 200.0f, static_cast<float>((count + 1) * 26 + 26)));
+        // A hairline beside the list.
+        juce::ColourGradient rule(colours::blood.withAlpha(0.0f), 0.0f, 16.0f, colours::blood.withAlpha(0.0f), 0.0f, static_cast<float>(16 + (count + 1) * 26), false);
+        rule.addColour(0.5, colours::blood.withAlpha(0.6f));
+        g.setGradientFill(rule);
+        g.fillRect(static_cast<float>(getWidth()) - 190.0f, 16.0f, 1.0f, static_cast<float>((count + 1) * 26));
     }
-    // The controls strip: translucent ink over the art.
-    if (controlsShown) {
+    // The controls: a dark veil fading up into the art, a crimson hairline, small group
+    // headings and thin dividers (no boxes).
+    if (controlsShown && g.clipRegionIntersects(controlsArea().withTop(controlsArea().getY() - 36.0f).getSmallestIntegerContainer())) {
         const auto strip = controlsArea();
-        g.setGradientFill(juce::ColourGradient(juce::Colours::black.withAlpha(0.55f), strip.getX(), strip.getY(),
-                                               juce::Colours::black.withAlpha(0.86f), strip.getX(), strip.getY() + 40.0f, false));
-        g.fillRect(strip);
-        g.setColour(colours::dust.withAlpha(0.7f));
-        g.drawHorizontalLine(juce::roundToInt(strip.getY()), strip.getX(), strip.getRight());
-        g.setColour(colours::blood.withAlpha(0.6f));
-        g.drawHorizontalLine(juce::roundToInt(strip.getY()) + 2, strip.getX() + 20.0f, strip.getX() + 120.0f);
+        const auto veil = strip.withTop(strip.getY() - 36.0f);
+        juce::ColourGradient fade(juce::Colours::black.withAlpha(0.0f), 0.0f, veil.getY(), juce::Colours::black.withAlpha(0.9f), 0.0f, strip.getY() + 30.0f, false);
+        fade.addColour(0.45, juce::Colours::black.withAlpha(0.55f));
+        g.setGradientFill(fade);
+        g.fillRect(veil);
+        juce::ColourGradient line(colours::blood.withAlpha(0.0f), strip.getX(), 0.0f, colours::blood.withAlpha(0.0f), strip.getRight(), 0.0f, false);
+        line.addColour(0.5, colours::blood.withAlpha(0.7f));
+        g.setGradientFill(line);
+        g.fillRect(strip.getX(), strip.getY(), strip.getWidth(), 1.0f);
+        const float rowTop = strip.getY() + 40.0f;
+        g.setFont(titleFont(10.5f).withExtraKerningFactor(0.2f));
+        g.setColour(colours::ash.withAlpha(0.7f));
+        g.drawText("CHARACTER", juce::Rectangle<float>(16.0f, rowTop, 200.0f, 12.0f), juce::Justification::centredLeft);
+        g.drawText("LEVELS", juce::Rectangle<float>(248.0f, rowTop, 200.0f, 12.0f), juce::Justification::centredLeft);
+        g.drawText("TRAVEL", juce::Rectangle<float>(520.0f, rowTop, 200.0f, 12.0f), juce::Justification::centredLeft);
+        for (float x : { 232.0f, 504.0f, 776.0f }) {
+            juce::ColourGradient div(colours::ivory.withAlpha(0.0f), x, rowTop, colours::ivory.withAlpha(0.0f), x, strip.getBottom() - 8.0f, false);
+            div.addColour(0.5, colours::ivory.withAlpha(0.16f));
+            g.setGradientFill(div);
+            g.fillRect(x, rowTop, 1.0f, strip.getBottom() - 8.0f - rowTop);
+        }
+        juce::ColourGradient tool(colours::ivory.withAlpha(0.0f), 16.0f, 0.0f, colours::ivory.withAlpha(0.0f), strip.getRight() - 16.0f, 0.0f, false);
+        tool.addColour(0.5, colours::ivory.withAlpha(0.08f));
+        g.setGradientFill(tool);
+        g.fillRect(16.0f, strip.getY() + 36.0f, strip.getWidth() - 32.0f, 1.0f);
     }
 }
 
 void DungeonCrawlerView::resized() {
     const int w = getWidth(), h = getHeight();
     const int top = h - static_cast<int>(stripHeight);
-    const auto place = [this](Fader& f, juce::Rectangle<int> r) {
-        f.label.setBounds(r.removeFromBottom(18));
+    const auto place = [](Fader& f, juce::Rectangle<int> r) {
+        f.label.setBounds(r.removeFromBottom(17));
         f.slider.setBounds(r.reduced(2, 0));
     };
-    // Row 1: the toolbar.
-    const int ty = top + 6, th = 24;
-    presetButton.setBounds(14, ty, 230, th);
-    prevPreset.setBounds(248, ty, 28, th);
-    nextPreset.setBounds(278, ty, 28, th);
-    slotA.setBounds(322, ty, 30, th);
-    slotB.setBounds(354, ty, 30, th);
-    copySlot.setBounds(386, ty, 48, th);
-    undoButton.setBounds(450, ty, 30, th);
-    redoButton.setBounds(482, ty, 30, th);
-    settingsButton.setBounds(528, ty, 30, th);
-    atmosphereLabel.setBounds(w - 262, ty, 80, th);
-    atmosphere.setBounds(w - 180, ty, 166, th);
-    // Row 2: macros, main faders, travel, buttons.
-    const int row = top + 34, faderHeight = static_cast<int>(stripHeight) - 38;
-    macroHeading.setBounds(18, row - 2, 120, 12);
+    // Row 1: the toolbar (presets, A/B, undo/redo, settings; Atmosphere on the right).
+    const int ty = top + 8, th = 24;
+    prevPreset.setBounds(14, ty, 24, th);
+    presetButton.setBounds(38, ty, 224, th);
+    nextPreset.setBounds(262, ty, 24, th);
+    slotA.setBounds(304, ty, 28, th);
+    slotB.setBounds(332, ty, 28, th);
+    copySlot.setBounds(360, ty, 46, th);
+    undoButton.setBounds(422, ty, 28, th);
+    redoButton.setBounds(450, ty, 28, th);
+    settingsButton.setBounds(492, ty, 28, th);
+    atmosphereLabel.setBounds(w - 270, ty, 90, th);
+    atmosphere.setBounds(w - 178, ty, 164, th);
+    // Row 2: character (the place's macros), levels, travel, and the three switches.
+    const int row = top + 54, rowHeight = h - 6 - row;
     for (int m = 0; m < dc::macroCount; ++m)
-        place(macros[static_cast<std::size_t>(m)], { 14 + m * 54, row + 8, 54, faderHeight - 8 });
-    const int mainX = 250;
-    place(input, { mainX, row, 62, faderHeight });
-    place(intensity, { mainX + 62, row, 62, faderHeight });
-    place(mix, { mainX + 124, row, 62, faderHeight });
-    place(output, { mainX + 186, row, 62, faderHeight });
-    travelLabel.setBounds(mainX + 266, row + 6, 56, 24);
-    travelTime.setBounds(mainX + 320, row + 6, 230, 24);
-    travelSync.setBounds(mainX + 320, row + 38, 120, 24);
-    journeyToggle.setBounds(w - 314, row + 66, 96, 30);
-    bypass.setBounds(w - 214, row + 66, 96, 30);
-    advancedToggle.setBounds(w - 114, row + 66, 100, 30);
-    controlsToggle.setBounds(w - 40, controlsShown ? top - 30 : h - 32, 30, 26);
+        place(macros[static_cast<std::size_t>(m)], { 14 + m * 54, row, 54, rowHeight });
+    const int mainX = 246;
+    place(input, { mainX, row, 62, rowHeight });
+    place(intensity, { mainX + 62, row, 62, rowHeight });
+    place(mix, { mainX + 124, row, 62, rowHeight });
+    place(output, { mainX + 186, row, 62, rowHeight });
+    travelLabel.setBounds(520, row + 2, 60, 22);
+    travelTime.setBounds(574, row + 2, 190, 22);
+    travelSync.setBounds(522, row + 36, 150, 24);
+    journeyToggle.setBounds(792, row - 2, 150, 26);
+    bypass.setBounds(792, row + 25, 150, 26);
+    advancedToggle.setBounds(792, row + 52, 150, 26);
+    macroHeading.setBounds(0, 0, 0, 0);
+    controlsToggle.setBounds(w - 38, controlsShown ? top - 30 : h - 32, 30, 26);
     for (auto* c : std::initializer_list<juce::Component*> { &input.slider, &input.label, &intensity.slider, &intensity.label, &mix.slider, &mix.label,
                                                              &output.slider, &output.label, &travelLabel, &travelTime, &travelSync, &bypass, &advancedToggle, &journeyToggle,
                                                              &macroHeading, &atmosphere, &atmosphereLabel, &presetButton, &prevPreset, &nextPreset, &slotA, &slotB,

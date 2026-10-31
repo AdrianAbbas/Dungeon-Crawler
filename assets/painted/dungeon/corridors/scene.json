@@ -1,0 +1,109 @@
+{
+ "scene": "dungeon/corridors",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 432.6,
+   "y": 479.5
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 231.1,
+   "y": 295.0
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 595.7,
+   "y": 293.3
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 398.7,
+   "y": 292.7
+  },
+  {
+   "kind": "hotspot",
+   "sub": 4,
+   "x": 480.9,
+   "y": 285.2
+  },
+  {
+   "kind": "lava",
+   "radius": 40,
+   "x": 471.0,
+   "y": 347.5
+  },
+  {
+   "kind": "fire",
+   "radius": 9,
+   "x": 99.9,
+   "y": 132.4
+  },
+  {
+   "kind": "fire",
+   "radius": 9,
+   "x": 739.8,
+   "y": 130.1
+  },
+  {
+   "kind": "fire",
+   "radius": 9,
+   "x": 391.8,
+   "y": 252.6
+  },
+  {
+   "kind": "fire",
+   "radius": 9,
+   "x": 547.6,
+   "y": 252.4
+  },
+  {
+   "kind": "fire",
+   "radius": 9,
+   "x": 432.4,
+   "y": 269.3
+  },
+  {
+   "kind": "fire",
+   "radius": 9,
+   "x": 521.2,
+   "y": 269.3
+  },
+  {
+   "kind": "fire",
+   "radius": 9,
+   "x": 448.6,
+   "y": 276.0
+  },
+  {
+   "kind": "fire",
+   "radius": 9,
+   "x": 510.7,
+   "y": 276.0
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   480,
+   260,
+   120,
+   0.5
+  ]
+ ]
+}

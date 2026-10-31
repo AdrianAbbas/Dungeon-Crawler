@@ -1,10 +1,10 @@
 # DUNGEON CRAWLER
 
-A dark-fantasy **audio effect** for macOS (AU and VST3; GarageBand and Logic Pro). An
-engraved map of a dark realm is its interface: choose a place and whatever runs
-through the plug-in (guitar, synth, piano, voice) sounds as if it were played *there*.
-Travelling between places morphs the sound smoothly, and the window shows an engraved
-illustration of where you are.
+A dark-fantasy **audio effect** for macOS (AU and VST3; GarageBand and Logic Pro). A
+painted map of a dark realm under a red moon is its interface: choose a place and
+whatever runs through the plug-in (guitar, synth, piano, voice) sounds as if it were
+played *there*. Travelling between places morphs the sound smoothly, and the window
+zooms into an illustration of where you are.
 
 - **10 locations, 40 places:** Dungeon, Castle, Cathedral, Haunted Forest, Caverns,
   Village, Swamp, Mountains, Necropolis, Wizard's Tower, each with its own scene and
@@ -20,8 +20,11 @@ illustration of where you are.
   location by itself; deterministic, synced to the song.
 - **Atmosphere** (optional, off by default): sparse, quiet sounds of the place: torches,
   drips, wind, crows, a distant bell, a far-off growl.
-- **Engraved art:** a full-window map and an illustration for every place, drawn in an
-  antique engraving style, with subtle life (flickering torches, drifting fog).
+- **Painted art (being rolled out):** the map, the Dungeon and the Castle are painterly
+  dark-fantasy scenes built in Blender and painted in layers: the view zooms in with
+  parallax, mist drifts, embers rise, windows flicker, the moon's glow breathes. The
+  other locations still show the earlier engraved illustrations until they are
+  painted. Your own art can replace any scene ([docs/ART_SOURCES.md](docs/ART_SOURCES.md)).
 
 Status: Milestones 0–12 of [docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md) and
 [docs/DIRECTION_UPDATE_1.md](docs/DIRECTION_UPDATE_1.md); development log and decisions
@@ -105,7 +108,7 @@ effects (e.g. Reaper, Cubase, Bitwig) work.
 | Silent slot with plain sliders in GarageBand | The quarantine flag: run `install-mac.sh` again (from the unzipped folder), restart GarageBand. |
 | Plug-in missing from the list | GarageBand: Settings → Audio/MIDI → tick "Audio Units", restart. Logic: Plug-in Manager → Reset & Rescan. |
 | Plain sliders instead of the map | The window's view menu: "Editor", not "Controls". |
-| "engraving…" for a moment | The art is drawn the first time a scene is shown (about a second at Retina size); after that it is cached. |
+| "travelling…" for a moment | A scene is prepared the first time it is shown (a fraction of a second; engraved scenes about a second at Retina size); after that it is cached. |
 | CPU too high on a laptop | ⚙ → Quality → Eco. |
 | Something else | Run `bash diagnose-mac.sh` (in the unzipped folder) and send the report it writes to the Desktop. |
 
@@ -136,7 +139,9 @@ and renders the listening WAVs.
 | `Source/DSP/` | The modules: from VEIL (Abyss, Ancient Blood, Choir, Wraith, Echoes, Crypt) and new (Relics, Signature, Atmosphere) |
 | `Source/World/` | Locations, sub-locations, macros, signatures (`Locations.*`), level trims, journeys (`Journey.h`), factory presets (`Presets.h`) |
 | `Source/Engine.*` | The chain, travel, crossfades, the reverb rooms and signature pools, level matching |
-| `Source/UI/` | Engraving renderer, motifs, the map and the 40 scenes, the background scene cache, the look |
+| `Source/UI/` | The painted scenes (layers, manifest), the engraving renderer for the rest, the background scene cache, the look |
+| `tools/painted/` | The Blender + painting pipeline that makes the painted art ([README](tools/painted/README.md)) |
+| `assets/` | The painted layers (`painted/`, shipped in the bundles) and the fonts (OFL) |
 | `Source/PluginProcessor.*`, `Source/PluginEditor.*` | Plug-in (journeys, MIDI, presets, A/B, undo) and window |
 | `Tests/` | Offline tests through `processBlock` and the editor |
 | `tools/au-harness/`, `scripts/`, `packaging/` | CI host harness, install/uninstall/diagnostics, install notes |

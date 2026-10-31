@@ -1,8 +1,8 @@
 #include "SceneCache.h"
 
 namespace dc::art {
-SceneCache::SceneCache(std::function<void()> ready, int cap)
-    : juce::Thread("DungeonCrawler scenes"), onReady(std::move(ready)), capacity(juce::jmax(2, cap)) {
+SceneCache::SceneCache(std::function<void()> ready, std::size_t budgetBytes)
+    : juce::Thread("DungeonCrawler scenes"), onReady(std::move(ready)), budget(budgetBytes) {
     startThread(juce::Thread::Priority::low);
 }
 
@@ -25,9 +25,17 @@ juce::Image SceneCache::get(SceneId id, int width, int height) {
         const juce::ScopedLock sl(lock);
         const Key key { id, width, height };
         for (auto& e : entries)
-            if (e.key == key) { e.used = ++clock; return e.image; }
+            if (e.key == key) { e.used = ++clock; return e.planes.flat; }
     }
     request(id, width, height);
+    return {};
+}
+
+Planes SceneCache::planes(SceneId id, int width, int height) const {
+    const juce::ScopedLock sl(lock);
+    const Key key { id, width, height };
+    for (const auto& e : entries)
+        if (e.key == key) return e.planes;
     return {};
 }
 
@@ -37,6 +45,13 @@ std::vector<LightSource> SceneCache::lights(SceneId id, int width, int height) c
     for (const auto& e : entries)
         if (e.key == key) return e.lights;
     return {};
+}
+
+std::size_t SceneCache::bytesHeld() const {
+    const juce::ScopedLock sl(lock);
+    std::size_t total = 0;
+    for (const auto& e : entries) total += e.planes.bytes();
+    return total;
 }
 
 void SceneCache::request(SceneId id, int width, int height) {
@@ -50,27 +65,52 @@ void SceneCache::request(SceneId id, int width, int height) {
     wake.signal();
 }
 
-juce::Image SceneCache::produce(const Key& key, std::vector<LightSource>& lights) const {
+Planes SceneCache::produce(const Key& key, std::vector<LightSource>& lights) const {
+    if (isPainted(key.id)) {
+        auto p = loadPainted(key.id, key.width, key.height, &closing);
+        if (p.flat.isValid()) {
+            lights = paintedLights(key.id);
+            return p;
+        }
+    }
+    Planes p;
     const auto file = overrideFile(key.id);
     if (file.existsAsFile()) {
-        // Drop-in art: scaled to cover the window (the aspect is the editor's).
+        // Drop-in art for a place without painted art: scaled to cover the window.
         const auto image = juce::ImageFileFormat::loadFrom(file);
         if (image.isValid()) {
             juce::Image out(juce::Image::RGB, key.width, key.height, true, juce::SoftwareImageType());
             juce::Graphics g(out);
             g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
             g.drawImage(image, out.getBounds().toFloat(), juce::RectanglePlacement::fillDestination);
-            return out;   // drop-in art has no animated lights
+            p.back = p.flat = out;
+            return p;
         }
     }
-    return renderScene(key.id, key.width, key.height, &closing, &lights);
+    p.flat = p.back = renderScene(key.id, key.width, key.height, &closing, &lights);
+    return p;
+}
+
+void SceneCache::store(Entry entry) {
+    const juce::ScopedLock sl(lock);
+    entries.push_back(std::move(entry));
+    // Keep within the memory budget, but always the two most recent scenes.
+    for (;;) {
+        std::size_t total = 0;
+        for (const auto& e : entries) total += e.planes.bytes();
+        if (total <= budget || entries.size() <= 2) break;
+        auto oldest = std::min_element(entries.begin(), entries.end(), [](const Entry& a, const Entry& b) { return a.used < b.used; });
+        entries.erase(oldest);
+    }
 }
 
 juce::Image SceneCache::renderNow(SceneId id, int width, int height) {
     std::vector<LightSource> found;
-    auto image = produce({ id, width, height }, found);
-    const juce::ScopedLock sl(lock);
-    entries.push_back({ { id, width, height }, image, ++clock, std::move(found) });
+    auto planes = produce({ id, width, height }, found);
+    auto image = planes.flat;
+    juce::uint32 now;
+    { const juce::ScopedLock sl(lock); now = ++clock; }
+    store({ { id, width, height }, std::move(planes), now, std::move(found) });
     return image;
 }
 
@@ -84,16 +124,11 @@ void SceneCache::run() {
         }
         if (!have) { wake.wait(500); continue; }
         std::vector<LightSource> found;
-        auto image = produce(key, found);
-        if (threadShouldExit() || image.isNull()) break;
-        {
-            const juce::ScopedLock sl(lock);
-            entries.push_back({ key, image, ++clock, std::move(found) });
-            while (static_cast<int>(entries.size()) > capacity) {
-                auto oldest = std::min_element(entries.begin(), entries.end(), [](const Entry& a, const Entry& b) { return a.used < b.used; });
-                entries.erase(oldest);
-            }
-        }
+        auto planes = produce(key, found);
+        if (threadShouldExit() || planes.flat.isNull()) break;
+        juce::uint32 now;
+        { const juce::ScopedLock sl(lock); now = ++clock; }
+        store({ key, std::move(planes), now, std::move(found) });
         triggerAsyncUpdate();
     }
 }

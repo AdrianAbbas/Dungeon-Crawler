@@ -1,5 +1,6 @@
 #include "Scenes.h"
 #include "Motifs.h"
+#include "Painted.h"
 
 namespace dc::art {
 using namespace motif;
@@ -318,7 +319,22 @@ void drawPlaceholder(Plate& plate, SceneId id) {
 }
 }
 
-const std::array<Landmark, LocationCount>& mapLandmarks() { return landmarks; }
+const std::array<Landmark, LocationCount>& mapLandmarks() {
+    // The painted map's landmarks where it is installed (its manifest), else the
+    // engraved map's.
+    static const std::array<Landmark, LocationCount> painted = [] {
+        auto marks = landmarks;
+        if (const auto* s = paintedScene({ -1, 0 }))
+            for (int i = 0; i < s->anchorCount; ++i)
+                if (s->anchors[i].kind == anchorLandmark) {
+                    const int index = juce::roundToInt(s->anchors[i].value);
+                    if (index >= 0 && index < LocationCount)
+                        marks[static_cast<std::size_t>(index)].position = { s->anchors[i].x, s->anchors[i].y };
+                }
+        return marks;
+    }();
+    return isPainted({ -1, 0 }) ? painted : landmarks;
+}
 
 void drawPlace(Plate&, SceneId, bool& drawn);   // ScenePlaces.cpp
 

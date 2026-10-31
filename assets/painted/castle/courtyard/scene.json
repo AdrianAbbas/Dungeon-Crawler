@@ -1,0 +1,66 @@
+{
+ "scene": "castle/courtyard",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 529.1,
+   "y": 417.8
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 436.5,
+   "y": 318.1
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 616.0,
+   "y": 254.5
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 689.8,
+   "y": 331.0
+  },
+  {
+   "kind": "hotspot",
+   "sub": 4,
+   "x": 529.2,
+   "y": 96.0
+  },
+  {
+   "kind": "fire",
+   "radius": 30,
+   "x": 529.2,
+   "y": 423.5
+  },
+  {
+   "kind": "window",
+   "radius": 22,
+   "x": 436.4,
+   "y": 325.4
+  },
+  {
+   "kind": "window",
+   "radius": 10,
+   "x": 616.0,
+   "y": 254.5
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  282,
+  150,
+  118
+ ],
+ "glows": []
+}

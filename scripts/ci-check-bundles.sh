@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # CI gate for the built macOS bundles: both architecture slices present, AU identity
-# (an effect, aufx) and sandboxSafe in Info.plist, minimum macOS version reported.
+# (an effect, aufx) and sandboxSafe in Info.plist, minimum macOS version reported, the
+# painted art inside every bundle (Contents/Resources/Painted).
 # Usage: scripts/ci-check-bundles.sh <artefacts dir, e.g. build/DungeonCrawler_artefacts/Release>
 set -euo pipefail
 artefacts="$1"
@@ -19,6 +20,12 @@ for bundle in "$artefacts/AU/DungeonCrawler.component" "$artefacts/VST3/DungeonC
         minos=$(/usr/bin/otool -arch "$arch" -l "$binary" | /usr/bin/awk '/LC_BUILD_VERSION/{f=1} f&&/minos/{print $2; exit}')
         printf '    %-7s minimum macOS %s\n' "$arch" "${minos:-unknown}"
     done
+    painted="$bundle/Contents/Resources/Painted"
+    if [[ -f "$painted/map/sky.jpg" ]]; then
+        printf '    painted art: %s scenes, %s\n' "$(find "$painted" -name scene.json | wc -l | tr -d ' ')" "$(du -sh "$painted" | cut -f1)"
+    else
+        echo "::error::missing the painted art in $bundle (Contents/Resources/Painted)"; status=1
+    fi
 done
 
 

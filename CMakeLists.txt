@@ -54,13 +54,35 @@ target_sources(DungeonCrawler PRIVATE
     Source/DSP/Abyss.cpp Source/DSP/AncientBlood.cpp Source/DSP/Choir.cpp
     Source/DSP/Wraith.cpp Source/DSP/Echoes.cpp Source/DSP/Crypt.cpp
     Source/DSP/Relics.cpp Source/DSP/Signature.cpp Source/DSP/Atmosphere.cpp Source/World/Locations.cpp
-    Source/UI/EngravedLookAndFeel.cpp Source/UI/Engraving.cpp Source/UI/Scenes.cpp Source/UI/ScenePlaces.cpp Source/UI/SceneCache.cpp)
+    Source/UI/EngravedLookAndFeel.cpp Source/UI/Engraving.cpp Source/UI/Scenes.cpp Source/UI/ScenePlaces.cpp Source/UI/SceneCache.cpp
+    Source/UI/Painted.cpp)
+# Fonts (SIL Open Font License, assets/fonts): Cinzel for titles, Cormorant Garamond for labels.
+juce_add_binary_data(DungeonCrawlerFonts NAMESPACE DungeonCrawlerFonts SOURCES
+    assets/fonts/CormorantGaramond-SemiBold.ttf assets/fonts/CormorantGaramond-Bold.ttf assets/fonts/Cinzel-SemiBold.ttf)
+set_target_properties(DungeonCrawlerFonts PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(DungeonCrawler PUBLIC Source)
 target_compile_definitions(DungeonCrawler PUBLIC
     JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_DISPLAY_SPLASH_SCREEN=0 JUCE_REPORT_APP_USAGE=0)
 target_link_libraries(DungeonCrawler PRIVATE juce::juce_audio_utils juce::juce_dsp
-    PUBLIC juce::juce_recommended_config_flags)
+    PUBLIC juce::juce_recommended_config_flags DungeonCrawlerFonts)
+# The painted art (tools/painted builds it into assets/painted) ships inside every bundle
+# at Contents/Resources/Painted; development builds and the tests fall back to the
+# source tree.
+target_compile_definitions(DungeonCrawler PUBLIC DC_PAINTED_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/painted")
+foreach(dc_format IN LISTS DC_FORMATS)
+    set(dc_target DungeonCrawler_${dc_format})
+    if(TARGET ${dc_target})
+        if(dc_format STREQUAL "Standalone" AND NOT APPLE)
+            set(dc_dest "$<TARGET_FILE_DIR:${dc_target}>/Painted")
+        else()
+            set(dc_dest "$<TARGET_FILE_DIR:${dc_target}>/../Resources/Painted")
+        endif()
+        add_custom_command(TARGET ${dc_target} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/assets/painted" "${dc_dest}"
+            VERBATIM)
+    endif()
+endforeach()
 if(DC_BUILD_TESTS)
     enable_testing()
     juce_add_console_app(DungeonCrawlerTests PRODUCT_NAME "DungeonCrawlerTests")

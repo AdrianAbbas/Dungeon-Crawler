@@ -1,0 +1,148 @@
+{
+ "scene": "map",
+ "anchors": [
+  {
+   "kind": "landmark",
+   "index": 0,
+   "name": "Dungeon",
+   "x": 560,
+   "y": 300
+  },
+  {
+   "kind": "landmark",
+   "index": 1,
+   "name": "Castle",
+   "x": 452,
+   "y": 178
+  },
+  {
+   "kind": "landmark",
+   "index": 2,
+   "name": "Cathedral",
+   "x": 652,
+   "y": 196
+  },
+  {
+   "kind": "landmark",
+   "index": 3,
+   "name": "Haunted Forest",
+   "x": 250,
+   "y": 268
+  },
+  {
+   "kind": "landmark",
+   "index": 4,
+   "name": "Caverns",
+   "x": 770,
+   "y": 372
+  },
+  {
+   "kind": "landmark",
+   "index": 5,
+   "name": "Village",
+   "x": 408,
+   "y": 378
+  },
+  {
+   "kind": "landmark",
+   "index": 6,
+   "name": "Swamp",
+   "x": 176,
+   "y": 392
+  },
+  {
+   "kind": "landmark",
+   "index": 7,
+   "name": "Mountains",
+   "x": 812,
+   "y": 150
+  },
+  {
+   "kind": "landmark",
+   "index": 8,
+   "name": "Necropolis",
+   "x": 876,
+   "y": 282
+  },
+  {
+   "kind": "landmark",
+   "index": 9,
+   "name": "Wizard's Tower",
+   "x": 130,
+   "y": 196
+  },
+  {
+   "kind": "lava",
+   "radius": 30,
+   "x": 760.1,
+   "y": 212.4
+  },
+  {
+   "kind": "lava",
+   "radius": 30,
+   "x": 610.0,
+   "y": 289.7
+  },
+  {
+   "kind": "lava",
+   "radius": 30,
+   "x": 530.0,
+   "y": 376.5
+  },
+  {
+   "kind": "lava",
+   "radius": 30,
+   "x": 470.0,
+   "y": 511.4
+  },
+  {
+   "kind": "lava",
+   "radius": 30,
+   "x": 720.0,
+   "y": 299.3
+  },
+  {
+   "kind": "lava",
+   "radius": 30,
+   "x": 829.9,
+   "y": 415.1
+  },
+  {
+   "kind": "lava",
+   "radius": 30,
+   "x": 300.0,
+   "y": 328.2
+  },
+  {
+   "kind": "lava",
+   "radius": 30,
+   "x": 450.0,
+   "y": 328.2
+  },
+  {
+   "kind": "window",
+   "radius": 10,
+   "x": 94.8,
+   "y": 42.3
+  },
+  {
+   "kind": "fire",
+   "radius": 16,
+   "x": 560.3,
+   "y": 298.3
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  262,
+  70,
+  64
+ ],
+ "glows": []
+}

@@ -5,3 +5,4 @@
 *.user
 __pycache__/
 *.wav
+/build-art/

@@ -107,7 +107,36 @@ synth track, walk through all 40 places (location list, then each place) and lis
 - [ ] Advanced drawer: the new "Signature" group (Signature, Amount, Tone, Rate) changes
       the signature; Amount −100 % removes it.
 
-## M7 + M8: the engraved map and the scenes
+## Visual overhaul (prototype): the painted map, Dungeon and Castle
+
+Painted art for the map and the Dungeon and Castle (all their places); the other
+locations still show the engraved scenes below.
+
+- [ ] The window opens on a **painted map**: a dark land seen from high above, lava
+      rivers, fog banks, the red moon rising behind a jagged range, each location a
+      glowing landmark with its **name** underneath in small capitals. The current
+      location has a **crimson glow** and its name in crimson.
+- [ ] **Life:** embers rise from the lava and fires, mist drifts slowly across the low
+      ground, the moon's glow breathes, windows flicker. Gentle, never busy.
+- [ ] Click the Dungeon or the Castle: the path is drawn, then the **zoom**: the map's
+      layers rush past at different speeds (clouds fastest) while the place settles in,
+      also in layers (**parallax**). Same feel and timing as before.
+- [ ] Inside: Corridors (lava crack, torches, the glowing arch of the Lair at the end),
+      Entrance Hall (the great gate onto the moonlit mountains), Prison Cells (bars,
+      chains, the cells glowing red), Treasure Room (gold in a shaft of red light), Final
+      Boss Lair (the horned, winged lord over a lava lake); Courtyard (the castle on its
+      crag under the moon), Great Hall, Throne Room (the rose window), Chapel (candles,
+      tall windows, light shafts), Tower Top (the keep against the moon, the sea of mist).
+- [ ] Rings (hotspots) sit on the doors, stairs and features of each picture; the list
+      top right and the breadcrumb work as before.
+- [ ] **Controls:** a dark veil instead of a box, small group headings (Character,
+      Levels, Travel), slim faders with ivory caps and a crimson track, readable serif
+      labels. Everything still works as before.
+- [ ] Eco (⚙ > Quality) stops all animation; the Air stays cool with the window open.
+- [ ] Optional: a folder of layers (back.png, mid.png, fog.png, near.png) in the drop-in
+      folder replaces a scene with parallax ([ART_SOURCES.md](ART_SOURCES.md)).
+
+## M7 + M8: the engraved map and the scenes (now the other locations)
 
 Open the plug-in window (GarageBand: double-click the DUNGEON CRAWLER slot; the view
 menu must say "Editor", not "Controls").

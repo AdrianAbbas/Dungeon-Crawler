@@ -8,6 +8,7 @@
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 #include "UI/Scenes.h"
+#include "UI/Painted.h"
 #include "World/Presets.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_dsp/juce_dsp.h>
@@ -1225,7 +1226,16 @@ void testEditor(Suite& s, const juce::String& snapshot) {
     // Milestone 7: the map is the home screen; a landmark zooms into its place.
     editor->settleForTest();
     s.check(editor->showingMap() && editor->locationButton(dc::Castle).isVisible(), "the editor opens on the map, landmarks clickable");
-    s.check(!editor->animating(), "nothing animates (no timer) while the map is still");
+    // Visual overhaul: the painted map has its life (embers, mist, the moon's glow);
+    // with the animation off (Eco) nothing runs while the map is still.
+    s.check(editor->sceneLayered(), "the map is painted, in depth layers");
+    editor->setAnimation(true);
+    s.check(editor->animating(), "the painted map's life runs (timer)");
+    editor->setAnimation(false);
+    editor->settleForTest();
+    s.check(!editor->animating(), "nothing animates (no timer) on a still map with the animation off");
+    editor->setAnimation(true);
+    editor->settleForTest();
     const auto snap = [&](const char* suffix) {
         if (snapshot.isEmpty()) return;
         auto image = editor->createComponentSnapshot(editor->getLocalBounds(), true, 1.0f);
@@ -1234,7 +1244,33 @@ void testEditor(Suite& s, const juce::String& snapshot) {
         juce::FileOutputStream stream(file);
         juce::PNGImageFormat().writeImageToStream(image, stream);
     };
+    editor->advanceLifeForTest(30);
     snap("-map");
+    {
+        // The painted life's cost: each region it repaints, at its frame rate.
+        editor->advanceLifeForTest(15);
+        // JUCE merges the regions repainted in one frame into one paint call: measure each
+        // frame rate's regions together, as one clip region, painted into the window.
+        const auto regions = editor->lifeRegionsWithRates();
+        double msPerSecond = 0.0;
+        juce::Image canvas(juce::Image::RGB, editor->getWidth(), editor->getHeight(), true, juce::SoftwareImageType());
+        for (const int fps : { 30, 15, 10, 5 }) {
+            juce::RectangleList<int> clip;
+            for (const auto& [r, rate] : regions) if (rate == fps) clip.addWithoutMerging(r);
+            if (clip.isEmpty()) continue;
+            const auto t0 = std::chrono::steady_clock::now();
+            for (int k = 0; k < 5; ++k) {
+                juce::Graphics g(canvas);
+                g.reduceClipRegion(clip);
+                editor->paintEntireComponent(g, true);
+            }
+            const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count() / 5.0;
+            s.metric("painted map life frame at " + std::to_string(fps) + " fps", ms, " ms");
+            msPerSecond += ms * (fps == 30 ? 15 : fps);   // embers are stepped at 15 fps
+        }
+        s.metric("editor CPU for the painted map's life (software, this container)", msPerSecond / 10.0, " % of one core");
+        s.check(editor->emberCount() > 0, "embers drift on the map", std::to_string(editor->emberCount()));
+    }
     {
         const auto begin = std::chrono::steady_clock::now();
         for (int k = 0; k < 10; ++k) auto image = editor->createComponentSnapshot(editor->getLocalBounds(), true, 1.0f);
@@ -1244,6 +1280,9 @@ void testEditor(Suite& s, const juce::String& snapshot) {
     }
     editor->locationButton(dc::Castle).onClick();
     s.check(!editor->showingMap() || editor->animating(), "clicking a landmark starts the journey (path, then zoom)");
+    // The zoom, held half way: the map's layers and the place's at their own scales.
+    editor->holdTransitionForTest(0.5f);
+    snap("-zoom");
     editor->settleForTest();
     s.check(!editor->showingMap() && editor->shownScene().location == dc::Castle && editor->shownScene().sub == 0, "then shows the Castle's own scene");
     s.check(editor->hotspotButton(1).isVisible() && editor->subLocationButton(1).isVisible(), "the scene shows its sub-locations (hotspots and list)");
@@ -1721,6 +1760,55 @@ void testArt(Suite& s) {
     s.check(highest < 0.85, "every illustration differs from every other (correlation < 0.85)", fmt(highest, 2));
     const auto map = dc::art::renderScene({ -1, 0 }, 192, 112);
     s.check(map.isValid(), "the map renders");
+
+    // Visual overhaul: the painted prototype (the map, the Dungeon and the Castle with all
+    // their places). Every painted scene's layers exist and load; its hotspots name every
+    // place of its location inside the frame; the map's landmarks are clickable above
+    // the controls.
+    s.check(dc::art::paintedFolder() != juce::File(), "the painted art is found", dc::art::paintedFolder().getFullPathName().toStdString());
+    std::vector<dc::art::SceneId> painted { { -1, 0 } };
+    for (int l : { static_cast<int>(dc::Dungeon), static_cast<int>(dc::Castle) })
+        for (int k = 0; k <= dc::subLocationCount(l); ++k) painted.push_back({ l, k });
+    int loaded = 0, layered = 0, hotspotsOk = 0;
+    double loadMs = 0;
+    std::size_t bytes = 0;
+    for (const auto& id : painted) {
+        if (!dc::art::isPainted(id)) { s.check(false, "painted: " + dc::art::sceneSlug(id).toStdString()); continue; }
+        const auto t0 = std::chrono::steady_clock::now();
+        const auto planes = dc::art::loadPainted(id, 960, 560);
+        loadMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+        bytes = std::max(bytes, planes.bytes());
+        loaded += planes.flat.isValid() ? 1 : 0;
+        layered += planes.layered() && planes.mid.isValid() ? 1 : 0;
+        if (!id.isMap()) {
+            const auto spots = dc::art::sceneHotspots(id.location, id.sub);
+            std::set<int> subs;
+            bool inside = true;
+            for (const auto& h : spots) {
+                subs.insert(h.sub);
+                inside = inside && h.position.x > 20 && h.position.x < 940 && h.position.y > 50 && h.position.y < 410;
+            }
+            hotspotsOk += static_cast<int>(subs.size()) == dc::subLocationCount(id.location) + 1 && inside ? 1 : 0;
+            if (static_cast<int>(subs.size()) != dc::subLocationCount(id.location) + 1 || !inside)
+                std::cout << "  hotspots of " << dc::art::sceneSlug(id) << " incomplete or outside the frame\n";
+        }
+    }
+    s.check(loaded == static_cast<int>(painted.size()) && layered == loaded, "every painted scene loads, in depth layers",
+            std::to_string(layered) + " of " + std::to_string(painted.size()));
+    s.check(hotspotsOk == static_cast<int>(painted.size()) - 1, "every painted place has a point of interest for each place of its location, in the frame",
+            std::to_string(hotspotsOk));
+    s.metric("loading a painted scene at 960 x 560 (background thread)", loadMs / static_cast<double>(painted.size()), " ms");
+    s.metric("memory of a painted scene at 960 x 560 (x 4 on Retina)", static_cast<double>(bytes) / 1048576.0, " MB");
+    bool landmarksOk = true;
+    const auto& marks = dc::art::mapLandmarks();
+    for (std::size_t a = 0; a < marks.size(); ++a) {
+        const auto p = marks[a].position;
+        landmarksOk = landmarksOk && p.x > 30 && p.x < 930 && p.y > 90 && p.y < 380;
+        for (std::size_t b = a + 1; b < marks.size(); ++b)
+            landmarksOk = landmarksOk && p.getDistanceFrom(marks[b].position) > 70.0f;
+    }
+    s.check(landmarksOk, "the painted map's landmarks are in the frame, above the controls, apart from each other");
+    s.check(!dc::art::paintedLights({ -1, 0 }).empty() && !dc::art::paintedLights({ dc::Dungeon, 4 }).empty(), "painted scenes have lights for the life (embers, flicker)");
 }
 
 int renderToFile(const juce::String& path, int location, double seconds) {
@@ -1791,7 +1879,8 @@ int renderArt(const juce::String& directory, int width) {
     int failures = 0;
     for (const auto& id : ids) {
         const auto start = juce::Time::getMillisecondCounterHiRes();
-        const auto image = dc::art::renderScene(id, width, width * 560 / 960);
+        const auto image = dc::art::isPainted(id) ? dc::art::loadPainted(id, width, width * 560 / 960).flat
+                                                  : dc::art::renderScene(id, width, width * 560 / 960);
         const auto ms = juce::Time::getMillisecondCounterHiRes() - start;
         const auto file = dir.getChildFile(dc::art::sceneSlug(id).replaceCharacter('/', '-') + ".png");
         file.deleteFile();

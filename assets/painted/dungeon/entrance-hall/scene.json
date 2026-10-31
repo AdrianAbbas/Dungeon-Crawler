@@ -1,0 +1,60 @@
+{
+ "scene": "dungeon/entrance-hall",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": -226.8,
+   "y": 339.6
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 471.7,
+   "y": 259.9
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 1142.7,
+   "y": 339.6
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 307.5,
+   "y": 335.0
+  },
+  {
+   "kind": "hotspot",
+   "sub": 4,
+   "x": 601.0,
+   "y": 335.0
+  },
+  {
+   "kind": "fire",
+   "radius": 16,
+   "x": 306.7,
+   "y": 362.2
+  },
+  {
+   "kind": "fire",
+   "radius": 16,
+   "x": 601.6,
+   "y": 362.6
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  470,
+  205,
+  92
+ ],
+ "glows": []
+}

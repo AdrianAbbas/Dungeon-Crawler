@@ -1,5 +1,6 @@
 #include "Scenes.h"
 #include "Motifs.h"
+#include "Painted.h"
 
 // Milestone 8: an engraved illustration for every place (40), in the map's style.
 // Each scene is a composition of motifs over one of three set-ups: an interior in
@@ -1394,9 +1395,17 @@ void drawPlace(Plate& plate, SceneId id, bool& drawn) {
     }
 }
 
-std::vector<Hotspot> sceneHotspots(int location, int) {
+std::vector<Hotspot> sceneHotspots(int location, int sub) {
     std::vector<Hotspot> spots;
     if (location < 0 || location >= LocationCount) return spots;
+    // A painted scene has its own points of interest (doors, stairs, features).
+    const SceneId id { location, clampSubLocation(location, sub) };
+    if (const auto* s = paintedScene(id); s != nullptr && isPainted(id)) {
+        for (int i = 0; i < s->anchorCount; ++i)
+            if (s->anchors[i].kind == anchorHotspot)
+                spots.push_back({ juce::roundToInt(s->anchors[i].value), { s->anchors[i].x, s->anchors[i].y }, 26.0f });
+        if (!spots.empty()) return spots;
+    }
     for (int k = 0; k <= subLocationCount(location); ++k)
         spots.push_back({ k, hotspotPlaces[static_cast<std::size_t>(location)][static_cast<std::size_t>(k)], 26.0f });
     return spots;

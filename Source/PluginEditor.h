@@ -1,6 +1,6 @@
 #pragma once
-// The editor (Milestones 7 and 8): a full-window engraved map as the home screen and a
-// full-window illustration for every place. Clicking a landmark travels there (the
+// The editor (Milestones 7 and 8; painted art since the visual overhaul): a full-window
+// map as the home screen and a full-window illustration for every place. Clicking a landmark travels there (the
 // path is drawn in red) and zooms into the place; inside, the sub-locations are doors
 // and points of interest (hotspots) and a compact list; a breadcrumb leads back.
 // The controls float over the art in a strip that can be hidden; the Advanced drawer
@@ -9,7 +9,10 @@
 // Drawing rules (brief, Direction Update 1): every scene is rendered off the message
 // thread (art::SceneCache) and only blitted here; transitions start when the target
 // image is ready (no stale frames) and run on a 30 fps timer that stops when nothing
-// moves; the subtle life (torches, candles, fog, glints) repaints only small regions.
+// moves; the subtle life repaints only small regions: flickering windows and fires,
+// drifting embers, mist wisps drifting across the low ground, the moon's glow pulsing.
+// Painted scenes are layered (Painted.h): during a zoom the layers move at different
+// speeds (parallax).
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
 #include "UI/EngravedLookAndFeel.h"
@@ -47,10 +50,26 @@ public:
     int lightCount() const noexcept { return static_cast<int>(lights.size()); }
     // The regions one life frame repaints (tests: editor CPU).
     std::vector<juce::Rectangle<int>> lifeRegions() const { std::vector<juce::Rectangle<int>> r; for (const auto& l : lights) r.push_back(lifeArea(l)); return r; }
+    // Every region the life repaints with its frame rate (tests: editor CPU).
+    std::vector<std::pair<juce::Rectangle<int>, int>> lifeRegionsWithRates() const {
+        std::vector<std::pair<juce::Rectangle<int>, int>> r;
+        for (const auto& l : lights) if (l.kind != 5) r.push_back({ lifeArea(l), 15 });
+        for (const auto& e : embers) r.push_back({ juce::Rectangle<float>(e.size * 8.0f, e.size * 8.0f).withCentre(e.p).getSmallestIntegerContainer(), 30 });
+        if (!mistArea().isEmpty()) r.push_back({ mistArea(), 10 });
+        if (!moonArea().isEmpty()) r.push_back({ moonArea(), 5 });
+        return r;
+    }
     void setAnimation(bool on) { animateLife = on; wakeTimer(); }
+    int emberCount() const noexcept { return static_cast<int>(embers.size()); }
+    bool sceneLayered() const noexcept { return planes.layered(); }
     // Tests and snapshots: render the pending scenes on this thread and finish any
     // transition at once.
     void settleForTest();
+    // Tests and snapshots: start the pending zoom now (scenes prepared on this thread) and
+    // hold it at progress t (0..1) until settleForTest().
+    void holdTransitionForTest(float t);
+    // Tests and snapshots: advance the life by a number of frames (embers, mist).
+    void advanceLifeForTest(int frames);
 
 private:
     enum class View { Map, Place };
@@ -142,6 +161,8 @@ private:
         bool active = false;
         int kind = 0;                  // 0 crossfade, 1 zoom into a landmark, 2 zoom out to the map
         juce::Image from, to;
+        dc::art::Planes fromPlanes, toPlanes;   // painted scenes: their layers (parallax)
+        float held = -1.0f;            // tests: progress held here
         double start = 0, length = 0.45;
         juce::Point<float> focus;      // virtual coordinates of the landmark
     };
@@ -162,6 +183,14 @@ private:
     void paintTransition(juce::Graphics&, double now);
     // Subtle life: flickering torches and candles, twinkling glints, drifting fog.
     void paintLife(juce::Graphics&, double now);
+    // Painted life: the moon's glow, mist wisps, embers.
+    void paintMoonGlow(juce::Graphics&, double now);
+    void paintMist(juce::Graphics&, double now);
+    void paintEmbers(juce::Graphics&);
+    void stepEmbers(float dt);
+    juce::Rectangle<int> moonArea() const;
+    juce::Rectangle<int> mistArea() const;
+    void drawPlanes(juce::Graphics&, const dc::art::Planes&, const juce::Image& flat, std::array<float, 4> scales, juce::Point<float> about, float alpha);
     juce::Rectangle<int> lifeArea(const dc::art::LightSource&) const;
     void refreshLights();
 
@@ -184,6 +213,12 @@ private:
     std::vector<dc::art::LightSource> lights;
     bool animateLife = true;
     int lifeTick = 0;
+    // Painted scenes: the shown scene's planes, its ember sources and the embers aloft.
+    dc::art::Planes planes;
+    struct Ember { juce::Point<float> p, v; float age, life, size, phase; };
+    std::vector<Ember> embers;
+    std::vector<dc::art::LightSource> emberSources;
+    juce::Random random { 7 };
 
     std::array<std::unique_ptr<LandmarkButton>, dc::LocationCount> landmarks;
     std::array<std::unique_ptr<HotspotButton>, dc::placesPerLocation> hotspots;
