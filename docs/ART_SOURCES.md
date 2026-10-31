@@ -6,15 +6,15 @@ and are not in this repository).
 
 ## How the art is made
 
-- **Painted scenes (the visual overhaul):** the map, the Dungeon and the Castle (all
-  their places) are built in **Blender** from Python scripts, rendered as depth layers
+- **Painted scenes (the visual overhaul):** the map and all 40 places are built in
+  **Blender** from Python scripts, rendered as depth layers
   (sky, far, mid, fog, near) with Cycles, and painted by a post-process (denoise, haze,
   bloom, colour grade, generalised Kuwahara, brush strokes, grain). The pipeline and how
   to run it: [tools/painted/README.md](../tools/painted/README.md). The layers are in
   `assets/painted/` and ship inside the plug-in bundles (`Contents/Resources/Painted`).
-- **Engraved scenes (Milestones 7 and 8):** the other locations still use the
-  procedural engraving (`Source/UI/Engraving.*`, `Scenes.cpp`, `ScenePlaces.cpp`) until
-  they are painted too; it is also the fallback when the painted files are missing.
+- **Engraved scenes (Milestones 7 and 8):** the procedural engraving
+  (`Source/UI/Engraving.*`, `Scenes.cpp`, `ScenePlaces.cpp`) remains only as the fallback
+  when the painted files are missing.
 - **Fonts:** Cinzel (titles) and Cormorant Garamond (labels), both under the SIL Open
   Font License 1.1 (`assets/fonts/`, licences beside them), embedded in the plug-in.
 

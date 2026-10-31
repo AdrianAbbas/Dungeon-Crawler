@@ -20,11 +20,10 @@ zooms into an illustration of where you are.
   location by itself; deterministic, synced to the song.
 - **Atmosphere** (optional, off by default): sparse, quiet sounds of the place: torches,
   drips, wind, crows, a distant bell, a far-off growl.
-- **Painted art (being rolled out):** the map, the Dungeon and the Castle are painterly
-  dark-fantasy scenes built in Blender and painted in layers: the view zooms in with
-  parallax, mist drifts, embers rise, windows flicker, the moon's glow breathes. The
-  other locations still show the earlier engraved illustrations until they are
-  painted. Your own art can replace any scene ([docs/ART_SOURCES.md](docs/ART_SOURCES.md)).
+- **Painted art:** the map and all 40 places are painterly dark-fantasy scenes built in
+  Blender and painted in layers: the view zooms in with parallax, mist drifts, embers
+  rise, windows flicker, the moon's glow breathes. Your own art can replace any scene
+  ([docs/ART_SOURCES.md](docs/ART_SOURCES.md)).
 
 Status: Milestones 0–12 of [docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md) and
 [docs/DIRECTION_UPDATE_1.md](docs/DIRECTION_UPDATE_1.md); development log and decisions

@@ -1762,14 +1762,12 @@ void testArt(Suite& s) {
     const auto map = dc::art::renderScene({ -1, 0 }, 192, 112);
     s.check(map.isValid(), "the map renders");
 
-    // Visual overhaul: the painted prototype (the map, the Dungeon and the Castle with all
-    // their places). Every painted scene's layers exist and load; its hotspots name every
-    // place of its location inside the frame; the map's landmarks are clickable above
-    // the controls.
+    // Visual overhaul: the painted art (the map and all 40 places). Every painted scene's
+    // layers exist and load; its hotspots name every place of its location inside the
+    // frame; the map's landmarks are clickable above the controls.
     s.check(dc::art::paintedFolder() != juce::File(), "the painted art is found", dc::art::paintedFolder().getFullPathName().toStdString());
     std::vector<dc::art::SceneId> painted { { -1, 0 } };
-    for (int l : { static_cast<int>(dc::Dungeon), static_cast<int>(dc::Castle) })
-        for (int k = 0; k <= dc::subLocationCount(l); ++k) painted.push_back({ l, k });
+    for (const auto& [l, k] : allPlaces()) painted.push_back({ l, k });
     int loaded = 0, layered = 0, hotspotsOk = 0;
     double loadMs = 0;
     std::size_t bytes = 0;

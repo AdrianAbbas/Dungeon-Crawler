@@ -107,10 +107,10 @@ synth track, walk through all 40 places (location list, then each place) and lis
 - [ ] Advanced drawer: the new "Signature" group (Signature, Amount, Tone, Rate) changes
       the signature; Amount −100 % removes it.
 
-## Visual overhaul (prototype): the painted map, Dungeon and Castle
+## Visual overhaul: the painted map and all 40 places
 
-Painted art for the map and the Dungeon and Castle (all their places); the other
-locations still show the engraved scenes below.
+Painted art for the map and every place (the engraved scenes below are only the fallback
+now).
 
 - [ ] The window opens on a **painted map**: a dark land seen from high above, lava
       rivers, fog banks, the red moon rising behind a jagged range, each location a
@@ -132,6 +132,16 @@ locations still show the engraved scenes below.
 - [ ] **Controls:** a dark veil instead of a box, small group headings (Character,
       Levels, Travel), slim faders with ivory caps and a crimson track, readable serif
       labels. Everything still works as before.
+- [ ] The other eight locations, all their places: Cloister, Nave (rose window, pews),
+      Crypt (sarcophagi), Bell Tower (the bell in the arch, the moon behind); Forest Edge,
+      Old Path (wisps), Witch's Hut (crooked hut, cauldron), Ancient Grove (standing
+      stones, the old tree); Cave Mouth, Crystal Cavern (red crystals), Underground Lake,
+      Dragon's Hoard (the sleeping dragon); Village Green, Tavern (the hearth), Market
+      Square (stalls, lanterns), Blacksmith (the forge); Mire, Bog, Sunken Ruins;
+      Foothills, Mountain Pass (the canyon), Frozen Peak (above the clouds), Dwarven Hall
+      (pillars, the river of fire); Gates (the iron gate), Graveyard, Mausoleum;
+      Stairwell (the spiral stair), Library, Alchemy Lab, Observatory (the moon in the
+      dome's slit). Rings on each picture's doors and features.
 - [ ] Eco (⚙ > Quality) stops all animation; the Air stays cool with the window open.
 - [ ] Optional: a folder of layers (back.png, mid.png, fog.png, near.png) in the drop-in
       folder replaces a scene with parallax ([ART_SOURCES.md](ART_SOURCES.md)).
