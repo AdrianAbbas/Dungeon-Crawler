@@ -99,7 +99,7 @@ void Plate::strokeAccent(const juce::Path& path, float thickness, float alpha) {
 
 void Plate::glow(juce::Point<float> centre, float radius, float strength) { glows.push_back({ centre + offset, radius, strength }); }
 
-juce::Image Plate::render(const Style& style) const {
+juce::Image Plate::render(const Style& style, const std::atomic<bool>* abort) const {
     juce::Image out(juce::Image::RGB, w, h, false, juce::SoftwareImageType());
     const juce::Image::BitmapData f(fields, juce::Image::BitmapData::readOnly);
     const juce::Image::BitmapData ink(inkMask, juce::Image::BitmapData::readOnly);
@@ -136,6 +136,7 @@ juce::Image Plate::render(const Style& style) const {
     };
 
     for (int y = 0; y < h; ++y) {
+        if (abort != nullptr && abort->load(std::memory_order_relaxed)) return {};
         const auto* fr = f.getLinePointer(y);
         const auto* ir = ink.getLinePointer(y);
         const auto* rr = red.getLinePointer(y);

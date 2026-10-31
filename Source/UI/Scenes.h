@@ -30,7 +30,7 @@ struct LightSource { juce::Point<float> position; float radius; int kind; };
 std::vector<LightSource> sceneLights(SceneId);
 
 // Draws and renders a scene at a pixel size.
-juce::Image renderScene(SceneId, int widthPixels, int heightPixels);
+juce::Image renderScene(SceneId, int widthPixels, int heightPixels, const std::atomic<bool>* abort = nullptr);
 // The drop-in override: <user application data>/DungeonCrawler/scenes/<location>/<sub>.png
 // (and map.png), e.g. scenes/dungeon/treasure-room.png. Returns a non-existent file
 // when there is none.

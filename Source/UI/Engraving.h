@@ -8,6 +8,7 @@
 //
 // Drawing coordinates are virtual: 960 x 560 for any output size (the editor's aspect).
 #include <juce_graphics/juce_graphics.h>
+#include <atomic>
 
 namespace dc::art {
 inline constexpr float virtualWidth = 960.0f, virtualHeight = 560.0f;
@@ -44,7 +45,8 @@ public:
         float vignette = 0.55f;
         std::uint32_t seed = 1;
     };
-    juce::Image render(const Style&) const;
+    // `abort` (optional) is checked every row: a closing editor never waits long.
+    juce::Image render(const Style&, const std::atomic<bool>* abort = nullptr) const;
     juce::Image render() const { return render(Style {}); }
 
 private:

@@ -30,7 +30,8 @@ private:
     struct Entry { Key key; juce::Image image; juce::uint32 used; };
     void run() override;
     void handleAsyncUpdate() override;
-    static juce::Image produce(const Key&);
+    juce::Image produce(const Key&) const;
+    std::atomic<bool> closing { false };
 
     std::function<void()> onReady;
     int capacity;

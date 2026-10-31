@@ -7,6 +7,7 @@ SceneCache::SceneCache(std::function<void()> ready, int cap)
 }
 
 SceneCache::~SceneCache() {
+    closing = true;
     signalThreadShouldExit();
     wake.signal();
     stopThread(4000);
@@ -41,7 +42,7 @@ void SceneCache::request(SceneId id, int width, int height) {
     wake.signal();
 }
 
-juce::Image SceneCache::produce(const Key& key) {
+juce::Image SceneCache::produce(const Key& key) const {
     const auto file = overrideFile(key.id);
     if (file.existsAsFile()) {
         // Drop-in art: scaled to cover the window (the aspect is the editor's).
@@ -54,7 +55,7 @@ juce::Image SceneCache::produce(const Key& key) {
             return out;
         }
     }
-    return renderScene(key.id, key.width, key.height);
+    return renderScene(key.id, key.width, key.height, &closing);
 }
 
 juce::Image SceneCache::renderNow(SceneId id, int width, int height) {
@@ -74,7 +75,7 @@ void SceneCache::run() {
         }
         if (!have) { wake.wait(500); continue; }
         auto image = produce(key);
-        if (threadShouldExit()) break;
+        if (threadShouldExit() || image.isNull()) break;
         {
             const juce::ScopedLock sl(lock);
             entries.push_back({ key, image, ++clock });

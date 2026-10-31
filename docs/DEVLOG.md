@@ -46,8 +46,8 @@ without after each milestone. Resume from the first unticked item.
 - [x] 6d. DEVLOG, manual test; push without `[skip ci]` (Milestone 6 build)
 - [x] 7a. Engraving renderer: tone + hatch-direction fields to hatched line art, off the message thread, cached
 - [x] 7b. The engraved map: landmarks, compass rose, cartouche, parchment; hover names, current place marked, travel path line
-- [ ] 7c. Map ↔ location transitions (zoom/fade), double-buffered; drop-in override folder; `docs/ART_SOURCES.md`
-- [ ] 7d. Snapshots, tests, DEVLOG; push without `[skip ci]` (Milestone 7 build)
+- [x] 7c. Map ↔ location transitions (zoom/fade), double-buffered; drop-in override folder; `docs/ART_SOURCES.md`
+- [x] 7d. Snapshots, tests, DEVLOG; push without `[skip ci]` (Milestone 7 build)
 - [ ] 8a. Scenes for all 10 locations (their own scene)
 - [ ] 8b. Scenes for all 30 sub-locations
 - [ ] 8c. Clickable points of interest + compact list, breadcrumb/back; subtle life (torch glow, fog, candles, water glints), cached, ≤ 30 fps
@@ -751,3 +751,75 @@ it.
 - **Decisions:** signatures are numbered in place order (kind = place number); the
   Signature's four parameters are also in the Advanced drawer (group VIII), so a
   producer can borrow any place's signature for another place or remove it.
+
+---
+
+## Milestone 7: the engraved map (2026-10-31)
+
+### Art pipeline decision
+
+The brief allows documented public-domain engravings, Blender renders with a hatching
+look, or procedural hatching. Chosen: **procedural engraving in C++**, because it
+needs no downloads or licences, scales to any window or Retina size without
+blurring, and fits the "cached, off the message thread" rule. Sources and the drop-in
+folder: [ART_SOURCES.md](ART_SOURCES.md).
+
+- **Renderer** (`Source/UI/Engraving.*`): scenes are drawn as fields (tone,
+  hatch direction, red accent) plus ink strokes; per pixel the renderer lays parallel
+  hatching whose width follows the tone (cross-hatching at two further angles in the
+  shadows), wavering slightly like a burin line, over a dark parchment (fibres,
+  foxing, vignette), with warm glows for flames. About 140–190 ms per scene at
+  960 × 560 on one core of this container (about 4× at Retina size), always on the
+  background thread; it aborts at once when the editor closes.
+- **Motifs** (`Source/UI/Motifs.h`): mountains, conifers, oaks, dead trees, towers,
+  flags, pointed and round arches, torches, candles, masonry, perspective floors,
+  columns, rocks, fog bands, stars.
+- **Scene cache** (`Source/UI/SceneCache.*`): one low-priority worker thread renders
+  requested scenes at the window's pixel size; the editor gets a callback when one is
+  ready. The eight most recent are kept. Drop-in PNGs replace a scene.
+
+### The map (home screen)
+
+Engraved cartography: the western sea with the engraver's coastline hatching, the
+mountain spine in the north-east (snow-capped), rolling hills, scattered woods, a
+river to the sea, dotted roads, a compass rose, a cartouche with the title (red
+initial), a double plate border. The ten landmarks: Wizard's Tower on a crag, the
+Haunted Forest (dark conifers, dead trees), the Castle on its hill (red pennant), the
+Cathedral (two spires, rose window), the Dungeon (a black arch into a rocky outcrop),
+the Caverns (cliffs, two cave mouths), the Village (cottages, oaks), the Swamp (pools,
+reeds), the Mountains (a dwarven gate), the Necropolis (tombstones, mausoleum).
+Snapshot: [snapshots/m7-map-art.png](snapshots/m7-map-art.png); with the controls:
+[snapshots/m7-editor-map.png](snapshots/m7-editor-map.png).
+
+### The editor (rewritten)
+
+- **Map view**: each landmark is a button (ring on hover, a name plate with the number
+  of places); the current location has a blood-red ring and glow; choosing another
+  location draws a **red dashed path** from the old landmark as far as the sound has
+  travelled (it follows the engine's travel progress), then the view **zooms into**
+  the place; the path fades 1.5 s after arriving.
+- **Place view**: the place's illustration full-window; sub-locations as hotspots
+  (rings, red for where you are, names on hover) and a compact list top right; a
+  breadcrumb top left (‹ Map · Location › Place): "Map" zooms back out without moving
+  the sound, the location travels back to its own scene.
+- **Transitions**: zoom into a landmark (the map scales up towards it while the scene
+  settles in), zoom out, or a crossfade between places of a location (0.32 s). A
+  transition starts only when its target image is ready (no stale or half-drawn
+  frames); a 30 fps timer runs only during transitions and journeys and stops when
+  nothing moves. Painting only blits cached images: 1.7 ms for a full software repaint
+  of the map.
+- **Controls** float over the art in a translucent strip (macros under their themed
+  names, Input, Intensity, Mix, Output, Travel, Bypass, Advanced) that can be hidden
+  (▾) to see the whole picture. Faders are slimmer.
+
+Scenes for the places are placeholders in this milestone (a torch-lit arch with the
+place's name); Milestone 8 draws all 40.
+
+### Tests
+
+Editor group (22 checks): opens on the map with clickable landmarks; no timer while
+still; clicking a landmark starts the journey, then shows that location's scene;
+hotspots and the list appear; a hotspot travels to its sub-location and the scene
+follows; the breadcrumb returns to the map without moving the sound; full repaints
+of the map and a scene within a 30 fps frame. `DungeonCrawlerTests --art <dir> [width]`
+renders the map and every scene to PNG.

@@ -322,7 +322,7 @@ const std::array<Landmark, LocationCount>& mapLandmarks() { return landmarks; }
 
 void drawPlace(Plate&, SceneId, bool& drawn);   // ScenePlaces.cpp
 
-juce::Image renderScene(SceneId id, int widthPixels, int heightPixels) {
+juce::Image renderScene(SceneId id, int widthPixels, int heightPixels, const std::atomic<bool>* abort) {
     Plate plate(widthPixels, heightPixels);
     Plate::Style style;
     if (id.isMap()) {
@@ -336,7 +336,7 @@ juce::Image renderScene(SceneId id, int widthPixels, int heightPixels) {
         if (!drawn) drawPlaceholder(plate, id);
         style.seed = static_cast<std::uint32_t>(id.location * 8 + id.sub + 11);
     }
-    return plate.render(style);
+    return plate.render(style, abort);
 }
 
 juce::String sceneSlug(SceneId id) {
