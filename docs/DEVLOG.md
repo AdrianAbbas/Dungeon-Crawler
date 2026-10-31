@@ -32,7 +32,7 @@ unticked item.
 - [x] 2a-1. Sound design: Dungeon, Castle, Cathedral, Haunted Forest, Caverns with all sub-locations
 - [x] 2a-2. Distinctness test across all places + closest pairs listed; musicality group (guitar, synth, piano, vocal)
 - [x] 2a-3. Listening render (same guitar and synth phrase through every place) to WAV in the test-logs artifact
-- [ ] 2a-4. DEVLOG, manual test, ASan run, final push without `[skip ci]`
+- [x] 2a-4. DEVLOG, manual test, ASan run, final push without `[skip ci]`
 
 **Next: Milestone 2b** (sound design of Village, Swamp, Mountains, Necropolis, Wizard's
 Tower: all their places to the 10 dB-eq distinctness gate; the Village's three places
@@ -539,6 +539,11 @@ It compared the Village with the Cathedral; with the new scenes they differ by o
 different pair for its sine, among all locations. The `smoke` group replays it.
 
 ### Tests
+
+AddressSanitizer + UBSan (groups smoke, parameters, state, layouts, transparency,
+place, travel, modules, realtime, editor): no findings. The only failure was the
+editor's 30 fps repaint timing, which is meaningless under the sanitizer: 106 ms
+there, 15 ms in the normal build.
 
 1040 checks on Linux (full suite in three shards, 2.5 min on 4 cores). New groups:
 `musicality`, and the gated `locations` fingerprint. CPU (one core of this container,
