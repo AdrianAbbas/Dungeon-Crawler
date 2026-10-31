@@ -24,6 +24,20 @@ inline constexpr const char* bypass = "bypass";
 inline constexpr const char* travelTime = "travelTime";
 inline constexpr const char* travelSync = "travelSync";
 inline constexpr std::array<const char*, macroCount> macros { "macro1", "macro2", "macro3", "macro4" };
+// Milestone 9: journeys, roaming, MIDI travel.
+inline constexpr const char* journeyOn = "journeyOn";
+inline constexpr const char* journeyMode = "journeyMode";
+inline constexpr const char* journeyBars = "journeyBars";
+inline constexpr const char* roamOn = "roamOn";
+inline constexpr const char* roamBars = "roamBars";
+inline constexpr const char* roamRandomness = "roamRandomness";
+inline constexpr const char* roamSeed = "roamSeed";
+inline constexpr const char* midiTravel = "midiTravel";
+inline constexpr const char* midiOctave = "midiOctave";
+// Milestone 10: the Atmosphere layer.
+inline constexpr const char* atmosLevel = "atmosLevel";
+inline constexpr const char* atmosDensity = "atmosDensity";
+inline constexpr const char* atmosSeed = "atmosSeed";
 inline juce::String advanced(std::size_t index) { return juce::String("adv_") + moduleSpecs[index].id; }
 }
 
@@ -31,6 +45,14 @@ namespace dc {
 // Travel Sync choices: Free (Travel Time in seconds) or a length in beats.
 inline constexpr std::array<double, 6> travelSyncBeats { 0, 1, 2, 4, 8, 16 };
 inline constexpr const char* travelSyncChoices = "Free|1/4|1/2|1 bar|2 bars|4 bars";
+inline constexpr const char* journeyModeChoices = "Loop|One-way|Ping-pong";
+// Roam: how long the plug-in stays in a sub-location before wandering on.
+inline constexpr std::array<double, 6> roamBarChoices { 0.5, 1, 2, 4, 8, 16 };
+inline constexpr const char* roamBarNames = "1/2 bar|1 bar|2 bars|4 bars|8 bars|16 bars";
+// MIDI travel: the octave whose notes choose places (C = first location ... A = tenth;
+// in the octave above, C..E choose the sub-location). Octave numbers as in most DAWs
+// (middle C = C3 here, MIDI note 60).
+inline constexpr const char* midiOctaveNames = "C-2|C-1|C0|C1|C2|C3|C4|C5|C6";
 
 inline juce::StringArray advancedChoices(const ModuleParamSpec& spec) {
     juce::StringArray choices { "Place" };
@@ -85,6 +107,30 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
     for (int m = 0; m < macroCount; ++m)
         layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::macros[static_cast<std::size_t>(m)], 1 },
                                                                "Macro " + juce::String(m + 1), juce::NormalisableRange<float>(0.0f, 1.0f), 0.5f, macroText));
+    // Milestone 9: the journey path (a route of places, bars per stop), roaming between
+    // a location's places, MIDI travel. All automatable; the route itself is state.
+    layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { ids::journeyOn, 1 }, "Journey", false));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids::journeyMode, 1 }, "Journey Mode",
+                                                            juce::StringArray::fromTokens(journeyModeChoices, "|", ""), 0));
+    layout.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID { ids::journeyBars, 1 }, "Bars per Stop", 1, 16, 2,
+        juce::AudioParameterIntAttributes().withStringFromValueFunction([](int v, int) { return juce::String(v) + (v == 1 ? " bar" : " bars"); })));
+    layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { ids::roamOn, 1 }, "Roam", false));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids::roamBars, 1 }, "Roam Rate",
+                                                            juce::StringArray::fromTokens(roamBarNames, "|", ""), 2));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::roamRandomness, 1 }, "Roam Randomness",
+                                                           juce::NormalisableRange<float>(0.0f, 1.0f), 0.5f, percent));
+    layout.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID { ids::roamSeed, 1 }, "Roam Seed", 1, 999, 1));
+    layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { ids::midiTravel, 1 }, "MIDI Travel", false));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids::midiOctave, 1 }, "MIDI Travel Octave",
+                                                            juce::StringArray::fromTokens(midiOctaveNames, "|", ""), 1));
+
+    // Milestone 10: the Atmosphere layer (off by default).
+    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::atmosLevel, 1 }, "Atmosphere",
+                                                           juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f, percent));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::atmosDensity, 1 }, "Atmosphere Density",
+                                                           juce::NormalisableRange<float>(0.0f, 1.0f), 0.35f, percent));
+    layout.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID { ids::atmosSeed, 1 }, "Atmosphere Seed", 1, 999, 1));
+
     // The Advanced drawer: an offset from the place for every continuous module
     // parameter (0 = as designed), an override for every choice ("Place" = as designed).
     const auto offsetText = juce::AudioParameterFloatAttributes()

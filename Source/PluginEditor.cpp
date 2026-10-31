@@ -129,7 +129,8 @@ void DungeonCrawlerEditor::HotspotButton::paintButton(juce::Graphics& g, bool hi
 }
 
 DungeonCrawlerEditor::DungeonCrawlerEditor(DungeonCrawlerProcessor& p)
-    : AudioProcessorEditor(p), processor(p), cache([this] { sceneReady(); }), drawer(p.parameters) {
+    : AudioProcessorEditor(p), processor(p), cache([this] { sceneReady(); }), drawer(p.parameters),
+      journeyPanel(p, [this] { return dc::Stop { shown, dc::clampSubLocation(shown, shownSub) }; }) {
     setLookAndFeel(&look);
     setOpaque(true);
     auto* locationParameter = processor.parameters.getParameter(dc::ids::location);
@@ -199,6 +200,15 @@ DungeonCrawlerEditor::DungeonCrawlerEditor(DungeonCrawlerProcessor& p)
     travelTime.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
     travelTimeAttachment = std::make_unique<juce::SliderParameterAttachment>(*processor.parameters.getParameter(dc::ids::travelTime), travelTime);
     addAndMakeVisible(travelTime);
+    atmosphereLabel.setText("Atmosphere", juce::dontSendNotification);
+    atmosphereLabel.setFont(labelFont(13.0f));
+    atmosphereLabel.setTooltip("Sparse sounds of the place (torches, drips, wind, crows...). Off at 0 %.");
+    addAndMakeVisible(atmosphereLabel);
+    atmosphere.setTextBoxStyle(juce::Slider::TextBoxRight, true, 48, 18);
+    atmosphere.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    atmosphere.setDoubleClickReturnValue(true, 0.0);
+    atmosphereAttachment = std::make_unique<juce::SliderParameterAttachment>(*processor.parameters.getParameter(dc::ids::atmosLevel), atmosphere);
+    addAndMakeVisible(atmosphere);
     travelSync.addItemList(juce::StringArray::fromTokens(dc::travelSyncChoices, "|", ""), 1);
     travelSyncAttachment = std::make_unique<juce::ComboBoxParameterAttachment>(*processor.parameters.getParameter(dc::ids::travelSync), travelSync);
     addAndMakeVisible(travelSync);
@@ -207,8 +217,21 @@ DungeonCrawlerEditor::DungeonCrawlerEditor(DungeonCrawlerProcessor& p)
     bypassAttachment = std::make_unique<juce::ButtonParameterAttachment>(*processor.parameters.getParameter(dc::ids::bypass), bypass);
     addAndMakeVisible(bypass);
     advancedToggle.setClickingTogglesState(true);
-    advancedToggle.onClick = [this] { drawer.setVisible(advancedToggle.getToggleState()); };
+    advancedToggle.onClick = [this] {
+        drawer.setVisible(advancedToggle.getToggleState());
+        if (drawer.isVisible()) { journeyToggle.setToggleState(false, juce::dontSendNotification); journeyPanel.setVisible(false); }
+    };
     addAndMakeVisible(advancedToggle);
+    journeyToggle.setClickingTogglesState(true);
+    journeyToggle.onClick = [this] {
+        journeyPanel.refresh();
+        journeyPanel.setVisible(journeyToggle.getToggleState());
+        if (journeyPanel.isVisible()) { advancedToggle.setToggleState(false, juce::dontSendNotification); drawer.setVisible(false); }
+        repaint();
+    };
+    addAndMakeVisible(journeyToggle);
+    addChildComponent(journeyPanel);
+    follower.startTimerHz(10);
     controlsToggle.setButtonText(juce::String::fromUTF8("\xe2\x96\xbe"));
     controlsToggle.setTooltip("Show or hide the controls");
     controlsToggle.onClick = [this] {
@@ -226,6 +249,7 @@ DungeonCrawlerEditor::DungeonCrawlerEditor(DungeonCrawlerProcessor& p)
 }
 
 DungeonCrawlerEditor::~DungeonCrawlerEditor() {
+    follower.stopTimer();
     stopTimer();
     setLookAndFeel(nullptr);
 }
@@ -391,6 +415,21 @@ void DungeonCrawlerEditor::timerCallback() {
             for (const auto& l : lights) repaint(lifeArea(l));
     }
     if (!busy) stopTimer();
+}
+
+void DungeonCrawlerEditor::followSteering() {
+    const bool steering = processor.steering();
+    if (steering) {
+        const int l = processor.currentDestination.load(), k = processor.currentSubLocation.load();
+        if (l != shown) showLocation(l);
+        if (k != dc::clampSubLocation(shown, shownSub)) showSubLocation(k);
+    } else if (wasSteering) {
+        // Back to the Location parameters.
+        showLocation(processor.locationIndex());
+        showSubLocation(juce::roundToInt(processor.parameters.getRawParameterValue(dc::ids::subLocation)->load()));
+    }
+    wasSteering = steering;
+    if (journeyPanel.isVisible()) journeyPanel.refresh();
 }
 
 void DungeonCrawlerEditor::refreshLights() {
@@ -568,6 +607,28 @@ void DungeonCrawlerEditor::paintMapOverlay(juce::Graphics& g) {
         g.setColour(colours::blood.withAlpha(fade));
         g.fillEllipse(juce::Rectangle<float>(7, 7).withCentre(head));
     }
+    // The journey route, if one is set: faint red dotted lines from stop to stop.
+    {
+        const auto stops = processor.route();
+        for (std::size_t k = 1; k < stops.size(); ++k) {
+            const auto a = toLocal(marks[static_cast<std::size_t>(stops[k - 1].location)].position), b = toLocal(marks[static_cast<std::size_t>(stops[k].location)].position);
+            if (a == b) continue;
+            juce::Path seg; seg.startNewSubPath(a); seg.lineTo(b);
+            juce::Path dots;
+            const float pattern[] = { 2.0f, 6.0f };
+            juce::PathStrokeType(1.6f).createDashedStroke(dots, seg, pattern, 2);
+            g.setColour(colours::blood.withAlpha(0.55f));
+            g.fillPath(dots);
+        }
+        for (std::size_t k = 0; k < stops.size(); ++k) {
+            const auto c = toLocal(marks[static_cast<std::size_t>(stops[k].location)].position).translated(18.0f, -18.0f);
+            g.setColour(juce::Colours::black.withAlpha(0.7f));
+            g.fillEllipse(juce::Rectangle<float>(16, 16).withCentre(c));
+            g.setColour(colours::blood.brighter(0.3f));
+            g.setFont(labelFont(11.0f));
+            g.drawText(juce::String(static_cast<int>(k) + 1), juce::Rectangle<float>(16, 16).withCentre(c), juce::Justification::centred);
+        }
+    }
     // The hovered landmark's name, on a dark plate.
     if (hovered >= 0) {
         const auto& l = marks[static_cast<std::size_t>(hovered)];
@@ -647,11 +708,14 @@ void DungeonCrawlerEditor::resized() {
     travelLabel.setBounds(mainX + 266, top + 14, 56, 24);
     travelTime.setBounds(mainX + 320, top + 14, 230, 24);
     travelSync.setBounds(mainX + 320, top + 46, 120, 24);
+    atmosphereLabel.setBounds(w - 262, top + 44, 80, 22);
+    atmosphere.setBounds(w - 180, top + 44, 166, 22);
+    journeyToggle.setBounds(w - 314, top + 70, 96, 30);
     bypass.setBounds(w - 214, top + 70, 96, 30);
     advancedToggle.setBounds(w - 114, top + 70, 100, 30);
     controlsToggle.setBounds(w - 40, controlsShown ? top - 30 : h - 32, 30, 26);
     for (auto* c : std::initializer_list<juce::Component*> { &input.slider, &input.label, &intensity.slider, &intensity.label, &mix.slider, &mix.label,
-                                                             &output.slider, &output.label, &travelLabel, &travelTime, &travelSync, &bypass, &advancedToggle, &macroHeading })
+                                                             &output.slider, &output.label, &travelLabel, &travelTime, &travelSync, &bypass, &advancedToggle, &journeyToggle, &macroHeading, &atmosphere, &atmosphereLabel })
         c->setVisible(controlsShown);
     if (shown >= 0)
         for (int m = 0; m < dc::macroCount; ++m) {
@@ -660,8 +724,108 @@ void DungeonCrawlerEditor::resized() {
             macros[static_cast<std::size_t>(m)].label.setVisible(used && controlsShown);
         }
     drawer.setBounds(200, 56, w - 214, (controlsShown ? top : h) - 64);
+    journeyPanel.setBounds(w - 344, 56, 330, h - 64);
     layoutOverlays();
     const auto px = pixelSize();
     cache.request(scene, px.x, px.y);
     wakeTimer();
+}
+
+//==============================================================================
+DungeonCrawlerEditor::JourneyPanel::JourneyPanel(DungeonCrawlerProcessor& p, std::function<dc::Stop()> place)
+    : processor(p), currentPlace(std::move(place)) {
+    setOpaque(true);
+    auto& state = processor.parameters;
+    journeyAttachment = std::make_unique<juce::ButtonParameterAttachment>(*state.getParameter(dc::ids::journeyOn), journey);
+    roamAttachment = std::make_unique<juce::ButtonParameterAttachment>(*state.getParameter(dc::ids::roamOn), roam);
+    midiAttachment = std::make_unique<juce::ButtonParameterAttachment>(*state.getParameter(dc::ids::midiTravel), midi);
+    mode.addItemList(juce::StringArray::fromTokens(dc::journeyModeChoices, "|", ""), 1);
+    roamRate.addItemList(juce::StringArray::fromTokens(dc::roamBarNames, "|", ""), 1);
+    octave.addItemList(juce::StringArray::fromTokens(dc::midiOctaveNames, "|", ""), 1);
+    modeAttachment = std::make_unique<juce::ComboBoxParameterAttachment>(*state.getParameter(dc::ids::journeyMode), mode);
+    rateAttachment = std::make_unique<juce::ComboBoxParameterAttachment>(*state.getParameter(dc::ids::roamBars), roamRate);
+    octaveAttachment = std::make_unique<juce::ComboBoxParameterAttachment>(*state.getParameter(dc::ids::midiOctave), octave);
+    for (auto* sl : { &bars, &randomness, &seed }) {
+        sl->setTextBoxStyle(juce::Slider::TextBoxRight, true, 56, 18);
+        sl->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    }
+    barsAttachment = std::make_unique<juce::SliderParameterAttachment>(*state.getParameter(dc::ids::journeyBars), bars);
+    for (auto* sl : { &atmosDensity, &atmosSeed }) {
+        sl->setTextBoxStyle(juce::Slider::TextBoxRight, true, 56, 18);
+        sl->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+    }
+    atmosDensityAttachment = std::make_unique<juce::SliderParameterAttachment>(*state.getParameter(dc::ids::atmosDensity), atmosDensity);
+    atmosSeedAttachment = std::make_unique<juce::SliderParameterAttachment>(*state.getParameter(dc::ids::atmosSeed), atmosSeed);
+    atmosDensityLabel.setText("Density", juce::dontSendNotification);
+    atmosSeedLabel.setText("Seed", juce::dontSendNotification);
+    randomAttachment = std::make_unique<juce::SliderParameterAttachment>(*state.getParameter(dc::ids::roamRandomness), randomness);
+    seedAttachment = std::make_unique<juce::SliderParameterAttachment>(*state.getParameter(dc::ids::roamSeed), seed);
+    barsLabel.setText("per stop", juce::dontSendNotification);
+    randomLabel.setText("Randomness", juce::dontSendNotification);
+    seedLabel.setText("Seed", juce::dontSendNotification);
+    midiHint.setText("Notes C..A of this octave choose the ten locations, C..E an octave higher the places. "
+                     "Needs a host that sends MIDI to effects (Logic: side-chain MIDI; VST3 hosts). GarageBand does not.",
+                     juce::dontSendNotification);
+    midiHint.setFont(labelFont(11.5f));
+    midiHint.setColour(juce::Label::textColourId, colours::ash);
+    routeText.setFont(labelFont(13.0f));
+    routeText.setJustificationType(juce::Justification::topLeft);
+    add.onClick = [this] {
+        auto stops = processor.route();
+        if (static_cast<int>(stops.size()) < dc::maxStops) { stops.push_back(currentPlace()); processor.setRoute(stops); }
+        refresh();
+    };
+    removeLast.onClick = [this] { auto stops = processor.route(); if (!stops.empty()) stops.pop_back(); processor.setRoute(stops); refresh(); };
+    clear.onClick = [this] { processor.setRoute({}); refresh(); };
+    for (auto* c : std::initializer_list<juce::Component*> { &journey, &roam, &midi, &mode, &roamRate, &octave, &bars, &randomness, &seed,
+                                                             &add, &removeLast, &clear, &routeText, &barsLabel, &randomLabel, &seedLabel, &midiHint,
+                                                             &atmosDensity, &atmosSeed, &atmosDensityLabel, &atmosSeedLabel })
+        addAndMakeVisible(*c);
+    refresh();
+}
+
+void DungeonCrawlerEditor::JourneyPanel::refresh() {
+    juce::String text;
+    int k = 0;
+    for (const auto& st : processor.route())
+        text << ++k << ".  " << dc::locationNames[static_cast<std::size_t>(st.location)] << " \xc2\xb7 " << dc::subLocationName(st.location, st.sub) << "\n";
+    if (k == 0) text = "No route yet: go to a place and \"Add this place\" (up to 8 stops).";
+    routeText.setText(juce::String::fromUTF8(text.toRawUTF8()), juce::dontSendNotification);
+}
+
+void DungeonCrawlerEditor::JourneyPanel::paint(juce::Graphics& g) {
+    g.fillAll(colours::ink.withAlpha(0.96f));
+    g.setColour(colours::dust.withAlpha(0.6f));
+    g.drawRect(getLocalBounds(), 1);
+    g.setColour(colours::blood.brighter(0.3f));
+    g.setFont(titleFont(15.0f));
+    g.drawText("Journey", 12, 8, 200, 20, juce::Justification::centredLeft);
+    g.drawText("Roam", 12, roam.getY() - 26, 200, 20, juce::Justification::centredLeft);
+    g.drawText("MIDI travel", 12, midi.getY() - 26, 200, 20, juce::Justification::centredLeft);
+    g.drawText("Atmosphere", 12, atmosDensity.getY() - 24, 200, 20, juce::Justification::centredLeft);
+}
+
+void DungeonCrawlerEditor::JourneyPanel::resized() {
+    const int w = getWidth();
+    journey.setBounds(10, 32, 100, 24);
+    mode.setBounds(120, 32, w - 132, 24);
+    bars.setBounds(10, 60, w - 90, 22);
+    barsLabel.setBounds(w - 78, 60, 70, 22);
+    routeText.setBounds(12, 86, w - 24, 110);
+    add.setBounds(10, 198, 120, 26);
+    removeLast.setBounds(134, 198, 100, 26);
+    clear.setBounds(238, 198, w - 248, 26);
+    roam.setBounds(10, 254, 80, 22);
+    roamRate.setBounds(120, 254, w - 132, 22);
+    randomLabel.setBounds(10, 280, 90, 20);
+    randomness.setBounds(100, 280, w - 110, 20);
+    seedLabel.setBounds(10, 302, 90, 20);
+    seed.setBounds(100, 302, w - 110, 20);
+    midi.setBounds(10, 352, 120, 22);
+    octave.setBounds(140, 352, w - 152, 22);
+    midiHint.setBounds(10, 376, w - 20, 44);
+    atmosDensityLabel.setBounds(10, 446, 90, 20);
+    atmosDensity.setBounds(100, 446, w - 110, 20);
+    atmosSeedLabel.setBounds(10, 468, 90, 20);
+    atmosSeed.setBounds(100, 468, w - 110, 20);
 }

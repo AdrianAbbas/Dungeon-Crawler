@@ -2,6 +2,8 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include "Engine.h"
 #include "Parameters.h"
+#include "World/Journey.h"
+#include "DSP/Atmosphere.h"
 
 class DungeonCrawlerProcessor final : public juce::AudioProcessor {
 public:
@@ -17,7 +19,8 @@ public:
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
     const juce::String getName() const override { return "DUNGEON CRAWLER"; }
-    bool acceptsMidi() const override { return false; }
+    // MIDI travel (Milestone 9): notes choose places where the host sends MIDI to effects.
+    bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
     double getTailLengthSeconds() const override { return 20.0; }
     // One program whose setCurrentProgram does nothing: some hosts call it on load and
@@ -45,6 +48,18 @@ private:
     std::atomic<float>* travelSync = nullptr;
     std::array<std::atomic<float>*, dc::macroCount> macros {};
     std::array<std::atomic<float>*, dc::Count> advanced {};
+    std::atomic<float>* journeyOn = nullptr;
+    std::atomic<float>* journeyMode = nullptr;
+    std::atomic<float>* journeyBars = nullptr;
+    std::atomic<float>* roamOn = nullptr;
+    std::atomic<float>* roamBars = nullptr;
+    std::atomic<float>* roamRandomness = nullptr;
+    std::atomic<float>* roamSeed = nullptr;
+    std::atomic<float>* midiTravel = nullptr;
+    std::atomic<float>* midiOctave = nullptr;
+    std::atomic<float>* atmosLevel = nullptr;
+    std::atomic<float>* atmosDensity = nullptr;
+    std::atomic<float>* atmosSeed = nullptr;
 
 public:
     juce::AudioProcessorValueTreeState parameters;
@@ -53,6 +68,14 @@ public:
     std::atomic<int> currentDestination { 0 }, currentSubLocation { 0 };
     const dc::Engine& engine() const noexcept { return world; }
     int locationIndex() const noexcept;
+    // The journey route (Milestone 9): up to eight places, edited on the message thread,
+    // read lock-free on the audio thread. Saved with the state.
+    void setRoute(const std::vector<dc::Stop>&);
+    std::vector<dc::Stop> route() const;
+    // The place the sound is in or travelling to right now (journey, roam or MIDI may
+    // differ from the Location parameters), and whether one of them is steering.
+    bool steering() const noexcept { return steered.load(std::memory_order_relaxed); }
+    int atmosphereVoices() const noexcept { return atmosphere.activeVoices(); }
     // Calibration only (tests): the chain's raw level, without trims or level matcher.
     void setLevelMatching(bool on) noexcept { world.setLevelMatching(on); }
 
@@ -60,7 +83,13 @@ private:
     void process(juce::AudioBuffer<float>&, bool forcedBypass);
     static constexpr float neutralIntensity = 1.0e-4f;   // at or below: the dry path
     dc::Controls controls;
+    std::array<std::atomic<int>, dc::maxStops> routeStops {};
+    std::atomic<int> routeLength { 0 };
+    std::atomic<bool> steered { false };
+    double freeBeats = 0;          // the position when the host does not play
+    int midiLocation = -1, midiSub = 0;
     dc::Engine world;
+    dc::Atmosphere atmosphere;
     dc::SafetyLimiter limiter;
     std::array<dc::dsp::DelayLine, 2> dryDelay;   // aligns the dry path with the engine's latency
     std::array<std::array<float, dc::maxChunk>, 2> dryAligned {}, work {};

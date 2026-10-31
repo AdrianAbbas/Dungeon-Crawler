@@ -115,6 +115,7 @@ public:
     void depart() noexcept;
     bool isDeparting() const noexcept { return departing; }
     bool ringing() const noexcept { return tail > 1.0e-4f; }
+    float tailLevel() const noexcept { return tail; }
 private:
     bool departing = false;
     float heldOut = 0, tail = 0, tailDecay = 0.999f;

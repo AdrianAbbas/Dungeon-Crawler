@@ -36,9 +36,10 @@ juce_add_plugin(DungeonCrawler
     AU_EXPORT_PREFIX DungeonCrawlerAU
     DESCRIPTION "Dark-fantasy location effect"
     FORMATS ${DC_FORMATS}
-    # An audio effect: audio in, audio out, no MIDI.
+    # An audio effect: audio in, audio out. MIDI in (optional MIDI travel, Milestone 9)
+    # where the host sends MIDI to effects; the AU stays an effect (aufx).
     IS_SYNTH FALSE
-    NEEDS_MIDI_INPUT FALSE
+    NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE
@@ -52,7 +53,7 @@ target_sources(DungeonCrawler PRIVATE
     Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/Engine.cpp
     Source/DSP/Abyss.cpp Source/DSP/AncientBlood.cpp Source/DSP/Choir.cpp
     Source/DSP/Wraith.cpp Source/DSP/Echoes.cpp Source/DSP/Crypt.cpp
-    Source/DSP/Relics.cpp Source/DSP/Signature.cpp Source/World/Locations.cpp
+    Source/DSP/Relics.cpp Source/DSP/Signature.cpp Source/DSP/Atmosphere.cpp Source/World/Locations.cpp
     Source/UI/EngravedLookAndFeel.cpp Source/UI/Engraving.cpp Source/UI/Scenes.cpp Source/UI/ScenePlaces.cpp Source/UI/SceneCache.cpp)
 target_include_directories(DungeonCrawler PUBLIC Source)
 target_compile_definitions(DungeonCrawler PUBLIC

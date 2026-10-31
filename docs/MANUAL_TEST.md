@@ -141,3 +141,39 @@ menu must say "Editor", not "Controls").
       and path follow; inside a location the picture follows.
 - [ ] Optional: put your own PNG in `~/Library/Application Support/DungeonCrawler/scenes/`
       (see [ART_SOURCES.md](ART_SOURCES.md)), reopen the window: it replaces that scene.
+
+## M9: journeys, roaming, MIDI travel
+
+Set the project to 4/4 at a tempo you like, put a looping region on the track.
+
+- [ ] **Journey:** open "Journey" (controls strip). Visit three or four places and
+      press "Add this place" in each. Turn Journey on, Bars per Stop = 2, Loop. Play:
+      every two bars the sound (and the window) moves to the next stop, morphing
+      smoothly (Travel 1.5 s, or set Travel to "1 bar"). The map shows the route with
+      numbered stops.
+- [ ] Stop and start playback from different bars: each bar always lands on the same
+      stop. One-way stays at the last stop; Ping-pong goes back and forth.
+- [ ] **Roam:** turn Journey off, Roam on (2 bars, Randomness 50 %): the plug-in wanders
+      between the current location's places by itself. Same seed + same bar = same
+      place every time; another seed wanders differently.
+- [ ] No clicks, dropouts or loudness jumps at any stop change.
+- [ ] Save, close, reopen the project: the route and all journey settings are back.
+- [ ] **MIDI travel:** GarageBand does not send MIDI to audio effects, so this does
+      nothing there (expected). In a host that does (see the README), notes C–A of
+      the chosen octave pick the ten locations, C–E an octave higher the places.
+
+## M10: Atmosphere
+
+- [ ] By default there is **no** atmosphere (the Atmosphere slider in the controls
+      strip is at 0 %). The sound is exactly as before.
+- [ ] Raise Atmosphere to 50–100 % with a sparse part playing: now and then a quiet
+      sound of the place appears in the background: Dungeon: drips, torch crackle,
+      chains; Boss Lair: a far-off growl; Castle Courtyard: wind and crows; Chapel: a
+      distant bell; Caverns: drips, glass tinkles, lapping water; Tavern: a murmuring
+      room and the fire; Blacksmith: hammer clinks; Swamp: frogs and bubbles; Mountain
+      Pass: wind and a distant howl; Graveyard: crows, an owl, whispers; Alchemy Lab:
+      bubbling. Never busy, never a riser or a noise wave.
+- [ ] Play loud: the atmosphere steps back under the instrument (it never masks it).
+- [ ] Journey panel → Atmosphere: Density changes how often; another Seed changes which
+      sounds come when. Playing the same bars again gives the same sounds (deterministic).
+- [ ] Mix 0 %, Intensity 0 % or Bypass: the atmosphere is gone too.

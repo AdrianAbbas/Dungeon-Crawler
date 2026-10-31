@@ -69,14 +69,18 @@ private:
     Wraith wraith;
     Echoes echoes;
     std::array<Slot, 5> slots;   // abyss, relics, choir, wraith, echoes (Blood runs always: it carries the latency)
-    // Signatures: two instances. A journey to another kind starts the new kind in the
-    // other instance and lets the old one ring out (its tails continue).
+    // Signatures: a pool of three instances. A journey to another kind starts the new
+    // kind in an idle instance and lets the old one ring out (its tails continue);
+    // quick successive journeys never have to cut a tail that still rings.
+    static constexpr int sigCount = 3;
     void runSignatures(float* l, float* r, int n, float eased) noexcept;
     void swapSignature() noexcept;
-    std::array<Signature, 2> signatures;
-    std::array<Slot, 2> sigSlots;
-    std::array<Frame, 2> sigFrames {};
-    int activeSig = 0, departingSig = -1;
+    bool anyDeparting() const noexcept;
+    std::array<Signature, sigCount> signatures;
+    std::array<Slot, sigCount> sigSlots;
+    std::array<Frame, sigCount> sigFrames {};
+    std::array<bool, sigCount> sigDeparting {};
+    int activeSig = 0, latestDeparting = -1;
     bool sigCrossfade = false;
     float sigFromAmount = 0;
     // The Crypt runs as a small pool of rooms. A journey to a place with a different

@@ -29,6 +29,8 @@ public:
     juce::Button& hotspotButton(int index) { return *hotspots[static_cast<std::size_t>(index)]; }
     juce::Button& advancedButton() { return advancedToggle; }
     juce::Button& mapButton() { return mapCrumb; }
+    juce::Button& journeyButton() { return journeyToggle; }
+    bool journeyOpen() const { return journeyPanel.isVisible(); }
     juce::String macroLabel(int index) const { return macros[static_cast<std::size_t>(index)].label.getText(); }
     bool macroVisible(int index) const { return macros[static_cast<std::size_t>(index)].slider.isVisible(); }
     bool advancedOpen() const { return drawer.isVisible(); }
@@ -84,6 +86,42 @@ private:
         std::vector<std::unique_ptr<juce::Label>> headings;
         juce::Label hint;
     };
+    // Journeys (Milestone 9): the route, roaming and MIDI travel.
+    class JourneyPanel final : public juce::Component {
+    public:
+        JourneyPanel(DungeonCrawlerProcessor&, std::function<dc::Stop()> currentPlace);
+        void paint(juce::Graphics&) override;
+        void resized() override;
+        void refresh();
+        juce::Button& addButton() { return add; }
+        juce::Button& clearButton() { return clear; }
+    private:
+        DungeonCrawlerProcessor& processor;
+        std::function<dc::Stop()> currentPlace;
+        juce::ToggleButton journey { "Journey" }, roam { "Roam" }, midi { "MIDI travel" };
+        juce::ComboBox mode, roamRate, octave;
+        juce::Slider atmosDensity { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight },
+                     atmosSeed { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
+        juce::Label atmosDensityLabel, atmosSeedLabel;
+        std::unique_ptr<juce::SliderParameterAttachment> atmosDensityAttachment, atmosSeedAttachment;
+        juce::Slider bars { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight },
+                     randomness { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight },
+                     seed { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
+        juce::TextButton add { "Add this place" }, removeLast { "Remove last" }, clear { "Clear" };
+        juce::Label routeText, barsLabel, randomLabel, seedLabel, midiHint;
+        std::unique_ptr<juce::ButtonParameterAttachment> journeyAttachment, roamAttachment, midiAttachment;
+        std::unique_ptr<juce::ComboBoxParameterAttachment> modeAttachment, rateAttachment, octaveAttachment;
+        std::unique_ptr<juce::SliderParameterAttachment> barsAttachment, randomAttachment, seedAttachment;
+    };
+    // Follows the place a journey, roaming or MIDI chooses (10 Hz, only while steering).
+    class Follower final : public juce::Timer {
+    public:
+        explicit Follower(DungeonCrawlerEditor& e) : editor(e) {}
+        void timerCallback() override { editor.followSteering(); }
+    private:
+        DungeonCrawlerEditor& editor;
+    };
+    void followSteering();
     struct Transition {
         bool active = false;
         int kind = 0;                  // 0 crossfade, 1 zoom into a landmark, 2 zoom out to the map
@@ -140,14 +178,20 @@ private:
     std::array<Fader, dc::macroCount> macros;
     Fader input, intensity, mix, output;
     juce::Slider travelTime { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
+    juce::Slider atmosphere { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
+    juce::Label atmosphereLabel;
+    std::unique_ptr<juce::SliderParameterAttachment> atmosphereAttachment;
     juce::Label travelLabel, macroHeading;
     juce::ComboBox travelSync;
     std::unique_ptr<juce::SliderParameterAttachment> travelTimeAttachment;
     std::unique_ptr<juce::ComboBoxParameterAttachment> travelSyncAttachment;
-    juce::TextButton bypass { "Bypass" }, advancedToggle { "Advanced" }, controlsToggle;
+    juce::TextButton bypass { "Bypass" }, advancedToggle { "Advanced" }, controlsToggle, journeyToggle { "Journey" };
     std::unique_ptr<juce::ButtonParameterAttachment> bypassAttachment;
     bool controlsShown = true;
     Drawer drawer;
+    JourneyPanel journeyPanel;
+    Follower follower { *this };
+    bool wasSteering = false;
     int shown = -1, shownSub = -1;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DungeonCrawlerEditor)
 };

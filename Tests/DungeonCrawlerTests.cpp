@@ -15,6 +15,8 @@
 #include <functional>
 #include <iostream>
 #include <new>
+#include <set>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -210,8 +212,24 @@ Phrase vocalPhrase(double sr) {
     return normalised(std::move(out));
 }
 
+// A host transport for journeys (Milestone 9): playing from a position at a tempo.
+struct TestPlayHead final : juce::AudioPlayHead {
+    double bpm = 120, ppq = 0;
+    bool playing = false;
+    juce::Optional<PositionInfo> getPosition() const override {
+        PositionInfo info;
+        info.setBpm(bpm);
+        info.setIsPlaying(playing);
+        info.setPpqPosition(ppq);
+        info.setTimeSignature(TimeSignature { 4, 4 });
+        return info;
+    }
+};
+
 struct Host {
     std::unique_ptr<DungeonCrawlerProcessor> p = std::make_unique<DungeonCrawlerProcessor>();
+    TestPlayHead transport;
+    bool useTransport = false;
     double sr;
     int block, ins, outs;
     long long position = 0;
@@ -241,7 +259,10 @@ struct Host {
         for (int ch = 0; ch < ins; ++ch)
             for (int i = 0; i < n; ++i) buffer.setSample(ch, i, signal(ch, position + i, sr));
         for (int i = 0; i < n; ++i) inL.push_back(buffer.getSample(0, i));
+        if (useTransport) { p->setPlayHead(&transport); }
         p->processBlock(buffer, midi);
+        midi.clear();
+        if (useTransport && transport.playing) transport.ppq += static_cast<double>(n) / sr * transport.bpm / 60.0;
         for (int i = 0; i < n; ++i) {
             outL.push_back(buffer.getSample(0, i));
             outR.push_back(buffer.getSample(outs > 1 ? 1 : 0, i));
@@ -1126,6 +1147,10 @@ void testExtremes(Suite& s) {
 void testRealtime(Suite& s) {
     s.section("real-time safety");
     Host h(48000, 512);
+    // Journeys, roaming and the atmosphere run too (Milestones 9 and 10).
+    h.p->setRoute({ { dc::Dungeon, 1 }, { dc::Castle, 3 }, { dc::Swamp, 1 } });
+    h.set(dc::ids::atmosLevel, 1.0f);
+    h.set(dc::ids::atmosDensity, 1.0f);
     h.render(1.0, plucks(0.4f));
     juce::Random random(11);
     std::size_t allocations = 0;
@@ -1136,6 +1161,8 @@ void testRealtime(Suite& s) {
         if (k % 17 == 0) h.set(dc::ids::subLocation, static_cast<float>(random.nextInt(5)));
         if (k % 23 == 0) h.set(dc::ids::macros[static_cast<std::size_t>(k % 4)], random.nextFloat());
         if (k % 29 == 0) h.set(dc::ids::advanced(static_cast<std::size_t>(random.nextInt(static_cast<int>(dc::Count)))), 0.3f);
+        if (k % 41 == 0) h.set(dc::ids::journeyOn, k % 2 ? 1.0f : 0.0f);
+        if (k % 47 == 0) h.set(dc::ids::roamOn, k % 2 ? 0.0f : 1.0f);
         // Fill the input outside the probe, then process inside it.
         const int n = k % 3 == 0 ? 512 : 64 + k;
         h.buffer.setSize(2, n, false, false, true);
@@ -1251,6 +1278,14 @@ void testEditor(Suite& s, const juce::String& snapshot) {
     editor->locationButton(dc::Castle).onClick();
     s.check(juce::roundToInt(p.parameters.getRawParameterValue(dc::ids::subLocation)->load()) == 0, "choosing a location arrives at its own scene");
     s.check(!editor->advancedOpen(), "the Advanced drawer is hidden by default");
+    // Milestone 9: the Journey panel builds a route from the places you visit.
+    s.check(!editor->journeyOpen(), "the Journey panel is hidden by default");
+    editor->journeyButton().setToggleState(true, juce::dontSendNotification);
+    editor->journeyButton().onClick();
+    s.check(editor->journeyOpen(), "the Journey button opens the panel");
+    p.setRoute({});
+    editor->journeyButton().setToggleState(false, juce::dontSendNotification);
+    editor->journeyButton().onClick();
     editor->advancedButton().setToggleState(true, juce::dontSendNotification);
     editor->advancedButton().onClick();
     s.check(editor->advancedOpen(), "the Advanced button opens the drawer");
@@ -1284,6 +1319,181 @@ void testEditor(Suite& s, const juce::String& snapshot) {
         juce::FileOutputStream stream(file);
         juce::PNGImageFormat().writeImageToStream(image, stream);
         std::cout << "snapshot written to " << file.getFullPathName() << "\n";
+    }
+}
+
+// Milestone 10: the Atmosphere layer: off by default, sparse, deterministic, tempo-aware,
+// quiet and ducking under the instrument.
+void testAtmosphere(Suite& s) {
+    s.section("atmosphere: sparse place sounds, off by default");
+    {
+        DungeonCrawlerProcessor p;
+        s.check(p.parameters.getRawParameterValue(dc::ids::atmosLevel)->load() == 0.0f, "the Atmosphere is off by default");
+    }
+    int withSounds = 0;
+    for (const auto& [l, k] : allPlaces()) withSounds += dc::atmosphereOf(l, k).count > 0 ? 1 : 0;
+    s.check(withSounds == 40, "every place has its own atmosphere sounds", std::to_string(withSounds));
+    const auto render = [](int seed, double bpm, float level, float density, int location, int sub, const Signal& signal, double seconds) {
+        auto h = std::make_unique<Host>();
+        h->useTransport = true; h->transport.playing = true; h->transport.bpm = bpm;
+        h->go(location, sub);
+        h->set(dc::ids::atmosLevel, level);
+        h->set(dc::ids::atmosDensity, density);
+        h->set(dc::ids::atmosSeed, static_cast<float>(seed));
+        h->render(seconds, signal);
+        return h;
+    };
+    // Events on silence: count onsets (the layer is audible with nothing playing).
+    const auto onsets = [](const Host& h) {
+        int count = 0; bool quiet = true;
+        for (double t = 0.0; t + 0.05 < h.end() / h.sr; t += 0.05) {
+            const double level = h.rms(h.at(t), h.at(t + 0.05));
+            if (quiet && level > 2.0e-4) { ++count; quiet = false; }
+            else if (level < 5.0e-5) quiet = true;
+        }
+        return count;
+    };
+    {
+        auto off = render(1, 120, 0.0f, 1.0f, dc::Dungeon, 0, silence(), 8.0);
+        s.check(off->peak(0, off->end()) < 1.0e-6, "level 0: nothing at all", fmt(off->peak(0, off->end()), 8));
+    }
+    auto a = render(3, 120, 1.0f, 1.0f, dc::Dungeon, 0, silence(), 16.0);
+    auto b = render(3, 120, 1.0f, 1.0f, dc::Dungeon, 0, silence(), 16.0);
+    auto c = render(4, 120, 1.0f, 1.0f, dc::Dungeon, 0, silence(), 16.0);
+    bool same = a->end() == b->end(), differ = false;
+    for (std::size_t i = 0; i < a->end() && same; ++i) same = a->outL[i] == b->outL[i];
+    for (std::size_t i = 0; i < a->end() && !differ; ++i) differ = a->outL[i] != c->outL[i];
+    s.check(same, "deterministic: the same seed gives the same sounds at the same times");
+    s.check(differ, "another seed gives different sounds");
+    const int events = onsets(*a);
+    s.metric("atmosphere events in 8 bars at full density (120 BPM)", events);
+    s.check(events >= 4 && events <= 32, "sparse: a few events per bar at most", std::to_string(events));
+    s.check(a->peak(0, a->end()) < 0.15, "quiet: events peak well below the instrument (< -16 dBFS)", fmt(toDb(a->peak(0, a->end()))) + " dBFS");
+    s.check(a->finite(), "finite");
+    auto slow = render(3, 60, 1.0f, 1.0f, dc::Dungeon, 0, silence(), 16.0);
+    s.metric("events in 16 s at 60 BPM", onsets(*slow));
+    s.check(onsets(*slow) < events, "tempo-aware: fewer events at a slower tempo", std::to_string(onsets(*slow)) + " vs " + std::to_string(events));
+    {
+        // Ducking: under a loud instrument the layer adds little.
+        auto with = render(5, 120, 1.0f, 1.0f, dc::Caverns, 1, sine(330.0, 0.5f), 8.0);
+        auto without = render(5, 120, 0.0f, 1.0f, dc::Caverns, 1, sine(330.0, 0.5f), 8.0);
+        double diff = 0, ref = 0;
+        for (std::size_t i = with->at(2.0); i < with->end(); ++i) { const double d = with->outL[i] - without->outL[i]; diff += d * d; ref += double(without->outL[i]) * without->outL[i]; }
+        s.metric("atmosphere under a loud instrument", toDb(std::sqrt(diff / ref)), " dB");
+        s.check(toDb(std::sqrt(diff / ref)) < -24.0, "it never masks the instrument (< -24 dB under it)", fmt(toDb(std::sqrt(diff / ref))) + " dB");
+    }
+}
+
+// Milestone 9: journeys (a route over bars), roaming (deterministic), MIDI travel.
+void testJourneys(Suite& s) {
+    s.section("journeys: route, roam, MIDI travel");
+    using dc::journeyStop;
+    s.check(journeyStop(0, 3, 4, dc::JourneyLoop) == 0 && journeyStop(4.5, 3, 4, dc::JourneyLoop) == 1 && journeyStop(12.0, 3, 4, dc::JourneyLoop) == 0,
+            "loop: stop by position, wrapping");
+    s.check(journeyStop(40, 3, 4, dc::JourneyOneWay) == 2, "one-way: stays at the last stop");
+    s.check(journeyStop(12, 3, 4, dc::JourneyPingPong) == 1 && journeyStop(16, 3, 4, dc::JourneyPingPong) == 0, "ping-pong: back and forth");
+    const std::vector<dc::Stop> route { { dc::Dungeon, 0 }, { dc::Castle, 2 }, { dc::Cathedral, 1 } };
+    {
+        Host h;
+        h.useTransport = true; h.transport.playing = true;
+        h.p->setRoute(route);
+        h.set(dc::ids::journeyOn, 1.0f);
+        h.set(dc::ids::journeyBars, 1.0f);   // 1 bar = 2 s at 120 BPM
+        std::vector<std::pair<int, int>> seen;
+        h.render(1.0, sine(220.0, 0.2f));   // then sample in the middle of each bar
+        for (int k = 0; k < 4; ++k) {
+            seen.push_back({ h.p->engine().destination(), h.p->engine().destinationSub() });
+            h.render(2.0, sine(220.0, 0.2f));
+        }
+        s.check(seen[0] == std::pair<int, int> { dc::Dungeon, 0 } && seen[1] == std::pair<int, int> { dc::Castle, 2 }
+                && seen[2] == std::pair<int, int> { dc::Cathedral, 1 } && seen[3] == std::pair<int, int> { dc::Dungeon, 0 },
+                "a journey follows the route bar by bar and loops");
+        s.check(h.p->steering(), "the journey steers the place");
+    }
+    {
+        // Random access: starting the transport at bar 3 is already at the third stop.
+        Host h;
+        h.useTransport = true; h.transport.playing = true; h.transport.ppq = 8.5;
+        h.p->setRoute(route);
+        h.set(dc::ids::journeyOn, 1.0f);
+        h.set(dc::ids::journeyBars, 1.0f);
+        h.render(0.1, silence());
+        s.check(h.p->engine().destination() == dc::Cathedral, "starting mid-song is already at the right stop (deterministic)");
+        h.set(dc::ids::journeyMode, 1.0f);   // one-way
+        h.transport.ppq = 40.0;
+        h.render(0.1, silence());
+        s.check(h.p->engine().destination() == dc::Cathedral, "one-way stays at the last stop");
+    }
+    {
+        // Click-free: a sine through a journey changing every bar. The reference is the
+        // largest step of each stop's own steady sound (a bright place has larger steps).
+        double reference = 0;
+        for (const auto& st : route) {
+            Host steady;
+            steady.go(st.location, st.sub);
+            steady.render(4.0, sine(220.0, 0.25f));
+            reference = std::max(reference, steady.maxStep(steady.at(1.0), steady.at(4.0)));   // with its own drips and echoes
+        }
+        Host h;
+        h.useTransport = true; h.transport.playing = true;
+        h.p->setRoute(route);
+        h.set(dc::ids::journeyOn, 1.0f);
+        h.set(dc::ids::journeyBars, 1.0f);
+        h.render(8.0, sine(220.0, 0.25f));
+        if (std::getenv("DC_DEBUG_JOURNEY") != nullptr)
+            for (double t = 0.0; t < 8.0; t += 0.1) std::cout << "    " << fmt(t, 1) << " s: step " << fmt(h.maxStep(h.at(t), h.at(t + 0.1)) / reference, 2) << "x\n";
+        s.check(h.finite() && h.maxStep(h.at(1.0), h.end()) < 2.5 * reference, "journey travel is click-free",
+                fmt(h.maxStep(h.at(1.0), h.end()) / reference, 2) + "x the stops' own");
+    }
+    {
+        // Roam: deterministic per seed, ordered at randomness 0.
+        const auto roam = [](int seed, float randomness) {
+            Host h;
+            h.useTransport = true; h.transport.playing = true;
+            h.go(dc::Dungeon, 0);
+            h.set(dc::ids::roamOn, 1.0f);
+            h.set(dc::ids::roamBars, 1.0f);   // 1 bar
+            h.set(dc::ids::roamSeed, static_cast<float>(seed));
+            h.set(dc::ids::roamRandomness, randomness);
+            std::vector<int> subs;
+            h.render(1.0, silence());
+            for (int k = 0; k < 10; ++k) { subs.push_back(h.p->engine().destinationSub()); h.render(2.0, silence()); }
+            return subs;
+        };
+        const auto a = roam(7, 0.7f), b = roam(7, 0.7f), c = roam(8, 0.7f), ordered = roam(7, 0.0f);
+        s.check(a == b, "roaming is deterministic for a seed");
+        s.check(a != c, "another seed roams differently");
+        s.check(ordered[0] == 0 && ordered[1] == 1 && ordered[4] == 4 && ordered[5] == 0, "randomness 0 walks the places in order");
+        std::set<int> visited(a.begin(), a.end());
+        s.check(visited.size() >= 3, "roaming visits several places", std::to_string(visited.size()));
+    }
+    {
+        // MIDI travel: E in the travel octave = the fifth location; D an octave up = sub 2.
+        Host h;
+        h.set(dc::ids::midiTravel, 1.0f);
+        h.set(dc::ids::midiOctave, 1.0f);   // C-1: notes 12..21
+        h.midi.addEvent(juce::MidiMessage::noteOn(1, 12 + 4, 0.8f), 0);
+        h.render(0.1, silence());
+        s.check(h.p->engine().destination() == dc::Caverns, "a MIDI note in the travel octave chooses a location");
+        h.midi.addEvent(juce::MidiMessage::noteOn(1, 12 + 12 + 2, 0.8f), 0);
+        h.render(0.1, silence());
+        s.check(h.p->engine().destination() == dc::Caverns && h.p->engine().destinationSub() == 2, "an octave higher chooses its sub-location");
+        h.midi.addEvent(juce::MidiMessage::noteOn(1, 60, 0.8f), 0);
+        h.render(0.1, silence());
+        s.check(h.p->engine().destinationSub() == 2, "notes outside the travel octaves are ignored");
+        h.set(dc::ids::midiTravel, 0.0f);
+        h.render(0.1, silence());
+        s.check(h.p->engine().destination() == dc::Dungeon && !h.p->steering(), "MIDI travel off returns to the Location parameters");
+    }
+    {
+        // The route is saved with the state.
+        DungeonCrawlerProcessor a, b;
+        a.setRoute(route);
+        juce::MemoryBlock block;
+        a.getStateInformation(block);
+        b.setStateInformation(block.getData(), static_cast<int>(block.getSize()));
+        const auto restored = b.route();
+        s.check(restored.size() == 3 && restored[1].location == dc::Castle && restored[1].sub == 2, "the journey route is restored with the state");
     }
 }
 
@@ -1378,18 +1588,26 @@ int signatureCheck() {
 }
 
 int tailDebug() {
-    const std::pair<int, int> dests[] = { { dc::Village, 1 }, { dc::Village, 0 }, { dc::Castle, 1 }, { dc::Dungeon, 0 }, { dc::Cathedral, 1 } };
-    for (const auto& [dl, dk] : dests) {
-        Host a;
-        a.set(dc::ids::travelTime, 0.0f);
-        a.go(dc::Cathedral, 1);
-        a.render(3.0, sawChord(0.3f));
-        a.go(dl, dk);
-        a.render(2.0, silence());
-        std::cout << placeName(dl, dk) << " (" << fmt(a.p->engine().travelDuration(), 2) << " s):";
-        for (double t = 3.0; t < 4.5; t += 0.1) std::cout << " " << fmt(toDb(a.rms(a.at(t), a.at(t + 0.1))));
-        std::cout << "\n";
-    }
+    const auto trial = [](std::vector<std::pair<int, int>> places, bool transport) {
+        Host h;
+        if (transport) { h.useTransport = true; h.transport.playing = true; }
+        h.go(places[0].first, places[0].second);
+        h.render(2.0, sine(220.0, 0.25f));
+        const double before = h.maxStep(h.at(1.0), h.at(2.0));
+        double worst = 0;
+        for (std::size_t k = 1; k < places.size(); ++k) {
+            const auto start = h.end();
+            h.go(places[k].first, places[k].second);
+            h.render(2.0, sine(220.0, 0.25f));
+            worst = std::max(worst, h.maxStep(start, h.end()) / before);
+        }
+        return worst;
+    };
+    std::cout << "throne->nave->corridors (params): " << trial({ { 1, 2 }, { 2, 1 }, { 0, 0 } }, false) << "x\n";
+    std::cout << "same with a playing transport: " << trial({ { 1, 2 }, { 2, 1 }, { 0, 0 } }, true) << "x\n";
+    std::cout << "corridors->throne: " << trial({ { 0, 0 }, { 1, 2 } }, false) << "x\n";
+    std::cout << "throne->nave: " << trial({ { 1, 2 }, { 2, 1 } }, false) << "x\n";
+    std::cout << "nave->corridors: " << trial({ { 2, 1 }, { 0, 0 } }, false) << "x\n";
     return 0;
 }
 
@@ -1448,6 +1666,8 @@ int main(int argc, char** argv) {
     if (run("realtime")) testRealtime(s);
     if (run("editor")) testEditor(s, snapshot);
     if (run("art")) testArt(s);
+    if (run("journeys")) testJourneys(s);
+    if (run("atmosphere")) testAtmosphere(s);
     if (only.contains("cpu")) testCpu(s);   // report only: run explicitly
     std::cout << "\n" << s.passed << " passed, " << s.failed << " failed" << std::endl;
     return s.failed == 0 ? 0 : 1;

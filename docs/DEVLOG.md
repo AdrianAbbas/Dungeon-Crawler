@@ -52,10 +52,10 @@ without after each milestone. Resume from the first unticked item.
 - [x] 8b. Scenes for all 30 sub-locations
 - [x] 8c. Clickable points of interest + compact list, breadcrumb/back; subtle life (torch glow, fog, candles, water glints), cached, ≤ 30 fps
 - [x] 8d. Snapshots of every scene, tests, DEVLOG; push without `[skip ci]` (Milestone 8 build)
-- [ ] 9a. Journey path: route of places over bars per stop, loop/one-way, tempo-synced, automatable
-- [ ] 9b. Roam mode: rate, randomness, seed; deterministic
-- [ ] 9c. MIDI travel (optional), host support documented; Travel Time in seconds or bars; tests
-- [ ] 9d. DEVLOG; push without `[skip ci]` (Milestone 9 build)
+- [x] 9a. Journey path: route of places over bars per stop, loop/one-way, tempo-synced, automatable
+- [x] 9b. Roam mode: rate, randomness, seed; deterministic
+- [x] 9c. MIDI travel (optional), host support documented; Travel Time in seconds or bars; tests
+- [x] 9d. DEVLOG; push without `[skip ci]` (Milestone 9 build)
 - [ ] 10a. Atmosphere layer: synthesised one-shots/beds per place, level/density/seed, off by default, tempo-aware, never masking
 - [ ] 10b. Tests, DEVLOG; push without `[skip ci]` (Milestone 10 build)
 - [ ] 11a. Preset browser (factory spots + journeys, user presets), A/B compare, undo/redo
@@ -863,3 +863,69 @@ every scene: [snapshots/scenes/](snapshots/scenes/); in the editor:
   render 5 ms at 192 × 112.
 - Editor: the Dungeon's torches are lights; the life runs the timer; a full repaint
   with the life fits a 30 fps frame (4.7 ms); with the animation off the timer stops.
+
+---
+
+## Milestone 9: journeys and performance (2026-10-31)
+
+New host parameters (stable IDs, version 1, all automatable):
+
+| Parameter | Values |
+|---|---|
+| Journey | on/off |
+| Journey Mode | Loop, One-way, Ping-pong |
+| Bars per Stop | 1–16 |
+| Roam | on/off |
+| Roam Rate | ½, 1, 2, 4, 8, 16 bars |
+| Roam Randomness | 0–100 % (0 = the places in order) |
+| Roam Seed | 1–999 |
+| MIDI Travel | on/off |
+| MIDI Travel Octave | C-2 … C6 (default C-1, notes 12–21) |
+
+- **Journey path:** a route of up to eight places (any location and sub-location) is
+  part of the plug-in's state (saved with the project, state version 3; older states
+  load with no route). The Journey panel (button in the controls strip) shows the
+  route, adds the current place, removes the last, clears; the map draws the route as
+  faint red dotted lines with numbered stops. With Journey on, the place is the stop
+  at the current musical position: `floor(beats / (bars × beats per bar))`, wrapped
+  (loop), clamped (one-way) or reflected (ping-pong). Travel between stops uses
+  Travel Time / Travel Sync, so a journey can morph over seconds or bars.
+- **Roam:** the plug-in wanders between the current location's places on its own: at
+  step n (every Roam Rate) it is in place n in order, or with probability Randomness
+  in another place chosen by a hash of (seed, n). This is a pure function of the
+  position, so it is **deterministic**: the same bar always gives the same place for a
+  seed, playback from any point is reproducible, and a bounce sounds like playback.
+- **Position:** the host's beat position while it plays (time signature respected);
+  otherwise a free-running count at the host's tempo (so journeys and roaming also
+  move while you play live with the transport stopped).
+- **Precedence:** MIDI travel > Journey > Roam > the Location parameters. The editor
+  follows whatever steers (a 10 Hz check of two atomics) and returns to the
+  parameters when steering ends; the parameters themselves are never written by the
+  audio thread.
+- **MIDI travel (optional):** notes C…A of the travel octave choose the ten locations
+  (arriving at their scene); C…E an octave higher choose a sub-location of the current
+  location; the last note wins. The plug-in now declares MIDI input
+  (`NEEDS_MIDI_INPUT TRUE`, still an `aufx` effect). **Host support, honestly:**
+  GarageBand does not route MIDI to audio effects, so MIDI travel does nothing there
+  (use Journey or Roam, or automate Location). Logic Pro routes MIDI to AU effects
+  through *Side Chain → MIDI* only for "MIDI-controlled effects" (`aumf`); this
+  plug-in stays a plain effect (`aufx`) so that it keeps loading in GarageBand, which
+  means Logic may not offer it either. VST3 hosts that send MIDI to effects (Reaper,
+  Cubase, Bitwig, Ableton Live with a MIDI track routed to the effect) work.
+- **Click-free, level-matched:** journeys use the same travel engine. Fixed on the way:
+  the Signature now has a **pool of three instances** (like the reverb rooms). With two,
+  three quick journeys (Throne Room → Nave → Corridors) had to reuse an instance whose
+  tail was still ringing and reset it: a click of 40× the steady signal's largest step.
+  Now a new kind starts in an idle instance; the worst step through a journey changing
+  every bar is 1.3× the stops' own.
+
+### Tests (group `journeys`, 17 checks; editor +3)
+
+Stop arithmetic for loop, one-way and ping-pong; a route followed bar by bar with the
+host transport and looping; starting the transport at bar 3 is already at the third
+stop (random access); one-way holds the last stop; journey travel click-free against
+the stops' own largest step (which includes their drips and echoes); roaming
+identical for a seed, different for another seed, in order at randomness 0, visiting
+several places; MIDI note → location, note an octave up → sub-location, other notes
+ignored, MIDI travel off returns to the parameters; the route survives a state round
+trip; the Journey panel opens.
