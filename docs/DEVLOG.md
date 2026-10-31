@@ -42,8 +42,8 @@ without after each milestone. Resume from the first unticked item.
 
 - [x] 6a. Signature module (VIII): one signature effect per place, 40 kinds, crossfaded kind changes
 - [x] 6b. Sound design: Village, Swamp, Mountains, Necropolis, Wizard's Tower with all sub-locations; signatures on all 40 places
-- [ ] 6c. Distinctness gate over all pairs (closest listed), musicality over all 40 places, trims recalibrated, listening render updated
-- [ ] 6d. DEVLOG, manual test; push without `[skip ci]` (Milestone 6 build)
+- [x] 6c. Distinctness gate over all pairs (closest listed), musicality over all 40 places, trims recalibrated, listening render updated
+- [x] 6d. DEVLOG, manual test; push without `[skip ci]` (Milestone 6 build)
 - [ ] 7a. Engraving renderer: tone + hatch-direction fields to hatched line art, off the message thread, cached
 - [ ] 7b. The engraved map: landmarks, compass rose, cartouche, parchment; hover names, current place marked, travel path line
 - [ ] 7c. Map ↔ location transitions (zoom/fade), double-buffered; drop-in override folder; `docs/ART_SOURCES.md`
@@ -591,3 +591,163 @@ buffer list with no room for the requested frames.
 **Fix:** before each render, set `frameLength` and every buffer's `mDataByteSize` to
 the block size. If the next run still fails, that is the second and last attempt;
 the route then goes back to diagnostic, with this explanation.
+
+---
+
+## Session 3, Milestone 6: distinct places (2026-10-31, unattended)
+
+Direction Update 1 ([DIRECTION_UPDATE_1.md](DIRECTION_UPDATE_1.md)) replaces the
+brief's remaining milestones with Milestones 6–12, to be done in one unattended run.
+Developer feedback on 2a: places still sounded too similar and did not match their
+vibe. Rule for this pass: **every place gets one signature effect no other place uses**,
+on top of its room, so any two places are tellable apart blind.
+
+The CI run of the previous session's last fix (AUAudioUnit route, output buffer list)
+was green on arm64 and x86_64 (run 41182793128), so 0c is closed.
+
+### VIII. Signature (`Source/DSP/Signature.cpp`)
+
+A new module after the Wraith and before the Echoes and the Crypt (so the place's room
+carries it). Four parameters: **Signature** (the kind, 0–40), **Amount**, **Tone**
+(−1…+1: transposes resonances by up to an octave in semitone steps, tilts filters),
+**Rate** (×0.25…×4 on every modulation). Each kind is a recipe of small primitives:
+
+| Serial (crossfaded by Amount) | Parallel layers (added) |
+|---|---|
+| saturation flavour: warm (asymmetric), growl (sub-octave flip-flop), menace (bitey, asymmetric), grit (sample-hold) | tuned feedback combs (up to 3) |
+| tone: low-pass, high-pass, bell, high shelf | modal bank (up to 6 modes, T60 per mode), optionally **struck** only by attacks with a short noise "mallet" so it rings whatever notes are played |
+| attack softening (only real onsets, not a chord's beating) | pitch layers (up to 2): continuous, on attacks, or twinkling; vowel formants; slow bloom |
+| wobble: modulated delay with sine, smooth-random, bubbling, slosh or crooked shapes | tap patterns (up to 6): fixed, scattering, crackling, circling, diffused; each channel echoes itself |
+| tremolo (whole or layers only) | allpass smear; reverse swell (two windowed reverse heads) |
+
+The 40 kinds, one per place, in place order (kind = place number):
+
+| Place | Signature |
+|---|---|
+| Dungeon · Corridors | Receding Footsteps: four darkening reflections down the passage |
+| Entrance Hall | Stone Flutter: an 88 Hz flutter between parallel walls + crackling early reflections |
+| Prison Cells | Bar Resonance: three tuned combs (D3, A3, D#4) ringing like iron bars, muffled cell |
+| Treasure Room | Glitter Sparkle: an octave and octave + fifth on every attack |
+| Final Boss Lair | Sub Choir Menace: a sub-octave "oh" choir, menacing drive, slow repeats (640/1280 ms) |
+| Castle · Courtyard | Wall Ping-Pong: a quick left-right bounce between two walls |
+| Great Hall | Banner Reflections: six soft early reflections, gently swaying |
+| Throne Room | Regal Brass: harmonic resonances on A (220–880 Hz) and a brassy bite |
+| Chapel | Choir Pad Bloom: a sung "ah" pad blooming under the instrument |
+| Tower Top | Wind-Blown Echoes: two sparse long echoes wavering in gusts |
+| Cathedral · Cloister | Colonnade: a picket of evenly spaced column reflections |
+| Nave | Vault Cascade: long diffused cascades from the vault |
+| Crypt | Stone Resonance: low-mid stone modes (163–384 Hz) |
+| Bell Tower | Bell Resonators: a minor-third church bell on D struck by every attack |
+| Haunted Forest · Forest Edge | Trunk Scatter: drifting echoes off tree trunks |
+| Old Path | Spectral Smear: notes smeared into a ghostly wash, slightly adrift |
+| Witch's Hut | Crooked Wobble: crooked pitch wobble, woody box |
+| Ancient Grove | Breathing Shimmer: an octave of shimmer breathing slowly |
+| Caverns · Cave Mouth | Cave Hum: low cave modes (72–151 Hz) and a far answer |
+| Crystal Cavern | Glass Ring: struck inharmonic glass modes (1.3–4.6 kHz) |
+| Underground Lake | Underwater: muffled, slow wobble, long watery echoes |
+| Dragon's Hoard | Growl: low growl saturation with a sub-octave snarl |
+| Village · Village Green | Folk Chorus: a lively doubling |
+| Tavern | Warm Tavern: warm saturation, soft highs, a crowded-room smear |
+| Market Square | Slap-Back: a hard slap off the buildings |
+| Blacksmith | Anvil: an anvil struck by every attack, gritty |
+| Swamp · Mire | Mud Drag: attacks dragged through mud, sticky smear |
+| Bog | Murky Wobble: low-passed, wobbling |
+| Sunken Ruins | Sloshing: filtered, sloshing back and forth |
+| Mountains · Foothills | Valley Answer: one long answer from across the valley |
+| Mountain Pass | Canyon Echoes: five discrete echoes receding (0.38–1.9 s) |
+| Frozen Peak | Icy Shimmer: two octaves up, twinkling |
+| Dwarven Hall | Forge Resonance: warm low harmonic resonances (55–220 Hz) |
+| Necropolis · Gates | Iron Groan: rusted iron struck by every attack |
+| Graveyard | Reverse Swell: every note drawn in backwards |
+| Mausoleum | Hollow Tomb: a hollow stone tube, muffled |
+| Wizard's Tower · Stairwell | Spiral Echoes: echoes circling around the listener |
+| Library | Paper Hush: highs and attacks damped |
+| Alchemy Lab | Bubbling Alchemy: bubbling pitch, strange resonances |
+| Observatory | Starry Shimmer: twinkling octave + twelfth starlight, slowly smeared |
+
+**Travel with signatures.** Every place now has its own kind, so every journey changes
+kind. The first version dipped the layer like the Choir interval (journeys ≥ 0.4 s,
+"Instant" broken) and cut the old kind's echoes. Now the engine runs **two
+instances**: a journey to another kind starts the new kind clean in the other
+instance and lets the old one **ring out**: its serial part and its layers' *input*
+fade along the journey, its layers' *output* stays until its tails have died. No
+minimum journey time, no cut tails.
+
+### Sound design of the last five locations (was 2b)
+
+Village, Swamp, Mountains, Necropolis and Wizard's Tower redesigned around their
+signatures (`Source/World/Locations.cpp`), e.g. the Tavern a small warm wooden room
+with a fire's flicker and a faint hollow resonance, the Market Square a bright open
+square (no echo module: the slap is its signature), the Blacksmith a hard little room
+with the forge flickering fast, the Foothills almost dry with wind, the Stairwell a
+narrow bright stone stair (2.8 → 1.8 s), the Graveyard without the Echoes' reverse (the
+reverse swell is its signature). Some macros now reach the signature (Village Bustle,
+Mountains Echo, Swamp Wobble, Wizard's Tower Alchemy/Starlight).
+
+### Problems found and fixed on the way
+
+- **Modal banks were inaudible**: the shared SVF clamps damping to 0.02, so long
+  modes were short and their unity-peak gain tiny. Added `Svf::setResonant` (damping
+  down to 1e-4), gains ∝ √damping (equal energy), and the noise mallet for struck kinds.
+- **The attack detector compared a peak follower with a mean**, so it half-opened on any
+  sustained sound (a saw's peak is ~1.7× its mean). Both are peak followers now.
+- **Taps mixed left and right into one source**: stereo-detuned material (the test chord,
+  real pads) beat against it; Corridors swung 6.9 dB on a held chord (1.4 without). Each
+  channel now echoes itself.
+- **Tests adjusted (decisions):** (1) "the tail decays naturally after leaving" compared
+  two windows 0.75 s apart (< 12 dB). The Nave's vault cascade now feeds its room while
+  you stay but not after you leave, so the first second decays faster, smoothly. A cut is
+  a *step*: the gate is now the largest drop between consecutive 50 ms windows (< 6 dB).
+  The "rings on" gate (> 15 dB above the Tavern alone) is unchanged. (2) "Loudness
+  steady while travelling" now renders 5 s before leaving instead of 3 s: with the
+  signatures' echoes the level matcher was still settling at 2–3 s, so the reference
+  moved.
+
+### Distinctness, musicality, levels (all 40 places gated now)
+
+- **Distinctness:** every pair of the 40 places is at least **10.7** dB-eq apart (gate
+  10; the reference step, a place at Intensity 90 %, is 11.3). No report-only pairs.
+  After the first pass the misses were Bell Tower ↔ Crystal Cavern 8.6, Great Hall ↔
+  Stairwell 9.6 and Courtyard ↔ Stairwell 9.6; two design rounds (Stairwell narrower and
+  shorter, Bell Tower darker and shorter, Crystal Cavern thinner) and the tap fix closed
+  them. Closest pairs now:
+
+| Distance | Pair | Largest differing feature |
+|---|---|---|
+| 10.7 | Castle · Great Hall ↔ Wizard's Tower · Stairwell | IR 0.5–1 s (6.1) |
+| 11.3 | Castle · Courtyard ↔ Caverns · Crystal Cavern | IR 0.5–1 s (6.3) |
+| 11.7 | Castle · Courtyard ↔ Wizard's Tower · Stairwell | new pitches (4.6) |
+| 12.3 | Castle · Courtyard ↔ Castle · Great Hall | 8 kHz (5.8) |
+| 12.4 | Castle · Great Hall ↔ Cathedral · Bell Tower | IR 1–2 s (6.2) |
+| 12.7 | Castle · Great Hall ↔ Castle · Throne Room | IR 20–80 ms (8.5) |
+
+  (Milestone 2a's closest were the Village's places at 6.2–7.7.)
+- **Musicality** (guitar, synth, piano, vocal through all 40 places, 160 renders): all
+  gates pass. Lowest coherence 0.25 (Frozen Peak, synth: thin and icy by design);
+  boom up to +8.0 dB (Dragon's Hoard after taming its growl, drone and sub-octave);
+  fizz below +9 dB everywhere (the Crystal Cavern's glass modes were moved below 5 kHz,
+  the Treasure Room's sparkle low-passed at 8 kHz).
+- **Levels:** trims recalibrated (`--calibrate`); every stored trim within 1 dB of the
+  measurement. Travel loudness within 4 dB for every location; no click (worst step
+  1.3× the steady signal's).
+- **Signature check tool:** `DungeonCrawlerTests --signatures` prints, per place, how much
+  its signature changes it (−0.3 dB for the Underground Lake, where it is the
+  character, to −19 dB for the subtle Glass Ring on plucks) and the level spread of a
+  held chord with and without it.
+- **Listening renders:** `--listen` writes the same guitar + synth phrase through all 40
+  places (`01-…` to `40-…`) and `journey-all-places.wav` (the guitar travelling through
+  all 40, 4 s each).
+
+**Tests: 1473 checks, 0 failures** (Linux, full suite in three shards).
+CPU (one core of this container, 48 kHz stereo, report-only): 3.9 % (Mountains) to
+11.7 % (Haunted Forest: Wraith + scattered taps), travelling every second 16 %. The
+Signature roughly doubled the cost of a few places; Milestone 11's Eco mode addresses
+it.
+
+### Milestone 6 handoff
+
+- **GarageBand:** [MANUAL_TEST.md](MANUAL_TEST.md), section M6: what each place's
+  signature should sound like.
+- **Decisions:** signatures are numbered in place order (kind = place number); the
+  Signature's four parameters are also in the Advanced drawer (group VIII), so a
+  producer can borrow any place's signature for another place or remove it.

@@ -959,16 +959,15 @@ int listen(const juce::String& directory) {
                           .replace("'", "").replace(" ", "") + ".wav";
         failures += writeWav(dir.getChildFile(name), h) ? 0 : 1;
     }
-    // A journey: the guitar phrase on a loop, travelling (1.5 s) through every
-    // designed place, 4 s in each.
+    // A journey: the guitar phrase on a loop, travelling (1.5 s) through all 40
+    // places, 4 s in each (Milestone 6: every place has its signature).
     Host journey(sr);
     for (const auto& [l, k] : allPlaces()) {
-        if (!designed(l)) continue;
         journey.go(l, k);
         journey.render(4.0, fromPhrase(guitar));
     }
     journey.render(3.0, silence());
-    failures += writeWav(dir.getChildFile("journey-2a.wav"), journey) ? 0 : 1;
+    failures += writeWav(dir.getChildFile("journey-all-places.wav"), journey) ? 0 : 1;
     std::cout << "listening renders written to " << dir.getFullPathName() << " (" << index + 2 << " files)\n";
     return failures == 0 ? 0 : 1;
 }

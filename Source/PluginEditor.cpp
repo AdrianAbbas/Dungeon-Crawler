@@ -4,12 +4,12 @@ using namespace dc::ui;
 
 namespace {
 constexpr const char* moduleNames[] = { "I. The Abyss", "II. Ancient Blood", "III. The Choir", "IV. The Wraith",
-                                        "V. The Echoes", "VI. The Crypt", "VII. Relics" };
+                                        "V. The Echoes", "VI. The Crypt", "VII. Relics", "VIII. Signature" };
 // The first module parameter of each module (Frame order).
-constexpr dc::P moduleStarts[] = { dc::Cutoff, dc::Drive, dc::Voices, dc::Blur, dc::DelayTime, dc::Space, dc::Flicker };
+constexpr dc::P moduleStarts[] = { dc::Cutoff, dc::Drive, dc::Voices, dc::Blur, dc::DelayTime, dc::Space, dc::Flicker, dc::SigKind };
 int moduleOf(std::size_t index) {
     int group = 0;
-    for (int g = 0; g < 7; ++g) if (index >= static_cast<std::size_t>(moduleStarts[g])) group = g;
+    for (int g = 0; g < 8; ++g) if (index >= static_cast<std::size_t>(moduleStarts[g])) group = g;
     return group;
 }
 }

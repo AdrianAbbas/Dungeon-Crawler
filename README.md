@@ -4,14 +4,12 @@ A dark-fantasy **audio effect** (AU + VST3, macOS: GarageBand and Logic Pro). Ch
 place in a fantasy world and whatever runs through the plug-in sounds as if it were
 played there; travelling between places morphs the sound.
 
-**Status: Milestones 1 and 2a.** The place engine: ten locations, each with its own
-scene and its sub-locations (40 places), smooth travel with a Travel Time (instant,
-seconds or tempo-synced), crossfades for what cannot morph, reverb tails that ring
-on, calibrated level matching, 3–4 themed macros per location and an Advanced drawer.
-The sound design of the Dungeon, Castle, Cathedral, Haunted Forest and Caverns is done;
-the other five locations are sketches until Milestone 2b. The interface is still a
-simple one; the map and the illustrations follow (see
-[docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md) and [docs/DEVLOG.md](docs/DEVLOG.md)).
+**Status: Milestone 6 (overnight session in progress).** Ten locations, 40 places,
+each with its own room and its own **signature effect** that no other place uses;
+smooth travel (instant, seconds or tempo-synced), reverb and echo tails that ring on,
+calibrated level matching, 3–4 themed macros per location and an Advanced drawer.
+The engraved map and illustrations follow in Milestones 7–8 (see
+[docs/DIRECTION_UPDATE_1.md](docs/DIRECTION_UPDATE_1.md) and [docs/DEVLOG.md](docs/DEVLOG.md)).
 
 ## Install (macOS 10.15+, Apple Silicon and Intel)
 
@@ -44,7 +42,7 @@ harness (in- and out-of-process, arm64 and x86_64), and packages.
 
 | Path | What |
 |---|---|
-| `Source/DSP/` | The six modules from VEIL (Abyss, Ancient Blood, Choir, Wraith, Echoes, Crypt), Relics (new), and their parameters |
+| `Source/DSP/` | The six modules from VEIL (Abyss, Ancient Blood, Choir, Wraith, Echoes, Crypt), Relics and Signature (new), and their parameters |
 | `Source/World/` | The world: locations, sub-locations, macros (`Locations.*`) and calibrated level trims (`LevelTrims.h`) |
 | `Source/Engine.*` | The chain, travel between places, crossfades, the reverb rooms, level matching |
 | `Source/PluginProcessor.*`, `Source/PluginEditor.*`, `Source/UI/` | Plug-in and interface |

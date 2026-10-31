@@ -63,4 +63,46 @@ Install the new build as above. In GarageBand, on a guitar, synth, piano or voca
 
 Listening without GarageBand: the CI artifact `DungeonCrawler-linux-test-logs` has
 `listening/`: the same guitar and synth phrase dry (`00-dry.wav`) and through every
-place, plus `journey-2a.wav` (the guitar travelling through the 22 places of 2a).
+place, plus a journey file (the guitar travelling through the places).
+
+## M6: distinct places (after the overnight session)
+
+Every place now has a **signature**: one effect no other place uses. On a guitar or
+synth track, walk through all 40 places (location list, then each place) and listen for:
+
+- [ ] **Dungeon:** Corridors: footstep-like reflections receding down a passage ·
+      Entrance Hall: a fluttering buzz between stone walls, crackly early reflections ·
+      Prison Cells: metal bars ringing with the notes, muffled · Treasure Room: a
+      glittering octave sparkle on every attack · Final Boss Lair: a low "oh" choir an
+      octave down, distorted, slow repeats.
+- [ ] **Castle:** Courtyard: a quick left-right ping-pong · Great Hall: soft, wide,
+      swaying early reflections · Throne Room: a brassy resonance · Chapel: an "ah"
+      choir pad swelling under the notes · Tower Top: two long echoes wavering in the wind.
+- [ ] **Cathedral:** Cloister: a rapid picket of column echoes · Nave: long cascades from
+      the vault · Crypt: a dark low-mid stone hum · Bell Tower: a church bell rung by
+      every attack.
+- [ ] **Haunted Forest:** Forest Edge: scattered, drifting echoes · Old Path: notes
+      smeared into a ghostly wash · Witch's Hut: a crooked pitch wobble · Ancient Grove:
+      a shimmer an octave up that breathes in and out slowly.
+- [ ] **Caverns:** Cave Mouth: a deep hum and a far answer · Crystal Cavern: glassy
+      ringing on attacks · Underground Lake: underwater, wobbling · Dragon's Hoard: a
+      growling, snarling low end.
+- [ ] **Village:** Green: a doubled, chorused sound · Tavern: warm, softly saturated,
+      cosy · Market Square: a hard slap-back · Blacksmith: an anvil ringing on attacks,
+      gritty.
+- [ ] **Swamp:** Mire: soft, dragged attacks · Bog: murky and wobbling · Sunken Ruins:
+      filtered, sloshing.
+- [ ] **Mountains:** Foothills: almost dry, one long answer from the right · Mountain
+      Pass: five echoes receding · Frozen Peak: a thin icy twinkle two octaves up ·
+      Dwarven Hall: a warm low hum.
+- [ ] **Necropolis:** Gates: an iron groan on attacks · Graveyard: notes swelling in
+      backwards · Mausoleum: hollow, tubey, muffled.
+- [ ] **Wizard's Tower:** Stairwell: echoes circling around you (headphones) · Library:
+      hushed and soft · Alchemy Lab: bubbling pitch and strange resonances ·
+      Observatory: twinkling starlight high above.
+- [ ] Any two places are tellable apart with your eyes closed (ask someone to click).
+- [ ] Guitar, synth, piano and vocal stay usable everywhere (not buried, no boom, no fizz).
+- [ ] Travelling between any two places (Travel 1.5 s, and Instant): no click, no dropout,
+      no jump in loudness; the old place's echoes ring out instead of stopping.
+- [ ] Advanced drawer: the new "Signature" group (Signature, Amount, Tone, Rate) changes
+      the signature; Amount −100 % removes it.

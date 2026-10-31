@@ -120,8 +120,8 @@ private:
     float heldOut = 0, tail = 0, tailDecay = 0.999f;
     struct Lfo {
         double phase = 0;
-        float value = 0, target = 0, follow = 0;
-        int countdown = 0;
+        float value = 0, target = 0, follow = 0, followHz = -1;
+        int countdown = 0, followShape = -1;
         float next(int shape, float hz, double sr, dsp::Random&) noexcept;
     };
     void configure(int kind, float tone) noexcept;

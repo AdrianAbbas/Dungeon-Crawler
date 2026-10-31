@@ -206,8 +206,11 @@ float Signature::Lfo::next(int shape, float hz, double rate, Random& random) noe
                 countdown = std::max(1, static_cast<int>(rate * period / std::max(0.01f, hz)));
                 target = random.bipolar();
             }
-            const double follow = shape == sig::Bubbling ? 0.022 : 0.6 / std::max(0.01f, hz);
-            value += timeCoefficient(follow, rate) * (target - value);
+            if (hz != followHz || shape != followShape) {   // exp() only when the rate changes
+                followHz = hz; followShape = shape;
+                follow = timeCoefficient(shape == sig::Bubbling ? 0.022 : 0.6 / std::max(0.01f, hz), rate);
+            }
+            value += follow * (target - value);
             return shape == sig::Crooked ? 0.6f * std::sin(twoPi * p) + 0.5f * value : value;
         }
         default: return 0;
