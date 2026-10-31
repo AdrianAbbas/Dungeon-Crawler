@@ -175,10 +175,11 @@ void Wraith::process(float* l, float* r, int n, const Frame& p, const Context&) 
         float wet[2];
         for (int ch = 0; ch < 2; ++ch) {
             auto& c = channels[static_cast<std::size_t>(ch)];
-            c.inFifo[static_cast<std::size_t>(fifoPos)] = finiteOr(io[ch][i]);
+            c.inFifo[static_cast<std::size_t>(fifoPos)] = mono ? 0.5f * (finiteOr(io[0][i]) + finiteOr(io[1][i])) : finiteOr(io[ch][i]);
             wet[ch] = c.outAccum[static_cast<std::size_t>(fifoPos)];
             c.outAccum[static_cast<std::size_t>(fifoPos)] = 0;
         }
+        if (mono) wet[1] = wet[0];
         fifoPos = (fifoPos + 1) % size;
         if (++hopCounter >= hop) {
             hopCounter = 0;
@@ -197,7 +198,7 @@ void Wraith::process(float* l, float* r, int n, const Frame& p, const Context&) 
             freezeAmount = freezeTarget > freezeAmount ? std::min(freezeTarget, freezeAmount + step)
                                                        : std::max(freezeTarget, freezeAmount - step);
             processFrame(channels[0], 0);
-            processFrame(channels[1], 1);
+            if (!mono) processFrame(channels[1], 1);
         }
         float dryGain, wetGain;
         equalPowerGains(m, dryGain, wetGain);

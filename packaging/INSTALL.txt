@@ -17,9 +17,14 @@ GARAGEBAND
   Settings > Audio/MIDI: tick "Audio Units". Restart GarageBand.
   Select a track (software instrument or audio). Smart Controls (B) > Plug-ins >
   an empty Audio Effect slot > Audio Units > Veil Audio > DUNGEON CRAWLER.
-  Play the track and pick a location in the plug-in window.
+  Play the track: the plug-in window opens on an engraved map. Click a landmark to
+  travel there; inside, click the rings or the list to visit its places.
   If you see sliders instead of the DUNGEON CRAWLER interface, switch the plug-in
   window's view menu from "Controls" to "Editor".
+
+MIDI TRAVEL
+  GarageBand does not send MIDI to audio effects: use Journey or Roam (Journey
+  button) or automate Location / Sub-location instead. See README for other hosts.
 
 LOGIC PRO
   Settings > Plug-in Manager > Veil Audio > DUNGEON CRAWLER. If it is marked failed,
@@ -27,7 +32,8 @@ LOGIC PRO
   any track: Audio Units > Veil Audio > DUNGEON CRAWLER.
 
 UNINSTALL
-  bash uninstall-mac.sh            (add --purge to also delete saved presets)
+  bash uninstall-mac.sh            (add --purge to also delete your presets and
+                                    drop-in scenes in ~/Library/Application Support/DungeonCrawler)
 
 MANUAL INSTALL (if you prefer not to run the script)
   cp -R DungeonCrawler.component ~/Library/Audio/Plug-Ins/Components/

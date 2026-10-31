@@ -34,6 +34,8 @@ public:
     // Calibration only: no trims and no level matcher (the chain's raw level).
     void setLevelMatching(bool on) noexcept { matching = on; }
 
+    // Quality (Milestone 11): 0 Eco (the Wraith in mono), 1 Standard, 2 High.
+    void setQuality(int q) noexcept { wraith.setMono(q == 0); }
     // Once per host block, before process().
     void setControls(const Controls&) noexcept;
     // One chunk (n <= maxChunk) in place. dryL/dryR are the unprocessed input aligned

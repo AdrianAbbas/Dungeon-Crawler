@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "World/Presets.h"
 
 using namespace dc::ui;
 
@@ -15,7 +16,7 @@ int moduleOf(std::size_t index) {
 }
 
 //==============================================================================
-DungeonCrawlerEditor::Drawer::Drawer(juce::AudioProcessorValueTreeState& state) {
+DungeonCrawlerView::Drawer::Drawer(juce::AudioProcessorValueTreeState& state) {
     setOpaque(true);
     hint.setText("Advanced: every module parameter, as an offset from the place (0 % = as designed) or an override "
                  "(\"Place\" = as designed). Offsets travel with you.", juce::dontSendNotification);
@@ -59,13 +60,13 @@ DungeonCrawlerEditor::Drawer::Drawer(juce::AudioProcessorValueTreeState& state) 
     addAndMakeVisible(viewport);
 }
 
-void DungeonCrawlerEditor::Drawer::paint(juce::Graphics& g) {
+void DungeonCrawlerView::Drawer::paint(juce::Graphics& g) {
     g.fillAll(colours::ink);
     g.setColour(colours::dust.withAlpha(0.6f));
     g.drawRect(getLocalBounds(), 1);
 }
 
-void DungeonCrawlerEditor::Drawer::resized() {
+void DungeonCrawlerView::Drawer::resized() {
     auto area = getLocalBounds().reduced(10);
     hint.setBounds(area.removeFromTop(34));
     viewport.setBounds(area);
@@ -93,12 +94,12 @@ void DungeonCrawlerEditor::Drawer::resized() {
 
 //==============================================================================
 namespace {
-constexpr float stripHeight = 112.0f;
+constexpr float stripHeight = 140.0f;
 double nowSeconds() { return juce::Time::getMillisecondCounterHiRes() * 0.001; }
 float ease(float t) { t = juce::jlimit(0.0f, 1.0f, t); return t * t * (3.0f - 2.0f * t); }
 }
 
-void DungeonCrawlerEditor::LandmarkButton::paintButton(juce::Graphics& g, bool highlighted, bool) {
+void DungeonCrawlerView::LandmarkButton::paintButton(juce::Graphics& g, bool highlighted, bool) {
     if (!highlighted) return;
     const auto r = getLocalBounds().toFloat().reduced(3.0f);
     g.setColour(colours::ivory.withAlpha(0.18f));
@@ -107,7 +108,7 @@ void DungeonCrawlerEditor::LandmarkButton::paintButton(juce::Graphics& g, bool h
     g.drawEllipse(r, 1.4f);
 }
 
-void DungeonCrawlerEditor::HotspotButton::paintButton(juce::Graphics& g, bool highlighted, bool) {
+void DungeonCrawlerView::HotspotButton::paintButton(juce::Graphics& g, bool highlighted, bool) {
     const auto r = getLocalBounds().toFloat();
     const auto ring = juce::Rectangle<float>(22.0f, 22.0f).withCentre({ r.getCentreX(), 14.0f });
     const bool here = getToggleState();
@@ -128,8 +129,8 @@ void DungeonCrawlerEditor::HotspotButton::paintButton(juce::Graphics& g, bool hi
     }
 }
 
-DungeonCrawlerEditor::DungeonCrawlerEditor(DungeonCrawlerProcessor& p)
-    : AudioProcessorEditor(p), processor(p), cache([this] { sceneReady(); }), drawer(p.parameters),
+DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
+    : processor(p), cache([this] { sceneReady(); }), drawer(p.parameters),
       journeyPanel(p, [this] { return dc::Stop { shown, dc::clampSubLocation(shown, shownSub) }; }) {
     setLookAndFeel(&look);
     setOpaque(true);
@@ -232,6 +233,34 @@ DungeonCrawlerEditor::DungeonCrawlerEditor(DungeonCrawlerProcessor& p)
     addAndMakeVisible(journeyToggle);
     addChildComponent(journeyPanel);
     follower.startTimerHz(10);
+
+    // Toolbar (Milestone 11).
+    presetButton.setTooltip("Presets: favourite spots, journeys, your own");
+    presetButton.onClick = [this] { showPresetMenu(); };
+    prevPreset.setButtonText(juce::String::fromUTF8("\xe2\x97\x80"));
+    nextPreset.setButtonText(juce::String::fromUTF8("\xe2\x96\xb6"));
+    prevPreset.onClick = [this] { stepPreset(-1); };
+    nextPreset.onClick = [this] { stepPreset(1); };
+    slotA.setTooltip("A/B compare: setting A");
+    slotB.setTooltip("A/B compare: setting B");
+    slotA.onClick = [this] { processor.selectSlot(0); refreshToolbar(); };
+    slotB.onClick = [this] { processor.selectSlot(1); refreshToolbar(); };
+    copySlot.setButtonText(juce::String::fromUTF8("A\xe2\x86\x92" "B"));
+    copySlot.setTooltip("Copy the current setting to the other slot");
+    copySlot.onClick = [this] { processor.copyCurrentToOtherSlot(); refreshToolbar(); };
+    undoButton.setButtonText(juce::String::fromUTF8("\xe2\x86\xb6"));
+    redoButton.setButtonText(juce::String::fromUTF8("\xe2\x86\xb7"));
+    undoButton.setTooltip("Undo");
+    redoButton.setTooltip("Redo");
+    undoButton.onClick = [this] { processor.undo(); refreshToolbar(); journeyPanel.refresh(); };
+    redoButton.onClick = [this] { processor.redo(); refreshToolbar(); journeyPanel.refresh(); };
+    settingsButton.setButtonText(juce::String::fromUTF8("\xe2\x9a\x99"));
+    settingsButton.setTooltip("Window size and quality");
+    settingsButton.onClick = [this] { showSettingsMenu(); };
+    for (auto* b : { &presetButton, &prevPreset, &nextPreset, &slotA, &slotB, &copySlot, &undoButton, &redoButton, &settingsButton }) addAndMakeVisible(*b);
+    for (auto* parameter : processor.getParameters()) parameter->addListener(this);
+    animateLife = processor.qualityMode() > 0;
+    refreshToolbar();
     controlsToggle.setButtonText(juce::String::fromUTF8("\xe2\x96\xbe"));
     controlsToggle.setTooltip("Show or hide the controls");
     controlsToggle.onClick = [this] {
@@ -248,13 +277,14 @@ DungeonCrawlerEditor::DungeonCrawlerEditor(DungeonCrawlerProcessor& p)
     setSize(defaultWidth, defaultHeight);
 }
 
-DungeonCrawlerEditor::~DungeonCrawlerEditor() {
+DungeonCrawlerView::~DungeonCrawlerView() {
+    for (auto* parameter : processor.getParameters()) parameter->removeListener(this);
     follower.stopTimer();
     stopTimer();
     setLookAndFeel(nullptr);
 }
 
-void DungeonCrawlerEditor::setUpFader(Fader& fader, const juce::String& id, const juce::String& name) {
+void DungeonCrawlerView::setUpFader(Fader& fader, const juce::String& id, const juce::String& name) {
     fader.slider.setTextBoxStyle(juce::Slider::TextBoxBelow, true, 60, 16);
     fader.slider.setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
     fader.slider.setDoubleClickReturnValue(true, static_cast<double>(
@@ -267,24 +297,27 @@ void DungeonCrawlerEditor::setUpFader(Fader& fader, const juce::String& id, cons
     addAndMakeVisible(fader.label);
 }
 
-juce::Point<int> DungeonCrawlerEditor::pixelSize() const {
-    float scale = 1.0f;
-    if (isOnDesktop() || getPeer() != nullptr || getParentComponent() != nullptr)
-        scale = juce::jlimit(1.0f, 2.0f, static_cast<float>(juce::Component::getApproximateScaleFactorForComponent(const_cast<DungeonCrawlerEditor*>(this))));
+juce::Point<int> DungeonCrawlerView::pixelSize() const {
+    // The view is always 960 x 560; the window's scale (transform), the display's
+    // density and the quality mode decide the pixels the art is rendered at (capped:
+    // more would cost render time and memory for no visible gain).
+    float scale = static_cast<float>(juce::Component::getApproximateScaleFactorForComponent(const_cast<DungeonCrawlerView*>(this)));
     if (auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect(getScreenBounds()))
-        scale = juce::jlimit(1.0f, 2.0f, scale * static_cast<float>(display->scale));
+        if (getPeer() != nullptr || getParentComponent() != nullptr) scale *= static_cast<float>(display->scale);
+    if (processor.qualityMode() == 0) scale = std::min(scale, 1.0f);   // Eco: no Retina art
+    scale = juce::jlimit(0.5f, 2.5f, scale);
     return { juce::roundToInt(static_cast<float>(getWidth()) * scale), juce::roundToInt(static_cast<float>(getHeight()) * scale) };
 }
 
-juce::Point<float> DungeonCrawlerEditor::toLocal(juce::Point<float> v) const {
+juce::Point<float> DungeonCrawlerView::toLocal(juce::Point<float> v) const {
     return { v.x * static_cast<float>(getWidth()) / dc::art::virtualWidth, v.y * static_cast<float>(getHeight()) / dc::art::virtualHeight };
 }
 
-juce::Rectangle<float> DungeonCrawlerEditor::controlsArea() const {
+juce::Rectangle<float> DungeonCrawlerView::controlsArea() const {
     return controlsShown ? getLocalBounds().toFloat().removeFromBottom(stripHeight) : juce::Rectangle<float>();
 }
 
-void DungeonCrawlerEditor::showLocation(int index) {
+void DungeonCrawlerView::showLocation(int index) {
     index = juce::jlimit(0, dc::LocationCount - 1, index);
     if (shown >= 0 && index != shown) {
         // A journey on the map: remember where from, for the path.
@@ -311,7 +344,7 @@ void DungeonCrawlerEditor::showLocation(int index) {
     showSubLocation(shownSub < 0 ? 0 : shownSub);
 }
 
-void DungeonCrawlerEditor::showSubLocation(int index) {
+void DungeonCrawlerView::showSubLocation(int index) {
     if (shown < 0) { shownSub = index; return; }
     shownSub = juce::jlimit(0, dc::maxSubLocations, index);
     const int effective = dc::clampSubLocation(shown, shownSub);
@@ -329,7 +362,7 @@ void DungeonCrawlerEditor::showSubLocation(int index) {
     repaint();
 }
 
-void DungeonCrawlerEditor::updateCrumbs() {
+void DungeonCrawlerView::updateCrumbs() {
     if (shown < 0) return;
     const bool map = view == View::Map;
     locationCrumb.setButtonText(dc::locationNames[static_cast<std::size_t>(shown)]);
@@ -338,7 +371,7 @@ void DungeonCrawlerEditor::updateCrumbs() {
     mapCrumb.setToggleState(map, juce::dontSendNotification);
 }
 
-void DungeonCrawlerEditor::goTo(View target, dc::art::SceneId id, int kind) {
+void DungeonCrawlerView::goTo(View target, dc::art::SceneId id, int kind) {
     if (target == View::Place) id.sub = dc::clampSubLocation(id.location, id.sub);
     pending = true;
     pendingView = target;
@@ -350,18 +383,18 @@ void DungeonCrawlerEditor::goTo(View target, dc::art::SceneId id, int kind) {
     wakeTimer();
 }
 
-void DungeonCrawlerEditor::wakeTimer() {
+void DungeonCrawlerView::wakeTimer() {
     if (!isTimerRunning()) startTimerHz(30);
 }
 
-void DungeonCrawlerEditor::sceneReady() {
+void DungeonCrawlerView::sceneReady() {
     // A scene finished rendering: show it (or start the transition that waited for it).
     timerCallback();
     if (!transition.active && !pending) refreshLights();
     repaint();
 }
 
-void DungeonCrawlerEditor::timerCallback() {
+void DungeonCrawlerView::timerCallback() {
     const double now = nowSeconds();
     const auto px = pixelSize();
     bool busy = false;
@@ -417,7 +450,96 @@ void DungeonCrawlerEditor::timerCallback() {
     if (!busy) stopTimer();
 }
 
-void DungeonCrawlerEditor::followSteering() {
+void DungeonCrawlerView::parameterGestureChanged(int, bool starting) {
+    // Only edits made here (on the message thread) open an undo step; host automation
+    // never fills the history.
+    if (!starting || processor.applyingSnapshot()) return;
+    if (auto* mm = juce::MessageManager::getInstanceWithoutCreating(); mm != nullptr && mm->isThisTheMessageThread()) {
+        processor.pushUndo();
+        juce::MessageManager::callAsync([safe = juce::Component::SafePointer<DungeonCrawlerView>(this)] { if (safe != nullptr) safe->refreshToolbar(); });
+    }
+}
+
+void DungeonCrawlerView::refreshToolbar() {
+    presetButton.setButtonText(processor.presetName + juce::String::fromUTF8("  \xe2\x96\xbe"));
+    slotA.setToggleState(processor.currentSlot() == 0, juce::dontSendNotification);
+    slotB.setToggleState(processor.currentSlot() == 1, juce::dontSendNotification);
+    undoButton.setEnabled(processor.canUndo());
+    redoButton.setEnabled(processor.canRedo());
+    const bool animate = processor.qualityMode() > 0;
+    if (animate != animateLife) setAnimation(animate);
+}
+
+void DungeonCrawlerView::stepPreset(int direction) {
+    const int count = static_cast<int>(dc::factoryPresets().size());
+    const int next = processor.presetIndex < 0 ? (direction > 0 ? 0 : count - 1) : (processor.presetIndex + direction + count) % count;
+    processor.applyFactoryPreset(next);
+    refreshToolbar();
+    journeyPanel.refresh();
+}
+
+void DungeonCrawlerView::showPresetMenu() {
+    juce::PopupMenu menu, spots, journeys, user;
+    const auto& presets = dc::factoryPresets();
+    for (int k = 0; k < static_cast<int>(presets.size()); ++k) {
+        auto& target = juce::String(presets[static_cast<std::size_t>(k)].category) == "Journeys" ? journeys : spots;
+        target.addItem(1 + k, presets[static_cast<std::size_t>(k)].name, true, processor.presetIndex == k);
+    }
+    menu.addSubMenu("Favourite spots", spots);
+    menu.addSubMenu("Journeys", journeys);
+    const auto files = processor.userPresetFolder().findChildFiles(juce::File::findFiles, false, "*.dcpreset");
+    juce::Array<juce::File> sorted(files);
+    sorted.sort();
+    for (int k = 0; k < sorted.size(); ++k) user.addItem(1000 + k, sorted[k].getFileNameWithoutExtension());
+    if (sorted.isEmpty()) user.addItem(-1, "(none yet)", false);
+    menu.addSubMenu("Your presets", user);
+    menu.addSeparator();
+    menu.addItem(900, "Save as your preset...");
+    menu.addItem(901, "Show presets folder");
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&presetButton),
+        [safe = juce::Component::SafePointer<DungeonCrawlerView>(this), sorted](int result) {
+            if (safe == nullptr || result == 0) return;
+            auto& self = *safe;
+            if (result >= 1 && result < 900) self.processor.applyFactoryPreset(result - 1);
+            else if (result >= 1000 && result - 1000 < sorted.size()) self.processor.loadUserPreset(sorted[result - 1000]);
+            else if (result == 901) { self.processor.userPresetFolder().createDirectory(); self.processor.userPresetFolder().startAsProcess(); }
+            else if (result == 900) {
+                auto* window = new juce::AlertWindow("Save preset", "Name of your preset:", juce::MessageBoxIconType::NoIcon);
+                window->addTextEditor("name", self.processor.presetName);
+                window->addButton("Save", 1, juce::KeyPress(juce::KeyPress::returnKey));
+                window->addButton("Cancel", 0, juce::KeyPress(juce::KeyPress::escapeKey));
+                window->enterModalState(true, juce::ModalCallbackFunction::create([safe, window](int button) {
+                    if (button == 1 && safe != nullptr) { safe->processor.saveUserPreset(window->getTextEditorContents("name")); safe->refreshToolbar(); }
+                }), true);
+                return;
+            }
+            self.refreshToolbar();
+            self.journeyPanel.refresh();
+        });
+}
+
+void DungeonCrawlerView::showSettingsMenu() {
+    juce::PopupMenu menu, size, quality;
+    const float scales[] = { 0.75f, 1.0f, 1.25f, 1.5f, 2.0f };
+    for (int k = 0; k < 5; ++k)
+        size.addItem(1 + k, juce::String(juce::roundToInt(scales[k] * 100.0f)) + " %", true, std::abs(processor.editorScale.load() - scales[k]) < 0.01f);
+    const char* names[] = { "Eco (lightest: no animation, mono spectral layer)", "Standard", "High (smoothest animation and art)" };
+    for (int k = 0; k < 3; ++k) quality.addItem(10 + k, names[k], true, processor.qualityMode() == k);
+    menu.addSubMenu("Window size", size);
+    menu.addSubMenu("Quality", quality);
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&settingsButton),
+        [safe = juce::Component::SafePointer<DungeonCrawlerView>(this), scales](int result) {
+            if (safe == nullptr || result == 0) return;
+            if (result >= 1 && result <= 5) { if (safe->onScaleChosen) safe->onScaleChosen(scales[result - 1]); }
+            else if (result >= 10 && result <= 12) {
+                if (auto* q = safe->processor.parameters.getParameter(dc::ids::quality)) q->setValueNotifyingHost(q->convertTo0to1(static_cast<float>(result - 10)));
+                safe->refreshToolbar();
+                safe->resized();   // the art is re-rendered at the new quality's size
+            }
+        });
+}
+
+void DungeonCrawlerView::followSteering() {
     const bool steering = processor.steering();
     if (steering) {
         const int l = processor.currentDestination.load(), k = processor.currentSubLocation.load();
@@ -432,13 +554,13 @@ void DungeonCrawlerEditor::followSteering() {
     if (journeyPanel.isVisible()) journeyPanel.refresh();
 }
 
-void DungeonCrawlerEditor::refreshLights() {
+void DungeonCrawlerView::refreshLights() {
     const auto px = pixelSize();
     lights = view == View::Place ? cache.lights(scene, px.x, px.y) : std::vector<dc::art::LightSource> {};
     if (!lights.empty()) wakeTimer();
 }
 
-juce::Rectangle<int> DungeonCrawlerEditor::lifeArea(const dc::art::LightSource& l) const {
+juce::Rectangle<int> DungeonCrawlerView::lifeArea(const dc::art::LightSource& l) const {
     const float sx = static_cast<float>(getWidth()) / dc::art::virtualWidth;
     const auto c = toLocal(l.position);
     if (l.kind == 3) return juce::Rectangle<float>(static_cast<float>(getWidth()), 70.0f * sx).withCentre({ static_cast<float>(getWidth()) * 0.5f, c.y }).toNearestInt();
@@ -446,7 +568,7 @@ juce::Rectangle<int> DungeonCrawlerEditor::lifeArea(const dc::art::LightSource& 
     return juce::Rectangle<float>(2 * r, 2 * r).withCentre(c).toNearestInt().expanded(2);
 }
 
-void DungeonCrawlerEditor::paintLife(juce::Graphics& g, double now) {
+void DungeonCrawlerView::paintLife(juce::Graphics& g, double now) {
     const float sx = static_cast<float>(getWidth()) / dc::art::virtualWidth;
     const auto t = static_cast<float>(std::fmod(now, 1000.0));
     const juce::Colour warm(0xffd06a2a), pale = colours::ivory;
@@ -489,7 +611,7 @@ void DungeonCrawlerEditor::paintLife(juce::Graphics& g, double now) {
     }
 }
 
-void DungeonCrawlerEditor::settleForTest() {
+void DungeonCrawlerView::settleForTest() {
     const auto px = pixelSize();
     if (zoomAt > 0) { zoomAt = 0; goTo(View::Place, { shown, dc::clampSubLocation(shown, shownSub) }, 1); }
     if (pending) cache.renderNow(pendingScene, px.x, px.y);
@@ -504,7 +626,7 @@ void DungeonCrawlerEditor::settleForTest() {
     stopTimer();
 }
 
-void DungeonCrawlerEditor::layoutOverlays() {
+void DungeonCrawlerView::layoutOverlays() {
     const bool map = view == View::Map && !transition.active && !pending;
     const bool place = view == View::Place && !transition.active && !pending;
     for (int i = 0; i < dc::LocationCount; ++i) {
@@ -542,7 +664,7 @@ void DungeonCrawlerEditor::layoutOverlays() {
     placeCrumb.setVisible(view == View::Place);
 }
 
-void DungeonCrawlerEditor::paintTransition(juce::Graphics& g, double now) {
+void DungeonCrawlerView::paintTransition(juce::Graphics& g, double now) {
     const float t = ease(static_cast<float>((now - transition.start) / transition.length));
     const auto bounds = getLocalBounds().toFloat();
     const auto focus = toLocal(transition.focus);
@@ -566,7 +688,7 @@ void DungeonCrawlerEditor::paintTransition(juce::Graphics& g, double now) {
     }
 }
 
-void DungeonCrawlerEditor::paintMapOverlay(juce::Graphics& g) {
+void DungeonCrawlerView::paintMapOverlay(juce::Graphics& g) {
     const auto& marks = dc::art::mapLandmarks();
     // The current location: a blood-red ring with a soft glow.
     if (shown >= 0) {
@@ -649,7 +771,7 @@ void DungeonCrawlerEditor::paintMapOverlay(juce::Graphics& g) {
     }
 }
 
-void DungeonCrawlerEditor::paint(juce::Graphics& g) {
+void DungeonCrawlerView::paint(juce::Graphics& g) {
     const double now = nowSeconds();
     const auto px = pixelSize();
     g.setImageResamplingQuality(juce::Graphics::mediumResamplingQuality);
@@ -688,34 +810,47 @@ void DungeonCrawlerEditor::paint(juce::Graphics& g) {
     }
 }
 
-void DungeonCrawlerEditor::resized() {
+void DungeonCrawlerView::resized() {
     const int w = getWidth(), h = getHeight();
     const int top = h - static_cast<int>(stripHeight);
     const auto place = [this](Fader& f, juce::Rectangle<int> r) {
         f.label.setBounds(r.removeFromBottom(18));
         f.slider.setBounds(r.reduced(2, 0));
-        f.label.setVisible(controlsShown && f.label.isVisible() == f.label.isVisible());
     };
-    const int faderHeight = static_cast<int>(stripHeight) - 14;
-    macroHeading.setBounds(18, top + 2, 120, 14);
+    // Row 1: the toolbar.
+    const int ty = top + 6, th = 24;
+    presetButton.setBounds(14, ty, 230, th);
+    prevPreset.setBounds(248, ty, 28, th);
+    nextPreset.setBounds(278, ty, 28, th);
+    slotA.setBounds(322, ty, 30, th);
+    slotB.setBounds(354, ty, 30, th);
+    copySlot.setBounds(386, ty, 48, th);
+    undoButton.setBounds(450, ty, 30, th);
+    redoButton.setBounds(482, ty, 30, th);
+    settingsButton.setBounds(528, ty, 30, th);
+    atmosphereLabel.setBounds(w - 262, ty, 80, th);
+    atmosphere.setBounds(w - 180, ty, 166, th);
+    // Row 2: macros, main faders, travel, buttons.
+    const int row = top + 34, faderHeight = static_cast<int>(stripHeight) - 38;
+    macroHeading.setBounds(18, row - 2, 120, 12);
     for (int m = 0; m < dc::macroCount; ++m)
-        place(macros[static_cast<std::size_t>(m)], { 14 + m * 54, top + 14, 54, faderHeight - 10 });
+        place(macros[static_cast<std::size_t>(m)], { 14 + m * 54, row + 8, 54, faderHeight - 8 });
     const int mainX = 250;
-    place(input, { mainX, top + 6, 62, faderHeight });
-    place(intensity, { mainX + 62, top + 6, 62, faderHeight });
-    place(mix, { mainX + 124, top + 6, 62, faderHeight });
-    place(output, { mainX + 186, top + 6, 62, faderHeight });
-    travelLabel.setBounds(mainX + 266, top + 14, 56, 24);
-    travelTime.setBounds(mainX + 320, top + 14, 230, 24);
-    travelSync.setBounds(mainX + 320, top + 46, 120, 24);
-    atmosphereLabel.setBounds(w - 262, top + 44, 80, 22);
-    atmosphere.setBounds(w - 180, top + 44, 166, 22);
-    journeyToggle.setBounds(w - 314, top + 70, 96, 30);
-    bypass.setBounds(w - 214, top + 70, 96, 30);
-    advancedToggle.setBounds(w - 114, top + 70, 100, 30);
+    place(input, { mainX, row, 62, faderHeight });
+    place(intensity, { mainX + 62, row, 62, faderHeight });
+    place(mix, { mainX + 124, row, 62, faderHeight });
+    place(output, { mainX + 186, row, 62, faderHeight });
+    travelLabel.setBounds(mainX + 266, row + 6, 56, 24);
+    travelTime.setBounds(mainX + 320, row + 6, 230, 24);
+    travelSync.setBounds(mainX + 320, row + 38, 120, 24);
+    journeyToggle.setBounds(w - 314, row + 66, 96, 30);
+    bypass.setBounds(w - 214, row + 66, 96, 30);
+    advancedToggle.setBounds(w - 114, row + 66, 100, 30);
     controlsToggle.setBounds(w - 40, controlsShown ? top - 30 : h - 32, 30, 26);
     for (auto* c : std::initializer_list<juce::Component*> { &input.slider, &input.label, &intensity.slider, &intensity.label, &mix.slider, &mix.label,
-                                                             &output.slider, &output.label, &travelLabel, &travelTime, &travelSync, &bypass, &advancedToggle, &journeyToggle, &macroHeading, &atmosphere, &atmosphereLabel })
+                                                             &output.slider, &output.label, &travelLabel, &travelTime, &travelSync, &bypass, &advancedToggle, &journeyToggle,
+                                                             &macroHeading, &atmosphere, &atmosphereLabel, &presetButton, &prevPreset, &nextPreset, &slotA, &slotB,
+                                                             &copySlot, &undoButton, &redoButton, &settingsButton })
         c->setVisible(controlsShown);
     if (shown >= 0)
         for (int m = 0; m < dc::macroCount; ++m) {
@@ -732,7 +867,7 @@ void DungeonCrawlerEditor::resized() {
 }
 
 //==============================================================================
-DungeonCrawlerEditor::JourneyPanel::JourneyPanel(DungeonCrawlerProcessor& p, std::function<dc::Stop()> place)
+DungeonCrawlerView::JourneyPanel::JourneyPanel(DungeonCrawlerProcessor& p, std::function<dc::Stop()> place)
     : processor(p), currentPlace(std::move(place)) {
     setOpaque(true);
     auto& state = processor.parameters;
@@ -784,7 +919,7 @@ DungeonCrawlerEditor::JourneyPanel::JourneyPanel(DungeonCrawlerProcessor& p, std
     refresh();
 }
 
-void DungeonCrawlerEditor::JourneyPanel::refresh() {
+void DungeonCrawlerView::JourneyPanel::refresh() {
     juce::String text;
     int k = 0;
     for (const auto& st : processor.route())
@@ -793,7 +928,7 @@ void DungeonCrawlerEditor::JourneyPanel::refresh() {
     routeText.setText(juce::String::fromUTF8(text.toRawUTF8()), juce::dontSendNotification);
 }
 
-void DungeonCrawlerEditor::JourneyPanel::paint(juce::Graphics& g) {
+void DungeonCrawlerView::JourneyPanel::paint(juce::Graphics& g) {
     g.fillAll(colours::ink.withAlpha(0.96f));
     g.setColour(colours::dust.withAlpha(0.6f));
     g.drawRect(getLocalBounds(), 1);
@@ -805,7 +940,7 @@ void DungeonCrawlerEditor::JourneyPanel::paint(juce::Graphics& g) {
     g.drawText("Atmosphere", 12, atmosDensity.getY() - 24, 200, 20, juce::Justification::centredLeft);
 }
 
-void DungeonCrawlerEditor::JourneyPanel::resized() {
+void DungeonCrawlerView::JourneyPanel::resized() {
     const int w = getWidth();
     journey.setBounds(10, 32, 100, 24);
     mode.setBounds(120, 32, w - 132, 24);
@@ -828,4 +963,30 @@ void DungeonCrawlerEditor::JourneyPanel::resized() {
     atmosDensity.setBounds(100, 446, w - 110, 20);
     atmosSeedLabel.setBounds(10, 468, 90, 20);
     atmosSeed.setBounds(100, 468, w - 110, 20);
+}
+
+//==============================================================================
+DungeonCrawlerEditor::DungeonCrawlerEditor(DungeonCrawlerProcessor& p) : AudioProcessorEditor(p), processor(p), content(p) {
+    // Read the saved scale first: making the editor resizable clamps its (still empty)
+    // size, and resized() stores the scale.
+    const float scale = juce::jlimit(0.5f, 2.0f, processor.editorScale.load());
+    setOpaque(true);
+    addAndMakeVisible(content);
+    content.onScaleChosen = [this](float scale) { setScale(scale); };
+    setResizable(true, true);
+    setResizeLimits(defaultWidth / 2, defaultHeight / 2, defaultWidth * 2, defaultHeight * 2);
+    if (auto* constrainer = getConstrainer()) constrainer->setFixedAspectRatio(static_cast<double>(defaultWidth) / defaultHeight);
+    setSize(juce::roundToInt(static_cast<float>(defaultWidth) * scale), juce::roundToInt(static_cast<float>(defaultHeight) * scale));
+}
+
+void DungeonCrawlerEditor::setScale(float scale) {
+    scale = juce::jlimit(0.5f, 2.0f, scale);
+    setSize(juce::roundToInt(static_cast<float>(defaultWidth) * scale), juce::roundToInt(static_cast<float>(defaultHeight) * scale));
+}
+
+void DungeonCrawlerEditor::resized() {
+    const float scale = static_cast<float>(getWidth()) / static_cast<float>(defaultWidth);
+    content.setBounds(0, 0, defaultWidth, defaultHeight);
+    content.setTransform(juce::AffineTransform::scale(scale));
+    processor.editorScale.store(scale);
 }

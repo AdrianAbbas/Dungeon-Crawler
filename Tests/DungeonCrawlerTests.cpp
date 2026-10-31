@@ -8,12 +8,14 @@
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 #include "UI/Scenes.h"
+#include "World/Presets.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_dsp/juce_dsp.h>
 #include <chrono>
 #include <cstdlib>
 #include <functional>
 #include <iostream>
+#include <map>
 #include <new>
 #include <set>
 #include <optional>
@@ -1202,9 +1204,23 @@ void testEditor(Suite& s, const juce::String& snapshot) {
     p.setRateAndBufferSizeDetails(48000, 512);
     p.prepareToPlay(48000, 512);
     std::unique_ptr<juce::AudioProcessorEditor> base(p.createEditor());
-    auto* editor = dynamic_cast<DungeonCrawlerEditor*>(base.get());
-    if (!s.check(editor != nullptr, "editor is created")) return;
-    s.check(editor->getWidth() == DungeonCrawlerEditor::defaultWidth && editor->getHeight() == DungeonCrawlerEditor::defaultHeight, "editor has its size");
+    auto* wrapper = dynamic_cast<DungeonCrawlerEditor*>(base.get());
+    if (!s.check(wrapper != nullptr, "editor is created")) return;
+    s.check(wrapper->getWidth() == DungeonCrawlerEditor::defaultWidth && wrapper->getHeight() == DungeonCrawlerEditor::defaultHeight, "editor has its size",
+            std::to_string(wrapper->getWidth()) + " x " + std::to_string(wrapper->getHeight()));
+    auto* editor = &wrapper->view();
+    // Milestone 11: resizable with a fixed aspect; the scale is saved.
+    wrapper->setScale(1.5f);
+    s.check(wrapper->getWidth() == 1440 && wrapper->getHeight() == 840 && std::abs(p.editorScale.load() - 1.5f) < 1.0e-3f,
+            "the window scales (150 %: 1440 x 840) and remembers it");
+    {
+        DungeonCrawlerProcessor copy;
+        juce::MemoryBlock block;
+        p.getStateInformation(block);
+        copy.setStateInformation(block.getData(), static_cast<int>(block.getSize()));
+        s.check(std::abs(copy.editorScale.load() - 1.5f) < 1.0e-3f, "the window size is restored with the project");
+    }
+    wrapper->setScale(1.0f);
     s.check(editor->shownLocation() == dc::Dungeon && editor->locationButton(dc::Dungeon).getToggleState(), "the Dungeon is marked at start");
     // Milestone 7: the map is the home screen; a landmark zooms into its place.
     editor->settleForTest();
@@ -1247,6 +1263,16 @@ void testEditor(Suite& s, const juce::String& snapshot) {
         for (int k = 0; k < 10; ++k) auto image = editor->createComponentSnapshot(editor->getLocalBounds(), true, 1.0f);
         const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - begin).count() / 10.0;
         s.metric("full repaint of a scene with its life", ms, " ms");
+        {
+            // One life frame repaints only the lights' regions: its cost x 15 fps.
+            const auto regions = editor->lifeRegions();
+            const auto t0 = std::chrono::steady_clock::now();
+            for (int k = 0; k < 20; ++k)
+                for (const auto& r : regions) auto part = editor->createComponentSnapshot(r, true, 1.0f);
+            const double frameMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count() / 20.0;
+            s.metric("one life frame (the lights' regions only)", frameMs, " ms");
+            s.metric("editor CPU for the life at 15 fps (software, this container)", frameMs * 15.0 / 10.0, " % of one core");
+        }
         s.check(ms < 33.0, "a full repaint with the life fits in a 30 fps frame", fmt(ms) + " ms");
         editor->setAnimation(false);
         editor->settleForTest();
@@ -1319,6 +1345,161 @@ void testEditor(Suite& s, const juce::String& snapshot) {
         juce::FileOutputStream stream(file);
         juce::PNGImageFormat().writeImageToStream(image, stream);
         std::cout << "snapshot written to " << file.getFullPathName() << "\n";
+    }
+}
+
+// Milestone 12: the final QA pass. Click checks on every travel (each place to the
+// next through all 40, and every location to every other), against the largest step
+// of the two places' own steady sound (which includes their drips, echoes and glints).
+void testQa(Suite& s) {
+    s.section("qa: clicks on every travel");
+    const auto places = allPlaces();
+    std::map<std::pair<int, int>, double> own;
+    const auto steadyStep = [&](int l, int k) {
+        const auto key = std::make_pair(l, k);
+        if (auto it = own.find(key); it != own.end()) return it->second;
+        Host h;
+        h.go(l, k);
+        h.render(4.0, sine(220.0, 0.25f));
+        return own[key] = h.maxStep(h.at(1.0), h.at(4.0));
+    };
+    double worst = 0, worstLoud = 0;
+    std::string worstName, worstLoudName;
+    int journeys = 0, clicks = 0;
+    const auto travel = [&](std::pair<int, int> a, std::pair<int, int> b) {
+        Host h;
+        h.go(a.first, a.second);
+        h.render(3.0, sine(220.0, 0.25f));
+        const double before = toDb(h.rms(h.at(2.0), h.at(3.0)));
+        h.go(b.first, b.second);
+        h.render(2.5, sine(220.0, 0.25f));
+        const double ratio = h.maxStep(h.at(3.0), h.end()) / std::max(steadyStep(a.first, a.second), steadyStep(b.first, b.second));
+        double loud = 0;
+        for (double t = 3.0; t < 5.45; t += 0.05) loud = std::max(loud, std::abs(toDb(h.rms(h.at(t), h.at(t + 0.05))) - before));
+        const auto name = placeName(a.first, a.second) + " -> " + placeName(b.first, b.second);
+        if (ratio > worst) { worst = ratio; worstName = name; }
+        if (loud > worstLoud) { worstLoud = loud; worstLoudName = name; }
+        ++journeys;
+        if (ratio >= 2.5 || !h.finite()) { ++clicks; std::cout << "  [click] " << name << ": " << fmt(ratio, 2) << "x\n"; }
+    };
+    for (std::size_t k = 0; k < places.size(); ++k) travel(places[k], places[(k + 1) % places.size()]);
+    for (int a = 0; a < dc::LocationCount; ++a)
+        for (int b = 0; b < dc::LocationCount; ++b)
+            if (a != b) travel({ a, 0 }, { b, 0 });
+    s.metric("journeys checked", journeys);
+    s.metric("worst step while travelling (" + worstName + ")", worst, "x the places' own");
+    s.metric("largest loudness deviation while travelling, report-only (" + worstLoudName + ")", worstLoud, " dB");
+    s.check(clicks == 0, "no click on any travel (largest step < 2.5x the places' own)", std::to_string(clicks) + " of " + std::to_string(journeys));
+}
+
+// Milestone 11: presets, A/B, undo/redo, quality, state.
+void testWorkflow(Suite& s) {
+    s.section("workflow: presets, A/B, undo, quality, state");
+    const auto& presets = dc::factoryPresets();
+    int spots = 0, journeys = 0;
+    for (const auto& pr : presets) (juce::String(pr.category) == "Journeys" ? journeys : spots)++;
+    s.metric("factory presets", static_cast<double>(presets.size()));
+    s.check(presets.size() >= 20 && spots >= 10 && journeys >= 6, "at least 20 factory presets: favourite spots and journeys",
+            std::to_string(spots) + " spots, " + std::to_string(journeys) + " journeys");
+    bool allApply = true, allSound = true;
+    for (int k = 0; k < static_cast<int>(presets.size()); ++k) {
+        Host h;
+        h.p->applyFactoryPreset(k);
+        for (const auto& [id, value] : presets[static_cast<std::size_t>(k)].values) {
+            auto* parameter = h.p->parameters.getParameter(id);
+            if (parameter == nullptr || std::abs(parameter->convertFrom0to1(parameter->getValue()) - value) > 1.0e-3f) allApply = false;
+        }
+        if (h.p->route().size() != presets[static_cast<std::size_t>(k)].route.size()) allApply = false;
+        h.render(1.0, plucks(0.4f));
+        if (!h.finite() || h.peak(0, h.end()) >= 0.98) allSound = false;
+    }
+    s.check(allApply, "every factory preset sets its parameters and route");
+    s.check(allSound, "every factory preset sounds (finite, below 0 dBFS)");
+    {
+        // A preset resets what it does not mention.
+        DungeonCrawlerProcessor p;
+        p.parameters.getParameter(dc::ids::macros[0])->setValueNotifyingHost(0.9f);
+        p.applyFactoryPreset(0);
+        s.check(std::abs(p.parameters.getRawParameterValue(dc::ids::macros[0])->load() - 0.5f) < 1.0e-3f, "a preset starts from the defaults");
+        s.check(p.undo() && std::abs(p.parameters.getRawParameterValue(dc::ids::macros[0])->load() - 0.9f) < 1.0e-3f, "loading a preset can be undone");
+    }
+    {
+        DungeonCrawlerProcessor p;
+        auto* location = p.parameters.getParameter(dc::ids::location);
+        location->setValueNotifyingHost(location->convertTo0to1(dc::Castle));
+        p.selectSlot(1);
+        location->setValueNotifyingHost(location->convertTo0to1(dc::Cathedral));
+        p.selectSlot(0);
+        const bool backToA = p.locationIndex() == dc::Castle;
+        p.selectSlot(1);
+        s.check(backToA && p.locationIndex() == dc::Cathedral, "A/B compare switches between two complete settings");
+        p.copyCurrentToOtherSlot();
+        p.selectSlot(0);
+        s.check(p.locationIndex() == dc::Cathedral, "copying to the other slot makes A and B the same");
+    }
+    {
+        DungeonCrawlerProcessor p;
+        auto* intensity = p.parameters.getParameter(dc::ids::intensity);
+        p.pushUndo();
+        intensity->setValueNotifyingHost(0.3f);
+        p.pushUndo();
+        intensity->setValueNotifyingHost(0.6f);
+        s.check(p.undo() && std::abs(intensity->getValue() - 0.3f) < 1.0e-4f, "undo restores the previous edit");
+        s.check(p.undo() && std::abs(intensity->getValue() - 1.0f) < 1.0e-4f, "undo again restores the one before");
+        s.check(p.redo() && std::abs(intensity->getValue() - 0.3f) < 1.0e-4f, "redo re-applies it");
+    }
+    {
+        // Quality: not automatable; Eco is cheaper and still sounds.
+        DungeonCrawlerProcessor p;
+        s.check(!p.parameters.getParameter(dc::ids::quality)->isAutomatable(), "Quality is a setting, not automatable");
+        const auto cost = [](int quality) {
+            Host h;
+            h.go(dc::HauntedForest, 1);   // the Old Path: the heaviest spectral layer
+            h.set(dc::ids::quality, static_cast<float>(quality));
+            h.render(0.5, sawChord(0.3f));
+            const auto begin = std::chrono::steady_clock::now();
+            h.render(5.0, sawChord(0.3f));
+            const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - begin).count();
+            return std::make_pair(ms / 5000.0 * 100.0, h.finite() && h.peak(0, h.end()) < 0.98);
+        };
+        const auto eco = cost(0), standard = cost(1);
+        s.metric("Old Path CPU, Eco", eco.first, " % of one core");
+        s.metric("Old Path CPU, Standard", standard.first, " % of one core");
+        s.check(eco.second && standard.second, "Eco and Standard both sound (finite, below 0 dBFS)");
+        s.check(eco.first < standard.first, "Eco costs less than Standard", juce::String(eco.first, 1).toStdString() + " vs " + juce::String(standard.first, 1).toStdString());
+    }
+    {
+        // Stable, unique parameter IDs: everything earlier milestones published is still there.
+        DungeonCrawlerProcessor p;
+        std::set<juce::String> ids;
+        bool unique = true;
+        for (auto* parameter : p.getParameters())
+            if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(parameter)) unique = ids.insert(ranged->getParameterID()).second && unique;
+        s.check(unique, "parameter IDs are unique");
+        bool stable = true;
+        for (const char* id : { "location", "subLocation", "intensity", "mix", "input", "output", "bypass", "travelTime", "travelSync",
+                                "macro1", "macro2", "macro3", "macro4", "adv_cutoff", "adv_reverbMix", "adv_drips", "adv_sigKind",
+                                "journeyOn", "journeyMode", "journeyBars", "roamOn", "roamBars", "roamRandomness", "roamSeed",
+                                "midiTravel", "midiOctave", "atmosLevel", "atmosDensity", "atmosSeed", "quality" })
+            stable = stable && ids.count(id) == 1;
+        s.check(stable, "every published parameter ID is still there (automation and projects keep working)");
+        s.metric("host parameters", static_cast<double>(ids.size()));
+        // A duplicated instance (state copy) is identical.
+        auto* location = p.parameters.getParameter(dc::ids::location);
+        location->setValueNotifyingHost(location->convertTo0to1(dc::Swamp));
+        p.parameters.getParameter(dc::ids::atmosLevel)->setValueNotifyingHost(0.4f);
+        p.setRoute({ { dc::Swamp, 1 }, { dc::Mountains, 2 } });
+        juce::MemoryBlock block;
+        p.getStateInformation(block);
+        DungeonCrawlerProcessor copy;
+        copy.setStateInformation(block.getData(), static_cast<int>(block.getSize()));
+        bool same = copy.route().size() == 2;
+        const auto& a = p.getParameters();
+        const auto& b = copy.getParameters();
+        for (int i = 0; i < a.size(); ++i) same = same && std::abs(a[i]->getValue() - b[i]->getValue()) < 1.0e-6f;
+        s.check(same, "a duplicated instance restores every parameter and the route");
+        const auto xml = juce::AudioProcessor::getXmlFromBinary(block.getData(), static_cast<int>(block.getSize()));
+        s.check(xml != nullptr && xml->getIntAttribute("version") == 4, "the state is versioned (4)");
     }
 }
 
@@ -1668,6 +1849,8 @@ int main(int argc, char** argv) {
     if (run("art")) testArt(s);
     if (run("journeys")) testJourneys(s);
     if (run("atmosphere")) testAtmosphere(s);
+    if (run("workflow")) testWorkflow(s);
+    if (only.contains("qa")) testQa(s);   // long (130 journeys): run explicitly
     if (only.contains("cpu")) testCpu(s);   // report only: run explicitly
     std::cout << "\n" << s.passed << " passed, " << s.failed << " failed" << std::endl;
     return s.failed == 0 ? 0 : 1;

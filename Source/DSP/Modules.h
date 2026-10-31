@@ -212,6 +212,8 @@ public:
     void prepare(double sampleRate);
     void reset();
     int fftSize() const noexcept { return size; }
+    // Eco quality: one spectral channel (the mid) instead of two: half the cost.
+    void setMono(bool on) noexcept { mono = on; }
     void process(float* l, float* r, int n, const Frame&, const Context&) noexcept;
 private:
     struct Channel {
@@ -227,6 +229,7 @@ private:
     std::unique_ptr<WraithFft> fft;
     float scale = 1;
     std::array<Channel, 2> channels;
+    bool mono = false;
     dsp::Smoothed mix;
     float blur = .5f, detuneCents = 15, drift = .4f, ghost = .45f, freezeAmount = 0, freezeTarget = 0;
     float driftValue = 0, driftTarget = 0, ratio = 1, blurTarget = .5f, ghostTarget = .45f;

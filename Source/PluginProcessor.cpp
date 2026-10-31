@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "World/Presets.h"
 #include <cmath>
 #include <optional>
 
@@ -30,6 +31,151 @@ DungeonCrawlerProcessor::DungeonCrawlerProcessor()
     atmosLevel = parameters.getRawParameterValue(dc::ids::atmosLevel);
     atmosDensity = parameters.getRawParameterValue(dc::ids::atmosDensity);
     atmosSeed = parameters.getRawParameterValue(dc::ids::atmosSeed);
+    quality = parameters.getRawParameterValue(dc::ids::quality);
+}
+
+int DungeonCrawlerProcessor::qualityMode() const noexcept {
+    return juce::jlimit(0, 2, static_cast<int>(std::lround(quality != nullptr ? quality->load() : 1.0f)));
+}
+
+bool DungeonCrawlerProcessor::Snapshot::operator==(const Snapshot& o) const {
+    if (values != o.values || route.size() != o.route.size()) return false;
+    for (std::size_t k = 0; k < route.size(); ++k)
+        if (route[k].location != o.route[k].location || route[k].sub != o.route[k].sub) return false;
+    return true;
+}
+
+DungeonCrawlerProcessor::Snapshot DungeonCrawlerProcessor::snapshot() const {
+    Snapshot snap;
+    for (auto* p : getParameters()) snap.values.push_back(p->getValue());
+    snap.route = route();
+    return snap;
+}
+
+void DungeonCrawlerProcessor::restore(const Snapshot& snap) {
+    const juce::ScopedValueSetter<bool> guard(applying, true);
+    const auto& params = getParameters();
+    for (int i = 0; i < params.size() && i < static_cast<int>(snap.values.size()); ++i) {
+        auto* p = params[i];
+        if (p == getBypassParameter() || p == parameters.getParameter(dc::ids::quality)) continue;
+        if (std::abs(p->getValue() - snap.values[static_cast<std::size_t>(i)]) > 1.0e-7f) {
+            p->beginChangeGesture();
+            p->setValueNotifyingHost(snap.values[static_cast<std::size_t>(i)]);
+            p->endChangeGesture();
+        }
+    }
+    setRoute(snap.route);
+}
+
+void DungeonCrawlerProcessor::pushUndo() {
+    if (applying) return;
+    auto snap = snapshot();
+    if (!undoStack.empty() && undoStack.back() == snap) return;
+    undoStack.push_back(std::move(snap));
+    if (undoStack.size() > 64) undoStack.erase(undoStack.begin());
+    redoStack.clear();
+}
+
+bool DungeonCrawlerProcessor::undo() {
+    if (undoStack.empty()) return false;
+    auto now = snapshot();
+    // Skip snapshots identical to the present (an edit that changed nothing).
+    while (!undoStack.empty() && undoStack.back() == now) undoStack.pop_back();
+    if (undoStack.empty()) return false;
+    redoStack.push_back(now);
+    restore(undoStack.back());
+    undoStack.pop_back();
+    return true;
+}
+
+bool DungeonCrawlerProcessor::redo() {
+    if (redoStack.empty()) return false;
+    undoStack.push_back(snapshot());
+    restore(redoStack.back());
+    redoStack.pop_back();
+    return true;
+}
+
+void DungeonCrawlerProcessor::selectSlot(int slot) {
+    slot = juce::jlimit(0, 1, slot);
+    if (slot == abSlot) return;
+    slots[static_cast<std::size_t>(abSlot)] = snapshot();
+    slotUsed[static_cast<std::size_t>(abSlot)] = true;
+    abSlot = slot;
+    if (slotUsed[static_cast<std::size_t>(slot)]) { pushUndo(); restore(slots[static_cast<std::size_t>(slot)]); }
+    else { slots[static_cast<std::size_t>(slot)] = snapshot(); slotUsed[static_cast<std::size_t>(slot)] = true; }
+}
+
+void DungeonCrawlerProcessor::copyCurrentToOtherSlot() {
+    const int other = 1 - abSlot;
+    slots[static_cast<std::size_t>(other)] = snapshot();
+    slotUsed[static_cast<std::size_t>(other)] = true;
+}
+
+void DungeonCrawlerProcessor::applyFactoryPreset(int index) {
+    const auto& presets = dc::factoryPresets();
+    if (index < 0 || index >= static_cast<int>(presets.size())) return;
+    pushUndo();
+    const auto& preset = presets[static_cast<std::size_t>(index)];
+    const juce::ScopedValueSetter<bool> guard(applying, true);
+    for (auto* p : getParameters())
+        if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(p)) {
+            if (p == getBypassParameter() || p == parameters.getParameter(dc::ids::quality)) continue;
+            float value = ranged->getDefaultValue();
+            for (const auto& [id, plain] : preset.values)
+                if (ranged->getParameterID() == id) value = ranged->convertTo0to1(plain);
+            if (std::abs(ranged->getValue() - value) > 1.0e-7f) {
+                ranged->beginChangeGesture();
+                ranged->setValueNotifyingHost(value);
+                ranged->endChangeGesture();
+            }
+        }
+    setRoute(preset.route);
+    presetIndex = index;
+    presetName = preset.name;
+}
+
+juce::File DungeonCrawlerProcessor::userPresetFolder() const {
+    auto base = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
+   #if JUCE_MAC
+    base = base.getChildFile("Application Support");
+   #endif
+    return base.getChildFile("DungeonCrawler").getChildFile("Presets");
+}
+
+bool DungeonCrawlerProcessor::saveUserPreset(const juce::String& name) {
+    const auto clean = juce::File::createLegalFileName(name.trim());
+    if (clean.isEmpty()) return false;
+    const auto folder = userPresetFolder();
+    if (!folder.createDirectory()) return false;
+    juce::MemoryBlock data;
+    getStateInformation(data);
+    auto xml = getXmlFromBinary(data.getData(), static_cast<int>(data.getSize()));
+    if (xml == nullptr) return false;
+    xml->setAttribute("presetName", name.trim());
+    const bool ok = xml->writeTo(folder.getChildFile(clean + ".dcpreset"));
+    if (ok) { presetName = name.trim(); presetIndex = -1; }
+    return ok;
+}
+
+bool DungeonCrawlerProcessor::loadUserPreset(const juce::File& file) {
+    auto xml = juce::XmlDocument::parse(file);
+    if (xml == nullptr || !xml->hasTagName(parameters.state.getType())) return false;
+    pushUndo();
+    const int keepQuality = qualityMode();
+    const float keepScale = editorScale.load();
+    juce::MemoryBlock data;
+    copyXmlToBinary(*xml, data);
+    {
+        const juce::ScopedValueSetter<bool> guard(applying, true);
+        setStateInformation(data.getData(), static_cast<int>(data.getSize()));
+    }
+    // Presets carry sounds, not the window or the quality setting.
+    if (auto* q = parameters.getParameter(dc::ids::quality)) q->setValueNotifyingHost(q->convertTo0to1(static_cast<float>(keepQuality)));
+    editorScale.store(keepScale);
+    presetName = xml->getStringAttribute("presetName", file.getFileNameWithoutExtension());
+    presetIndex = -1;
+    return true;
 }
 
 void DungeonCrawlerProcessor::setRoute(const std::vector<dc::Stop>& stops) {
@@ -174,6 +320,7 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
     controls.travelSeconds = sync == 0 ? static_cast<double>(juce::jlimit(0.0f, 10.0f, finiteOr(travelTime->load(), 1.5f)))
                                        : dc::dsp::beatsToSeconds(dc::travelSyncBeats[sync], bpm);
     controls.bpm = bpm;
+    world.setQuality(qualityMode());
     world.setControls(controls);
     inputGain.set(dc::dsp::dbToGain(juce::jlimit(-24.0f, 24.0f, finiteOr(input->load(), 0))));
     outputGain.set(dc::dsp::dbToGain(juce::jlimit(-24.0f, 12.0f, finiteOr(output->load(), 0))));
@@ -241,7 +388,9 @@ juce::AudioProcessorEditor* DungeonCrawlerProcessor::createEditor() { return new
 
 void DungeonCrawlerProcessor::getStateInformation(juce::MemoryBlock& data) {
     auto state = parameters.copyState();
-    state.setProperty("version", 3, nullptr);
+    state.setProperty("version", 4, nullptr);
+    state.setProperty("editorScale", static_cast<double>(editorScale.load()), nullptr);
+    state.setProperty("presetName", presetName, nullptr);
     juce::StringArray stops;
     for (const auto& st : route()) stops.add(juce::String(st.location) + ":" + juce::String(st.sub));
     state.setProperty("route", stops.joinIntoString(","), nullptr);
@@ -269,6 +418,12 @@ void DungeonCrawlerProcessor::setStateInformation(const void* data, int size) {
             }
     }
     for (auto& [parameter, value] : values) parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
+    // The window's scale and the preset name (version 4).
+    if (incoming.hasProperty("editorScale")) {
+        const auto scale = static_cast<float>(static_cast<double>(incoming.getProperty("editorScale")));
+        if (std::isfinite(scale)) editorScale.store(juce::jlimit(0.5f, 2.0f, scale));
+    }
+    if (incoming.hasProperty("presetName")) presetName = incoming.getProperty("presetName").toString();
     // The journey route (version 3); older states have none.
     std::vector<dc::Stop> stops;
     for (const auto& token : juce::StringArray::fromTokens(incoming.getProperty("route").toString(), ",", ""))

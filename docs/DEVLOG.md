@@ -58,9 +58,9 @@ without after each milestone. Resume from the first unticked item.
 - [x] 9d. DEVLOG; push without `[skip ci]` (Milestone 9 build)
 - [x] 10a. Atmosphere layer: synthesised one-shots/beds per place, level/density/seed, off by default, tempo-aware, never masking
 - [x] 10b. Tests, DEVLOG; push without `[skip ci]` (Milestone 10 build)
-- [ ] 11a. Preset browser (factory spots + journeys, user presets), A/B compare, undo/redo
-- [ ] 11b. Resizable window (fixed aspect), Eco/Standard/High quality modes
-- [ ] 11c. State restoration (versioned), stable IDs; CPU report; tests, DEVLOG; push without `[skip ci]` (Milestone 11 build)
+- [x] 11a. Preset browser (factory spots + journeys, user presets), A/B compare, undo/redo
+- [x] 11b. Resizable window (fixed aspect), Eco/Standard/High quality modes
+- [x] 11c. State restoration (versioned), stable IDs; CPU report; tests, DEVLOG; push without `[skip ci]` (Milestone 11 build)
 - [ ] 12a. 20+ factory presets, README, MANUAL_TEST, install docs
 - [ ] 12b. Final QA pass (distinctness, levels, clicks on every travel, animation, editor CPU)
 - [ ] 12c. Final DEVLOG handoff (GarageBand: what to listen for and look at per milestone); push without `[skip ci]`
@@ -971,3 +971,54 @@ and different for another seed; sparse (11 events in 8 bars at full density); qu
 (peak below −16 dBFS); tempo-aware (7 events in 16 s at 60 BPM vs 11 at 120 BPM);
 under a loud instrument it adds −40 dB (gate −24 dB). The real-time test now runs a
 journey, roaming and the atmosphere at full level and density with no heap allocation.
+
+---
+
+## Milestone 11: workflow and quality (2026-10-31)
+
+- **Toolbar** (first row of the controls strip): the preset name (a menu: Favourite
+  spots, Journeys, Your presets, Save as your preset…, Show presets folder), ◀ ▶ to step
+  through the factory presets, **A / B** compare and A→B (copy), **undo ↶ / redo ↷**,
+  and ⚙ (window size, quality). The Atmosphere level moved to the same row.
+- **Presets:** 26 factory presets (17 favourite spots, 9 journeys; `Source/World/Presets.h`).
+  A preset starts from the defaults, sets what it lists and, for journeys, the route;
+  Bypass and Quality are never touched. User presets are the plug-in's state as XML
+  (`.dcpreset`) in `~/Library/Application Support/DungeonCrawler/Presets` (inside the
+  host's container when the host sandboxes plug-ins). The host's program list stays a
+  single, inert program (Milestone 0 decision: some hosts call `setCurrentProgram` on
+  load, which must never change the user's settings).
+- **A/B:** two complete settings (all parameters and the route); switching stores the
+  current one in its slot and recalls the other. Session only (not saved).
+- **Undo/redo:** a snapshot of every parameter and the route is taken when an edit
+  *begins in this window* (a parameter gesture on the message thread) and when a
+  preset or B is loaded; 64 steps. Host automation never fills the history (JUCE's
+  value-tree undo would have recorded automation moves too, which is why it is not used).
+- **Resizable window:** 50–200 % with a fixed aspect (the view stays 960 × 560 and is
+  scaled by a transform, so every position and hit area scales with it); the size menu
+  offers 75, 100, 125, 150, 200 %; the scale is saved with the project (state
+  version 4). The art is rendered at the window's real pixel size (display density
+  included, capped at 2.5× the view).
+- **Quality** (a setting, not automatable): **Eco**: the Wraith (the costliest
+  module) analyses one mid channel instead of two, no animation, art at 1× (no Retina
+  rendering); **Standard**: as before; **High**: the same DSP (it is already at full
+  quality), the life animation at 30 fps instead of 15. Old Path (the heaviest
+  spectral place): Eco 8.1 %, Standard 10.1 % of one core of this container.
+- **State:** version 4 adds the window scale and the preset name; all IDs stable (a
+  test lists every ID published since Milestone 0 and checks they are still there; 92
+  host parameters, all unique); a duplicated instance restores every parameter and
+  the route.
+- **Drop-in art folder fixed for macOS:** JUCE's user data folder there is `~/Library`,
+  so the scenes folder is now `~/Library/Application Support/DungeonCrawler/scenes`, as
+  documented.
+
+**Full suite after Milestone 11: 1537 checks, 0 failures.** CPU (one core of this
+container, 48 kHz stereo, report-only, Standard quality): 4.4 % (Mountains) to 11.7 %
+(Haunted Forest), travelling every second 16.9 %.
+
+### Tests (group `workflow`, 14 checks; editor +2)
+
+26 factory presets (≥ 20, spots and journeys); each sets its parameters and route and
+sounds; a preset starts from the defaults and can be undone; A/B switches and copies;
+undo, undo, redo; Quality not automatable; Eco cheaper than Standard and both sound;
+IDs unique and stable; a duplicated instance is identical; state version 4; the
+window scales to 150 % (1440 × 840) and the scale is restored with the project.

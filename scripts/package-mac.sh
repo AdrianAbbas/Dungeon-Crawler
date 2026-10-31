@@ -21,7 +21,7 @@ done
 
 /usr/bin/ditto "$artefacts/AU/DungeonCrawler.component" "$stage/DungeonCrawler.component"
 /usr/bin/ditto "$artefacts/VST3/DungeonCrawler.vst3" "$stage/DungeonCrawler.vst3"
-install -m 755 "$here/scripts/install-mac.sh" "$here/scripts/uninstall-mac.sh" "$stage/"
+install -m 755 "$here/scripts/install-mac.sh" "$here/scripts/uninstall-mac.sh" "$here/scripts/diagnose-mac.sh" "$stage/"
 install -m 644 "$here/packaging/INSTALL.txt" "$stage/"
 # ditto keeps permissions and bundle metadata, unlike a plain zip of the artifact.
 /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$stage" "$dist/DungeonCrawler-macOS-Universal.zip"

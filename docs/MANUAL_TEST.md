@@ -177,3 +177,36 @@ Set the project to 4/4 at a tempo you like, put a looping region on the track.
 - [ ] Journey panel → Atmosphere: Density changes how often; another Seed changes which
       sounds come when. Playing the same bars again gives the same sounds (deterministic).
 - [ ] Mix 0 %, Intensity 0 % or Bypass: the atmosphere is gone too.
+
+## M11: workflow
+
+- [ ] **Presets:** click the preset name (bottom left): Favourite spots, Journeys. Each
+      one moves you there (journeys start moving when you play). ◀ ▶ step through them.
+- [ ] "Save as your preset…", give it a name; it appears under "Your presets" and in a
+      new project.
+- [ ] **A/B:** set up a place on A, click B, set up another; click A and B to compare.
+      A→B copies the current one to the other.
+- [ ] **Undo/redo:** move a fader, click ↶: it goes back; ↷: forward again. Automation
+      playback does not end up in the undo history.
+- [ ] **Window size:** drag the bottom-right corner, or ⚙ → Window size (75–200 %). The
+      picture stays sharp, nothing overlaps, the aspect stays. Reopen the project: same size.
+- [ ] **Quality:** ⚙ → Quality → Eco: no animation, a little less CPU (Activity Monitor);
+      High: smoother torchlight. The sound in Eco is nearly the same (the spectral
+      ghosts are mono).
+- [ ] Duplicate the track with the plug-in (GarageBand: Track → Duplicate Track): the copy
+      sounds and looks identical.
+
+## M12: release check (the short version)
+
+A quick pass over everything, about 15 minutes, on the MacBook Air:
+
+- [ ] Install with `install-mac.sh` from the downloaded zip; GarageBand shows the map.
+- [ ] Guitar, synth, piano and voice tracks: try three favourite-spot presets each; the
+      instrument always stays usable and the loudness does not jump.
+- [ ] Load "Descent into the Dungeon", play 12 bars: five stops, smooth morphs, the
+      window follows.
+- [ ] Atmosphere 60 % in "Graveyard Mist": occasional crows and whispers, never busy.
+- [ ] Resize to 150 %, switch Eco/Standard/High, undo a few edits, A/B two presets.
+- [ ] Save, quit GarageBand, reopen: everything is as you left it.
+- [ ] With the window open for 5 minutes during playback the Air stays cool and quiet
+      (no stutter, no freeze, no flicker).

@@ -349,7 +349,12 @@ juce::String sceneSlug(SceneId id) {
 }
 
 juce::File overrideFile(SceneId id) {
-    return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
-        .getChildFile("DungeonCrawler").getChildFile("scenes").getChildFile(sceneSlug(id) + ".png");
+    // macOS: ~/Library/Application Support/DungeonCrawler/scenes (JUCE's user data
+    // folder there is ~/Library itself).
+    auto base = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
+   #if JUCE_MAC
+    base = base.getChildFile("Application Support");
+   #endif
+    return base.getChildFile("DungeonCrawler").getChildFile("scenes").getChildFile(sceneSlug(id) + ".png");
 }
 }

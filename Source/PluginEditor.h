@@ -15,11 +15,13 @@
 #include "UI/EngravedLookAndFeel.h"
 #include "UI/SceneCache.h"
 
-class DungeonCrawlerEditor final : public juce::AudioProcessorEditor, private juce::Timer {
+class DungeonCrawlerView final : public juce::Component, private juce::Timer, private juce::AudioProcessorParameter::Listener {
 public:
     static constexpr int defaultWidth = 960, defaultHeight = 560;
-    explicit DungeonCrawlerEditor(DungeonCrawlerProcessor&);
-    ~DungeonCrawlerEditor() override;
+    explicit DungeonCrawlerView(DungeonCrawlerProcessor&);
+    ~DungeonCrawlerView() override;
+    // Asks the editor to change its size (scale of 960 x 560).
+    std::function<void(float)> onScaleChosen;
     void paint(juce::Graphics&) override;
     void resized() override;
     int shownLocation() const noexcept { return shown; }
@@ -30,6 +32,10 @@ public:
     juce::Button& advancedButton() { return advancedToggle; }
     juce::Button& mapButton() { return mapCrumb; }
     juce::Button& journeyButton() { return journeyToggle; }
+    juce::Button& undoButtonForTest() { return undoButton; }
+    juce::Button& slotButton(int k) { return k == 0 ? slotA : slotB; }
+    juce::String presetLabel() const { return presetButton.getButtonText(); }
+    void nextPresetForTest() { stepPreset(1); }
     bool journeyOpen() const { return journeyPanel.isVisible(); }
     juce::String macroLabel(int index) const { return macros[static_cast<std::size_t>(index)].label.getText(); }
     bool macroVisible(int index) const { return macros[static_cast<std::size_t>(index)].slider.isVisible(); }
@@ -39,6 +45,8 @@ public:
     dc::art::SceneId shownScene() const noexcept { return scene; }
     bool animating() const noexcept { return isTimerRunning(); }
     int lightCount() const noexcept { return static_cast<int>(lights.size()); }
+    // The regions one life frame repaints (tests: editor CPU).
+    std::vector<juce::Rectangle<int>> lifeRegions() const { std::vector<juce::Rectangle<int>> r; for (const auto& l : lights) r.push_back(lifeArea(l)); return r; }
     void setAnimation(bool on) { animateLife = on; wakeTimer(); }
     // Tests and snapshots: render the pending scenes on this thread and finish any
     // transition at once.
@@ -116,12 +124,20 @@ private:
     // Follows the place a journey, roaming or MIDI chooses (10 Hz, only while steering).
     class Follower final : public juce::Timer {
     public:
-        explicit Follower(DungeonCrawlerEditor& e) : editor(e) {}
+        explicit Follower(DungeonCrawlerView& e) : editor(e) {}
         void timerCallback() override { editor.followSteering(); }
     private:
-        DungeonCrawlerEditor& editor;
+        DungeonCrawlerView& editor;
     };
     void followSteering();
+    // Parameter gestures (edits from this window) open an undo step.
+    void parameterValueChanged(int, float) override {}
+    void parameterGestureChanged(int, bool starting) override;
+    // The toolbar: presets, A/B, undo/redo, size and quality.
+    void showPresetMenu();
+    void showSettingsMenu();
+    void stepPreset(int direction);
+    void refreshToolbar();
     struct Transition {
         bool active = false;
         int kind = 0;                  // 0 crossfade, 1 zoom into a landmark, 2 zoom out to the map
@@ -186,6 +202,7 @@ private:
     std::unique_ptr<juce::SliderParameterAttachment> travelTimeAttachment;
     std::unique_ptr<juce::ComboBoxParameterAttachment> travelSyncAttachment;
     juce::TextButton bypass { "Bypass" }, advancedToggle { "Advanced" }, controlsToggle, journeyToggle { "Journey" };
+    juce::TextButton presetButton, prevPreset, nextPreset, slotA { "A" }, slotB { "B" }, copySlot, undoButton, redoButton, settingsButton;
     std::unique_ptr<juce::ButtonParameterAttachment> bypassAttachment;
     bool controlsShown = true;
     Drawer drawer;
@@ -193,5 +210,21 @@ private:
     Follower follower { *this };
     bool wasSteering = false;
     int shown = -1, shownSub = -1;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DungeonCrawlerView)
+};
+
+// The plug-in window: the view at 960 x 560, scaled to the window (resizable, fixed
+// aspect; the size menu offers 75-200 %). The scale is saved with the state.
+class DungeonCrawlerEditor final : public juce::AudioProcessorEditor {
+public:
+    static constexpr int defaultWidth = DungeonCrawlerView::defaultWidth, defaultHeight = DungeonCrawlerView::defaultHeight;
+    explicit DungeonCrawlerEditor(DungeonCrawlerProcessor&);
+    void resized() override;
+    void paint(juce::Graphics&) override {}
+    DungeonCrawlerView& view() noexcept { return content; }
+    void setScale(float);
+private:
+    DungeonCrawlerProcessor& processor;
+    DungeonCrawlerView content;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DungeonCrawlerEditor)
 };

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Remove DUNGEON CRAWLER for the current user.
 #   bash uninstall-mac.sh           remove the plug-ins, keep your saved presets
-#   bash uninstall-mac.sh --purge   also remove ~/Library/Audio/Presets/Veil Audio/DungeonCrawler
+#   bash uninstall-mac.sh --purge   also remove your presets and drop-in scenes
+#                                   (~/Library/Application Support/DungeonCrawler)
 set -euo pipefail
 purge=0
 [[ "${1:-}" == --purge ]] && purge=1
@@ -16,13 +17,14 @@ for bundle in "$HOME/Library/Audio/Plug-Ins/Components/DungeonCrawler.component"
 done
 [[ $removed == 1 ]] || echo "No DUNGEON CRAWLER plug-ins found in ~/Library/Audio/Plug-Ins."
 
-presets="$HOME/Library/Audio/Presets/Veil Audio/DungeonCrawler"
-if [[ $purge == 1 && -d "$presets" ]]; then
-    rm -rf "$presets"
-    echo "Removed $presets"
-elif [[ -d "$presets" ]]; then
-    echo "Kept your presets in $presets (use --purge to remove them)."
-fi
+for data in "$HOME/Library/Application Support/DungeonCrawler" "$HOME/Library/Audio/Presets/Veil Audio/DungeonCrawler"; do
+    if [[ $purge == 1 && -d "$data" ]]; then
+        rm -rf "$data"
+        echo "Removed $data"
+    elif [[ -d "$data" ]]; then
+        echo "Kept your presets and scenes in $data (use --purge to remove them)."
+    fi
+done
 
 for system_copy in "/Library/Audio/Plug-Ins/Components/DungeonCrawler.component" "/Library/Audio/Plug-Ins/VST3/DungeonCrawler.vst3"; do
     [[ -e "$system_copy" ]] && echo "A system-wide copy remains: sudo rm -rf \"$system_copy\""

@@ -38,6 +38,8 @@ inline constexpr const char* midiOctave = "midiOctave";
 inline constexpr const char* atmosLevel = "atmosLevel";
 inline constexpr const char* atmosDensity = "atmosDensity";
 inline constexpr const char* atmosSeed = "atmosSeed";
+// Milestone 11: Eco / Standard / High (a setting, not automatable).
+inline constexpr const char* quality = "quality";
 inline juce::String advanced(std::size_t index) { return juce::String("adv_") + moduleSpecs[index].id; }
 }
 
@@ -130,6 +132,12 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
     layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::atmosDensity, 1 }, "Atmosphere Density",
                                                            juce::NormalisableRange<float>(0.0f, 1.0f), 0.35f, percent));
     layout.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID { ids::atmosSeed, 1 }, "Atmosphere Seed", 1, 999, 1));
+
+    // Milestone 11: quality mode. Eco: the Wraith in mono, no animation, art at 1x;
+    // Standard: full DSP, gentle animation; High: smoother animation and art.
+    layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids::quality, 1 }, "Quality",
+                                                            juce::StringArray { "Eco", "Standard", "High" }, 1,
+                                                            juce::AudioParameterChoiceAttributes().withAutomatable(false)));
 
     // The Advanced drawer: an offset from the place for every continuous module
     // parameter (0 = as designed), an override for every choice ("Place" = as designed).

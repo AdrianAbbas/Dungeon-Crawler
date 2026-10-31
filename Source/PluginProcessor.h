@@ -60,6 +60,7 @@ private:
     std::atomic<float>* atmosLevel = nullptr;
     std::atomic<float>* atmosDensity = nullptr;
     std::atomic<float>* atmosSeed = nullptr;
+    std::atomic<float>* quality = nullptr;
 
 public:
     juce::AudioProcessorValueTreeState parameters;
@@ -76,6 +77,28 @@ public:
     // differ from the Location parameters), and whether one of them is steering.
     bool steering() const noexcept { return steered.load(std::memory_order_relaxed); }
     int atmosphereVoices() const noexcept { return atmosphere.activeVoices(); }
+
+    // Milestone 11 (message thread). The window's scale (saved with the state).
+    std::atomic<float> editorScale { 1.0f };
+    int qualityMode() const noexcept;
+    // Presets: factory (favourite spots, journeys) and user presets (state files).
+    void applyFactoryPreset(int index);
+    juce::File userPresetFolder() const;
+    bool saveUserPreset(const juce::String& name);
+    bool loadUserPreset(const juce::File&);
+    juce::String presetName { "Default" };
+    int presetIndex = -1;   // factory index, or -1
+    // A/B compare: two complete settings; switching stores the current one in its slot.
+    void selectSlot(int slot);
+    void copyCurrentToOtherSlot();
+    int currentSlot() const noexcept { return abSlot; }
+    // Undo / redo of edits: a snapshot is taken when an edit begins.
+    void pushUndo();
+    bool undo();
+    bool redo();
+    bool canUndo() const noexcept { return !undoStack.empty(); }
+    bool canRedo() const noexcept { return !redoStack.empty(); }
+    bool applyingSnapshot() const noexcept { return applying; }
     // Calibration only (tests): the chain's raw level, without trims or level matcher.
     void setLevelMatching(bool on) noexcept { world.setLevelMatching(on); }
 
@@ -83,6 +106,14 @@ private:
     void process(juce::AudioBuffer<float>&, bool forcedBypass);
     static constexpr float neutralIntensity = 1.0e-4f;   // at or below: the dry path
     dc::Controls controls;
+    struct Snapshot { std::vector<float> values; std::vector<dc::Stop> route; bool operator==(const Snapshot& o) const; };
+    Snapshot snapshot() const;
+    void restore(const Snapshot&);
+    std::vector<Snapshot> undoStack, redoStack;
+    std::array<Snapshot, 2> slots;
+    std::array<bool, 2> slotUsed { false, false };
+    int abSlot = 0;
+    bool applying = false;
     std::array<std::atomic<int>, dc::maxStops> routeStops {};
     std::atomic<int> routeLength { 0 };
     std::atomic<bool> steered { false };
