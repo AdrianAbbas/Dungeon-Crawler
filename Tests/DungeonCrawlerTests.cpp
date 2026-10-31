@@ -3,6 +3,7 @@
 //   DungeonCrawlerTests --only a,b           run only some groups (smoke, locations, travel...)
 //   DungeonCrawlerTests --snapshot f.png     also write an image of the editor
 //   DungeonCrawlerTests --render f.wav location [seconds]   a test phrase through a location (listening aid)
+//   DungeonCrawlerTests --calibrate Source/World/LevelTrims.h  measure and write the per-place level trims
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 #include <juce_audio_formats/juce_audio_formats.h>
@@ -32,6 +33,9 @@ void operator delete[](void* p, std::size_t) noexcept { std::free(p); }
 
 namespace {
 
+// Milestone 1: report the closest pairs; Milestone 2a gates them.
+bool distinctnessGated = false;
+
 struct Suite {
     int passed = 0, failed = 0;
     bool check(bool okay, const std::string& name, const std::string& detail = {}) {
@@ -46,6 +50,14 @@ struct Suite {
 double toDb(double x) { return 20.0 * std::log10(std::max(x, 1.0e-12)); }
 std::string fmt(double v, int decimals = 1) { return juce::String(v, decimals).toStdString(); }
 std::string placeName(int i) { return dc::locationNames[static_cast<std::size_t>(i)]; }
+std::string placeName(int i, int sub) { return placeName(i) + " / " + dc::subLocationName(i, sub); }
+// Every place in the world: (location, sub-location), sub-location 0 = the scene.
+std::vector<std::pair<int, int>> allPlaces() {
+    std::vector<std::pair<int, int>> places;
+    for (int l = 0; l < dc::LocationCount; ++l)
+        for (int k = 0; k <= dc::subLocationCount(l); ++k) places.push_back({ l, k });
+    return places;
+}
 
 // Test signals, as functions of (channel, sample index, sample rate).
 using Signal = std::function<float(int, long long, double)>;
@@ -97,11 +109,12 @@ struct Host {
         p->prepareToPlay(sr, block);
         buffer.setSize(std::max(inputs, outputs), block);
     }
-    void set(const char* id, float plain) {
+    void set(const juce::String& id, float plain) {
         auto* parameter = p->parameters.getParameter(id);
         parameter->setValueNotifyingHost(parameter->convertTo0to1(plain));
     }
     void location(int index) { set(dc::ids::location, static_cast<float>(index)); }
+    void go(int index, int sub) { set(dc::ids::location, static_cast<float>(index)); set(dc::ids::subLocation, static_cast<float>(sub)); }
     void processOne(int n, const Signal& signal) {
         buffer.setSize(std::max(ins, outs), n, false, false, true);
         buffer.clear();
@@ -191,7 +204,8 @@ std::vector<double> bandLevels(const Host& h, std::size_t from, std::size_t to) 
 void testParameters(Suite& s) {
     s.section("parameters");
     DungeonCrawlerProcessor p;
-    const char* expected[] = { "location", "intensity", "mix", "input", "output", "bypass" };
+    const char* expected[] = { "location", "subLocation", "intensity", "mix", "input", "output", "bypass", "travelTime", "travelSync",
+                               "macro1", "macro2", "macro3", "macro4" };
     for (const auto* id : expected) s.check(p.parameters.getParameter(id) != nullptr, std::string("parameter ") + id + " exists");
     auto* location = dynamic_cast<juce::AudioParameterChoice*>(p.parameters.getParameter(dc::ids::location));
     if (s.check(location != nullptr, "Location is a choice")) {
@@ -200,14 +214,49 @@ void testParameters(Suite& s) {
         s.check(location->isAutomatable(), "Location is automatable");
     }
     s.check(p.getBypassParameter() == p.parameters.getParameter(dc::ids::bypass), "host bypass is the Bypass parameter");
+    auto* sub = p.parameters.getParameter(dc::ids::subLocation);
+    if (s.check(sub != nullptr, "Sub-location exists")) {
+        s.check(sub->isAutomatable(), "Sub-location is automatable");
+        // Its text names the sub-locations of the current location.
+        p.parameters.getParameter(dc::ids::location)->setValueNotifyingHost(p.parameters.getParameter(dc::ids::location)->convertTo0to1(dc::Dungeon));
+        s.check(sub->getText(sub->convertTo0to1(3), 64) == "Treasure Room", "Sub-location 3 in the Dungeon reads Treasure Room",
+                sub->getText(sub->convertTo0to1(3), 64).toStdString());
+        s.check(sub->getText(sub->convertTo0to1(0), 64) == "Corridors", "Sub-location 0 is the location's own scene");
+    }
+    int advancedCount = 0;
+    for (std::size_t i = 0; i < dc::Count; ++i) advancedCount += p.parameters.getParameter(dc::ids::advanced(i)) != nullptr ? 1 : 0;
+    s.check(advancedCount == static_cast<int>(dc::Count), "the Advanced drawer publishes every module parameter", std::to_string(advancedCount));
+    // The world of the brief: ten locations, 2-4 sub-locations, 3-4 macros each.
+    const std::vector<std::vector<std::string>> brief {
+        { "Entrance Hall", "Prison Cells", "Treasure Room", "Final Boss Lair" }, { "Great Hall", "Throne Room", "Chapel", "Tower Top" },
+        { "Nave", "Crypt", "Bell Tower" }, { "Old Path", "Witch's Hut", "Ancient Grove" }, { "Crystal Cavern", "Underground Lake", "Dragon's Hoard" },
+        { "Tavern", "Market Square", "Blacksmith" }, { "Bog", "Sunken Ruins" }, { "Mountain Pass", "Frozen Peak", "Dwarven Hall" },
+        { "Graveyard", "Mausoleum" }, { "Library", "Alchemy Lab", "Observatory" } };
+    for (int l = 0; l < dc::LocationCount; ++l) {
+        const auto& want = brief[static_cast<std::size_t>(l)];
+        bool same = dc::subLocationCount(l) == static_cast<int>(want.size());
+        for (int k = 1; same && k <= dc::subLocationCount(l); ++k) same = want[static_cast<std::size_t>(k - 1)] == dc::subLocationName(l, k);
+        s.check(same, placeName(l) + ": the brief's sub-locations");
+        s.check(dc::macroCountFor(l) >= 3 && dc::macroCountFor(l) <= 4, placeName(l) + ": 3-4 themed macros", std::to_string(dc::macroCountFor(l)));
+        for (int m = 0; m < dc::macroCountFor(l); ++m) {
+            std::array<float, dc::macroCount> low { .5f, .5f, .5f, .5f }, high = low;
+            low[static_cast<std::size_t>(m)] = 0; high[static_cast<std::size_t>(m)] = 1;
+            auto a = dc::placeFrame(l, 0), b = a;
+            dc::applyMacros(a, l, low); dc::applyMacros(b, l, high);
+            s.check(a != b, placeName(l) + ": macro " + dc::macroName(l, m) + " changes the place");
+        }
+        auto f = dc::placeFrame(l, 1);
+        dc::applyMacros(f, l, { .5f, .5f, .5f, .5f });
+        s.check(f == dc::placeFrame(l, 1), placeName(l) + ": macros at 50 % leave the place as designed");
+    }
     // Every location differs from neutral, and every Log-glide range is positive.
     for (std::size_t i = 0; i < dc::Count; ++i)
         if (dc::moduleSpecs[i].glide == dc::Glide::Log) s.check(dc::moduleSpecs[i].min > 0, std::string("log range > 0: ") + dc::moduleSpecs[i].id);
-    for (int l = 0; l < dc::LocationCount; ++l) {
-        const auto f = dc::locationFrame(l);
+    for (const auto& [l, k] : allPlaces()) {
+        const auto f = dc::placeFrame(l, k);
         bool inRange = true;
         for (std::size_t i = 0; i < dc::Count; ++i) inRange = inRange && f[i] >= dc::moduleSpecs[i].min && f[i] <= dc::moduleSpecs[i].max;
-        s.check(inRange, placeName(l) + ": every setting within its range");
+        s.check(inRange, placeName(l, k) + ": every setting within its range");
     }
 }
 
@@ -343,39 +392,102 @@ void testTransparency(Suite& s) {
     s.check(t.maxStep(t.at(2.0), t.end()) < 3.0 * steady, "Bypass on and off without clicks", fmt(t.maxStep(t.at(2.0), t.end()) / steady, 2) + "x");
 }
 
-void testLocations(Suite& s) {
-    s.section("locations: level matching and distinctness");
-    std::vector<std::vector<double>> profiles;
-    for (int l = 0; l < dc::LocationCount; ++l) {
-        // A sustained bright chord for 4 s, then 2 s of silence (the tail).
-        Host h; h.location(l);
-        h.render(4.0, sawChord(0.3f));
-        h.render(2.0, silence());
-        const double in = h.inputRms(h.at(2.0), h.at(4.0));
-        const double out = h.rms(h.at(2.0), h.at(4.0));
-        const double level = toDb(out) - toDb(in);
-        s.metric(placeName(l) + " level vs input (sustained chord)", level, " dB");
-        s.check(std::abs(level) < 3.0, placeName(l) + ": level-matched to the input within 3 dB", fmt(level) + " dB");
-        s.check(h.peak(0, h.end()) < 0.98, placeName(l) + ": peak stays below 0 dBFS", fmt(h.peak(0, h.end()), 3));
-        auto profile = bandLevels(h, h.at(2.0), h.at(4.0));
-        const double tail = toDb(h.rms(h.at(4.3), h.at(4.8))) - toDb(out);
-        s.metric(placeName(l) + " tail 0.3-0.8 s after the chord", tail, " dB");
-        profile.push_back(tail);
-        profiles.push_back(profile);
-        // Guitar-like plucks too (report: the matcher holds during decays by design).
-        Host g; g.location(l);
-        g.render(4.0, plucks(0.4f));
-        s.metric(placeName(l) + " level vs input (plucks)", toDb(g.rms(g.at(1.0), g.end())) - toDb(g.inputRms(g.at(1.0), g.end())), " dB");
-        s.check(g.finite(), placeName(l) + ": plucks finite");
-    }
-    // Every pair differs somewhere: in a band's level or in the tail.
-    for (int a = 0; a < dc::LocationCount; ++a)
-        for (int b = a + 1; b < dc::LocationCount; ++b) {
-            double distance = 0;
-            for (std::size_t k = 0; k < profiles[0].size(); ++k)
-                distance = std::max(distance, std::abs(profiles[std::size_t(a)][k] - profiles[std::size_t(b)][k]));
-            s.check(distance > 2.0, placeName(a) + " and " + placeName(b) + " sound different", fmt(distance) + " dB");
+// A place's fingerprint from one render of the reference programme (3 s of plucks,
+// 3 s of the chord, 2.5 s of silence), in dB-like units so that features compare:
+// octave-band balance of the chord, tail levels, stereo width, level modulation and
+// the smear after each pluck.
+struct Fingerprint {
+    std::vector<double> features;
+    double chordLevel = 0, pluckLevel = 0, peak = 0;
+    bool finite = true;
+};
+const char* featureNames[] = { "63 Hz", "125 Hz", "250 Hz", "500 Hz", "1 kHz", "2 kHz", "4 kHz", "8 kHz",
+                               "tail 0.2-0.6 s", "tail 1-2 s", "width", "flutter", "pluck smear" };
+
+Fingerprint fingerprint(int location, int sub, double seconds = 3.0) {
+    Host h;
+    h.go(location, sub);
+    h.render(seconds, plucks(0.4f));
+    h.render(seconds, sawChord(0.3f));
+    h.render(2.5, silence());
+    Fingerprint f;
+    f.finite = h.finite();
+    f.peak = h.peak(0, h.end());
+    const auto chordFrom = h.at(seconds + 1.0), chordTo = h.at(2.0 * seconds);
+    const double chord = h.rms(chordFrom, chordTo);
+    f.chordLevel = toDb(chord) - toDb(h.inputRms(chordFrom, chordTo));
+    f.pluckLevel = toDb(h.rms(h.at(0.5), h.at(seconds))) - toDb(h.inputRms(h.at(0.5), h.at(seconds)));
+    const auto bands = bandLevels(h, chordFrom, chordTo);
+    for (double b : bands) f.features.push_back(b - toDb(chord));
+    const auto stop = h.at(2.0 * seconds);
+    f.features.push_back(std::max(-60.0, toDb(h.rms(stop + h.at(0.2), stop + h.at(0.6))) - toDb(chord)));
+    f.features.push_back(std::max(-60.0, toDb(h.rms(stop + h.at(1.0), stop + h.at(2.0))) - toDb(chord)));
+    double lr = 0, ll = 0, rr = 0;
+    for (std::size_t i = chordFrom; i < chordTo; ++i) { lr += double(h.outL[i]) * h.outR[i]; ll += double(h.outL[i]) * h.outL[i]; rr += double(h.outR[i]) * h.outR[i]; }
+    f.features.push_back(20.0 * (1.0 - lr / std::sqrt(std::max(1.0e-12, ll * rr))));   // 0 = mono, 20 = uncorrelated
+    // Flutter: spread of the 10 ms level over the sustained chord (tremolo, movement).
+    std::vector<double> env;
+    for (auto i = chordFrom; i + h.at(0.01) < chordTo; i += h.at(0.01)) env.push_back(toDb(h.rms(i, i + h.at(0.01))));
+    double mean = 0, var = 0;
+    for (double e : env) mean += e / double(env.size());
+    for (double e : env) var += (e - mean) * (e - mean) / double(env.size());
+    f.features.push_back(std::sqrt(var) * 4.0);
+    // Pluck smear: energy 0.3-0.5 s after each onset vs its first 0.1 s.
+    double early = 0, late = 0;
+    for (double t = 1.0; t + 0.5 < seconds; t += 0.5) { early += h.rms(h.at(t), h.at(t + 0.1)); late += h.rms(h.at(t + 0.3), h.at(t + 0.5)); }
+    f.features.push_back(toDb(late) - toDb(early));
+    return f;
+}
+
+double distance(const Fingerprint& a, const Fingerprint& b) {
+    double sum = 0;
+    for (std::size_t k = 0; k < a.features.size(); ++k) sum += (a.features[k] - b.features[k]) * (a.features[k] - b.features[k]);
+    return std::sqrt(sum);
+}
+
+// Closest pairs across every place: gated above `minimum` (dB-equivalent, Euclidean).
+void distinctness(Suite& s, const std::vector<std::pair<int, int>>& places, const std::vector<Fingerprint>& prints, double minimum, bool gate) {
+    struct Pair { double d; std::size_t a, b; };
+    std::vector<Pair> pairs;
+    for (std::size_t a = 0; a < places.size(); ++a)
+        for (std::size_t b = a + 1; b < places.size(); ++b) pairs.push_back({ distance(prints[a], prints[b]), a, b });
+    std::sort(pairs.begin(), pairs.end(), [](const Pair& x, const Pair& y) { return x.d < y.d; });
+    std::cout << "  closest pairs (dB-equivalent distance; largest differing feature):\n";
+    for (std::size_t k = 0; k < std::min<std::size_t>(10, pairs.size()); ++k) {
+        const auto& pr = pairs[k];
+        std::size_t worst = 0;
+        double biggest = 0;
+        for (std::size_t f = 0; f < prints[pr.a].features.size(); ++f) {
+            const double d = std::abs(prints[pr.a].features[f] - prints[pr.b].features[f]);
+            if (d > biggest) { biggest = d; worst = f; }
         }
+        std::cout << "    " << fmt(pr.d) << "  " << placeName(places[pr.a].first, places[pr.a].second) << "  <->  "
+                  << placeName(places[pr.b].first, places[pr.b].second) << "  (" << featureNames[worst] << " " << fmt(biggest) << ")\n";
+    }
+    s.metric("closest pair distance", pairs.front().d, " dB-eq");
+    for (const auto& pr : pairs) {
+        if (pr.d >= minimum) break;
+        const auto name = placeName(places[pr.a].first, places[pr.a].second) + " and " + placeName(places[pr.b].first, places[pr.b].second);
+        if (gate) s.check(false, name + " sound clearly different (> " + fmt(minimum) + " dB-eq)", fmt(pr.d));
+        else std::cout << "  [report] " << name << " closer than " << fmt(minimum) << ": " << fmt(pr.d) << "\n";
+    }
+}
+
+void testLocations(Suite& s) {
+    s.section("places: level matching across all places, distinctness");
+    const auto places = allPlaces();
+    s.metric("places", static_cast<double>(places.size()));
+    std::vector<Fingerprint> prints;
+    for (const auto& [l, k] : places) {
+        const auto f = fingerprint(l, k);
+        s.check(f.finite, placeName(l, k) + ": finite");
+        s.check(std::abs(f.chordLevel) < 3.0, placeName(l, k) + ": level-matched on a sustained chord (within 3 dB)", fmt(f.chordLevel) + " dB");
+        s.check(std::abs(f.pluckLevel) < 4.0, placeName(l, k) + ": level-matched on plucks (within 4 dB)", fmt(f.pluckLevel) + " dB");
+        s.check(f.peak < 0.98, placeName(l, k) + ": peak stays below 0 dBFS", fmt(f.peak, 3));
+        std::cout << "  [metric] " << placeName(l, k) << ": chord " << fmt(f.chordLevel) << " dB, plucks " << fmt(f.pluckLevel) << " dB\n";
+        prints.push_back(f);
+    }
+    distinctness(s, places, prints, 4.0, distinctnessGated);
 }
 
 void testTravel(Suite& s) {
@@ -425,6 +537,166 @@ void testTravel(Suite& s) {
     const auto mid = dc::Engine::interpolate(a, b, 0.5f);
     s.check(std::abs(mid[dc::Cutoff] - std::sqrt(a[dc::Cutoff] * b[dc::Cutoff])) < 1.0f, "Cutoff glides geometrically");
     s.check(dc::Engine::interpolate(a, b, 0.49f)[dc::Character] == a[dc::Character] && mid[dc::Character] == b[dc::Character], "Chamber switches half-way");
+}
+
+void testPlaceEngine(Suite& s) {
+    s.section("place engine: sub-locations, travel time, crossfades, tails, macros, Advanced");
+    // Sub-locations travel too, and arrive.
+    {
+        Host h;
+        h.render(1.0, sawChord(0.3f));
+        h.set(dc::ids::subLocation, 3.0f);
+        h.render(0.1, sawChord(0.3f));
+        s.check(h.p->engine().destinationSub() == 3 && h.p->engine().travelProgress() < 1.0f, "a sub-location change starts a journey");
+        h.render(2.0, sawChord(0.3f));
+        s.check(h.p->engine().travelProgress() == 1.0f,
+                "the journey to the Treasure Room arrives");
+        dc::Controls c; c.location = dc::Dungeon; c.sub = 3;
+        s.check(h.p->engine().frame() == dc::Engine::targetFrame(c), "the arrived frame is the Treasure Room's");
+        // A sub-location beyond the location's count is its last one.
+        h.go(dc::Swamp, 4);
+        h.render(2.0, sawChord(0.3f));
+        s.check(h.p->engine().destination() == dc::Swamp && h.p->engine().destinationSub() == 2, "Sub-location 4 in the Swamp is its last (Sunken Ruins)");
+    }
+    // Travel Time: instant, seconds, tempo-synced.
+    {
+        Host h;
+        h.set(dc::ids::travelTime, 0.0f);
+        h.render(0.5, sawChord(0.3f));
+        h.location(dc::Castle);
+        h.render(0.04, sawChord(0.3f));
+        s.check(h.p->engine().travelProgress() == 1.0f, "Travel Time Instant arrives within 40 ms", fmt(h.p->engine().travelDuration() * 1000.0) + " ms");
+        h.set(dc::ids::travelTime, 3.0f);
+        h.location(dc::Caverns);
+        h.render(2.8, sawChord(0.3f));
+        const bool travelling = h.p->engine().travelProgress() < 1.0f;
+        h.render(0.3, sawChord(0.3f));
+        s.check(travelling && h.p->engine().travelProgress() == 1.0f, "Travel Time 3 s takes 3 s");
+        h.set(dc::ids::travelSync, 3.0f);   // 1 bar; the test host has no tempo: 120 BPM
+        h.location(dc::Village);
+        h.render(0.05, sawChord(0.3f));
+        s.check(std::abs(h.p->engine().travelDuration() - 2.0) < 1.0e-6, "Travel Sync 1 bar at 120 BPM takes 2 s", fmt(h.p->engine().travelDuration(), 3) + " s");
+    }
+    // Incompatible choices crossfade: the Choir's interval (octave up in the Treasure
+    // Room, octave down in the Boss Lair) switches while the choir is silent.
+    {
+        dc::Controls a, b; a.sub = 3; b.sub = 4;
+        const auto fa = dc::Engine::targetFrame(a), fb = dc::Engine::targetFrame(b);
+        auto mid = dc::Engine::interpolate(fa, fb, 0.5f);
+        dc::Engine::applyDips(mid, fa, fb, 0.5f, 1.5);
+        auto quarter = dc::Engine::interpolate(fa, fb, 0.1f);
+        dc::Engine::applyDips(quarter, fa, fb, 0.1f, 1.5);
+        s.check(fa[dc::Interval] != fb[dc::Interval] && mid[dc::ChoirBlend] == 0.0f && quarter[dc::ChoirBlend] > 0.05f,
+                "a Choir interval change dips the choir to silence at the switch");
+        for (double seconds : { 0.0, 1.5 }) {
+            Host h;
+            h.set(dc::ids::travelTime, static_cast<float>(seconds));
+            h.go(dc::Dungeon, 3);
+            h.render(3.0, sine(220.0, 0.25f));
+            const double before = h.maxStep(h.at(1.5), h.at(3.0));
+            h.set(dc::ids::subLocation, 4.0f);
+            h.render(3.0, sine(220.0, 0.25f));
+            const double after = h.maxStep(h.at(5.0), h.at(6.0));
+            const double during = h.maxStep(h.at(3.0), h.at(5.0));
+            s.check(during < 2.5 * std::max(before, after), "Treasure Room -> Final Boss Lair (" + fmt(seconds, 1) + " s): no click",
+                    fmt(during / std::max(before, after), 2) + "x");
+        }
+        // The same through the Advanced drawer while staying put: an Interval override.
+        Host h;
+        h.go(dc::Dungeon, 3);
+        h.render(3.0, sine(220.0, 0.25f));
+        const double before = h.maxStep(h.at(1.5), h.at(3.0));
+        h.set(dc::ids::advanced(dc::Interval), 2.0f);   // "Fifth below"
+        h.render(1.0, sine(220.0, 0.25f));
+        s.check(h.p->engine().frame()[dc::Interval] == 1.0f, "an Advanced choice override applies");
+        s.check(h.maxStep(h.at(3.0), h.at(4.0)) < 2.5 * before, "an Advanced interval override crossfades (no click)",
+                fmt(h.maxStep(h.at(3.0), h.at(4.0)) / before, 2) + "x");
+    }
+    // Reverb tails continue: leaving the Nave for the Tavern as the music stops, the
+    // Nave's tail keeps ringing (it is not cut to the Tavern's short room).
+    {
+        Host a, b;
+        a.set(dc::ids::travelTime, 0.0f); b.set(dc::ids::travelTime, 0.0f);
+        a.go(dc::Cathedral, 1); b.go(dc::Village, 1);
+        a.render(3.0, sawChord(0.3f)); b.render(3.0, sawChord(0.3f));
+        a.go(dc::Village, 1);
+        a.render(2.0, silence()); b.render(2.0, silence());
+        const double ringing = toDb(a.rms(a.at(4.0), a.at(4.5))), dry = toDb(b.rms(b.at(4.0), b.at(4.5)));
+        s.metric("tail 1-1.5 s after leaving the Nave for the Tavern", ringing, " dBFS");
+        s.metric("tail 1-1.5 s after the Tavern alone", dry, " dBFS");
+        s.check(ringing > dry + 15.0, "leaving the Nave, its tail rings on", fmt(ringing) + " vs " + fmt(dry) + " dBFS");
+        const double first = toDb(a.rms(a.at(3.05), a.at(3.3))), later = toDb(a.rms(a.at(3.8), a.at(4.05)));
+        s.check(first - later < 12.0, "the tail decays naturally after leaving (no sudden cut)", fmt(first - later) + " dB in 0.75 s");
+    }
+    // Macros and Advanced change the sound and travel with you.
+    {
+        const auto residualWith = [](const juce::String& id, float value) {
+            Host h;
+            if (id.isNotEmpty()) h.set(id, value);
+            h.render(3.0, sawChord(0.3f));
+            std::vector<double> bands = bandLevels(h, h.at(1.5), h.end());
+            return bands;
+        };
+        const auto designed = residualWith({}, 0);
+        for (int m = 0; m < dc::macroCountFor(dc::Dungeon); ++m)
+            for (float v : { 0.0f, 1.0f }) {
+                const auto moved = residualWith(dc::ids::macros[static_cast<std::size_t>(m)], v);
+                double d = 0;
+                for (std::size_t k = 0; k < designed.size(); ++k) d = std::max(d, std::abs(moved[k] - designed[k]));
+                s.check(d > 0.5, std::string("Dungeon macro ") + dc::macroName(dc::Dungeon, m) + " at " + fmt(v * 100.0, 0) + " % changes the sound", fmt(d) + " dB");
+            }
+        const auto darker = residualWith(dc::ids::advanced(dc::Cutoff), -0.4f);
+        s.check(darker.back() < designed.back() - 6.0, "Advanced Cutoff -40 % darkens the place", fmt(designed.back() - darker.back()) + " dB at 8 kHz");
+        dc::Controls c; c.advanced[dc::Character] = 4.0f;   // override: Endless Void
+        s.check(dc::Engine::targetFrame(c)[dc::Character] == 3.0f, "an Advanced choice override sets the choice");
+    }
+}
+
+// Raw (unmatched) level of a place against the input: the mean of the chord and the
+// plucks, in dB. Its negative is the place's calibrated trim.
+double rawLevel(int location, int sub) {
+    double sum = 0;
+    for (int programme = 0; programme < 2; ++programme) {
+        Host h;
+        h.p->setLevelMatching(false);
+        h.go(location, sub);
+        h.render(4.0, programme == 0 ? sawChord(0.3f) : plucks(0.4f));
+        sum += toDb(h.rms(h.at(1.5), h.end())) - toDb(h.inputRms(h.at(1.5), h.end()));
+    }
+    return sum * 0.5;
+}
+
+void testLevels(Suite& s) {
+    s.section("levels: calibrated per-place trims");
+    double worst = 0;
+    for (const auto& [l, k] : allPlaces()) {
+        const double raw = rawLevel(l, k), trim = dc::placeTrimDb(l, k);
+        worst = std::max(worst, std::abs(raw + trim));
+        s.check(std::abs(raw + trim) < 1.0, placeName(l, k) + ": stored trim matches the measured level (re-run --calibrate if not)",
+                "raw " + fmt(raw) + " dB, trim " + fmt(trim) + " dB");
+    }
+    s.metric("largest trim error", worst, " dB");
+}
+
+int calibrate(const juce::String& path) {
+    juce::String text;
+    text << "#pragma once\n"
+            "// Calibrated level trims (dB) per place: [location][sub-location 0 = the scene].\n"
+            "// Generated by `DungeonCrawlerTests --calibrate Source/World/LevelTrims.h`; the\n"
+            "// `levels` test group fails when a stored trim drifts from the measured one.\n"
+            "#include <array>\n\nnamespace dc {\ninline constexpr std::array<std::array<float, 5>, 10> levelTrimsDb {{\n";
+    for (int l = 0; l < dc::LocationCount; ++l) {
+        text << "    {{ ";
+        for (int k = 0; k < dc::placesPerLocation; ++k) {
+            const double trim = k <= dc::subLocationCount(l) ? -rawLevel(l, k) : 0.0;
+            text << juce::String(trim, 2) << "f" << (k + 1 < dc::placesPerLocation ? ", " : "");
+        }
+        text << " }},   // " << dc::locationNames[static_cast<std::size_t>(l)] << "\n";
+    }
+    text << "}};\n}\n";
+    if (!juce::File(path).replaceWithText(text)) return 1;
+    std::cout << text;
+    return 0;
 }
 
 void testModules(Suite& s) {
@@ -540,6 +812,9 @@ void testRealtime(Suite& s) {
         if (k % 20 == 0) h.location(random.nextInt(dc::LocationCount));
         if (k % 33 == 0) h.set(dc::ids::intensity, random.nextFloat());
         if (k % 91 == 0) h.set(dc::ids::bypass, k % 2 ? 1.0f : 0.0f);
+        if (k % 17 == 0) h.set(dc::ids::subLocation, static_cast<float>(random.nextInt(5)));
+        if (k % 23 == 0) h.set(dc::ids::macros[static_cast<std::size_t>(k % 4)], random.nextFloat());
+        if (k % 29 == 0) h.set(dc::ids::advanced(static_cast<std::size_t>(random.nextInt(static_cast<int>(dc::Count)))), 0.3f);
         // Fill the input outside the probe, then process inside it.
         const int n = k % 3 == 0 ? 512 : 64 + k;
         h.buffer.setSize(2, n, false, false, true);
@@ -550,7 +825,7 @@ void testRealtime(Suite& s) {
         allocationProbe::enabled = false;
         allocations += allocationProbe::calls;
     }
-    s.check(allocations == 0, "processBlock performs no heap allocations (travel, intensity, bypass)", std::to_string(allocations));
+    s.check(allocations == 0, "processBlock performs no heap allocations (travel, sub-locations, macros, Advanced, intensity, bypass)", std::to_string(allocations));
 }
 
 void testCpu(Suite& s) {
@@ -588,6 +863,36 @@ void testEditor(Suite& s, const juce::String& snapshot) {
     p.parameters.getParameter(dc::ids::location)->setValueNotifyingHost(p.parameters.getParameter(dc::ids::location)->convertTo0to1(dc::Necropolis));
     s.check(editor->shownLocation() == dc::Necropolis && editor->locationButton(dc::Necropolis).getToggleState()
             && !editor->locationButton(dc::Mountains).getToggleState(), "automation of Location moves the marker");
+    s.check(editor->macroLabel(0) == "Chill" && editor->macroVisible(2) && !editor->macroVisible(3), "the Necropolis shows its three themed macros",
+            editor->macroLabel(0).toStdString());
+    editor->locationButton(dc::Dungeon).onClick();
+    editor->subLocationButton(4).onClick();
+    s.check(juce::roundToInt(p.parameters.getRawParameterValue(dc::ids::subLocation)->load()) == 4 && editor->shownSubLocation() == 4
+            && editor->subLocationButton(4).getToggleState(), "clicking a sub-location sets Sub-location and marks it");
+    s.check(editor->macroLabel(3) == "Dread" && editor->macroVisible(3), "the Dungeon shows Depth, Damp, Echo, Dread");
+    editor->locationButton(dc::Castle).onClick();
+    s.check(juce::roundToInt(p.parameters.getRawParameterValue(dc::ids::subLocation)->load()) == 0, "choosing a location arrives at its own scene");
+    s.check(!editor->advancedOpen(), "the Advanced drawer is hidden by default");
+    editor->advancedButton().setToggleState(true, juce::dontSendNotification);
+    editor->advancedButton().onClick();
+    s.check(editor->advancedOpen(), "the Advanced button opens the drawer");
+    {
+        const auto begin = std::chrono::steady_clock::now();
+        auto withDrawer = editor->createComponentSnapshot(editor->getLocalBounds(), true, 1.0f);
+        const double drawerMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - begin).count();
+        s.metric("full repaint with the Advanced drawer open", drawerMs, " ms");
+        s.check(drawerMs < 33.0, "a full repaint with the drawer fits in a 30 fps frame", fmt(drawerMs) + " ms");
+        if (snapshot.isNotEmpty()) {
+            juce::File file(juce::File(snapshot).getSiblingFile(juce::File(snapshot).getFileNameWithoutExtension() + "-advanced.png"));
+            file.deleteFile();
+            juce::FileOutputStream stream(file);
+            juce::PNGImageFormat().writeImageToStream(withDrawer, stream);
+        }
+    }
+    editor->advancedButton().setToggleState(false, juce::dontSendNotification);
+    editor->advancedButton().onClick();
+    editor->locationButton(dc::Dungeon).onClick();
+    editor->subLocationButton(3).onClick();
     const auto begin = std::chrono::steady_clock::now();
     auto image = editor->createComponentSnapshot(editor->getLocalBounds(), true, 1.0f);
     for (int k = 0; k < 9; ++k) image = editor->createComponentSnapshot(editor->getLocalBounds(), true, 1.0f);
@@ -632,6 +937,7 @@ int main(int argc, char** argv) {
         const juce::String arg(argv[i]);
         if (arg == "--snapshot" && i + 1 < argc) snapshot = argv[++i];
         else if (arg == "--only" && i + 1 < argc) only = juce::StringArray::fromTokens(argv[++i], ",", "");
+        else if (arg == "--calibrate" && i + 1 < argc) return calibrate(argv[i + 1]);
         else if (arg == "--render" && i + 2 < argc)
             return renderToFile(argv[i + 1], juce::String(argv[i + 2]).getIntValue(), i + 3 < argc ? juce::String(argv[i + 3]).getDoubleValue() : 8.0);
     }
@@ -644,6 +950,8 @@ int main(int argc, char** argv) {
     if (run("transparency")) testTransparency(s);
     if (run("locations")) testLocations(s);
     if (run("travel")) testTravel(s);
+    if (run("place")) testPlaceEngine(s);
+    if (run("levels")) testLevels(s);
     if (run("modules")) testModules(s);
     if (run("rates")) testRates(s);
     if (run("extremes")) testExtremes(s);

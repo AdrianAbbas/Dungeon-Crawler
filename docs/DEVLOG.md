@@ -24,11 +24,11 @@ unticked item.
 
 - [x] 0a. Intensity 0 is a true, latency-aligned dry path (30 ms crossfade; residual −272 dB)
 - [x] 0b. AUAudioUnit out-of-process route rendered through AVAudioEngine, now a hard gate (AULowpass control too); macOS job on `macos-15`
-- [ ] 1a. Place data model: 10 locations, all sub-locations, Sub-location parameter (automatable)
-- [ ] 1b. Travel Time (instant, seconds, tempo-synced); crossfade of incompatible states; tails continue
-- [ ] 1c. Level matching across places (calibrated per-place trims + matcher)
-- [ ] 1d. Macros (3–4 themed per location) and the Advanced drawer; simple editor (location list, sub-location list, macros)
-- [ ] 1e. Tests, DEVLOG, push `[skip ci]`
+- [x] 1a. Place data model: 10 locations, all sub-locations, Sub-location parameter (automatable)
+- [x] 1b. Travel Time (instant, seconds, tempo-synced); crossfade of incompatible states; tails continue
+- [x] 1c. Level matching across places (calibrated per-place trims + matcher)
+- [x] 1d. Macros (3–4 themed per location) and the Advanced drawer; simple editor (location list, sub-location list, macros)
+- [x] 1e. Tests (512 checks), DEVLOG, push `[skip ci]`
 - [ ] 2a-1. Sound design: Dungeon, Castle, Cathedral, Haunted Forest, Caverns with all sub-locations
 - [ ] 2a-2. Distinctness test across all places + closest pairs listed
 - [ ] 2a-3. Listening render (same guitar and synth phrase through every place) to WAV in the test-logs artifact
@@ -248,3 +248,156 @@ Reported by the developer from the run of e5d8791:
 - **Open for Milestone 1:** sub-locations (data model), Travel Time, per-place trims,
   macros, Advanced drawer, crossfading incompatible states (for example a Choir
   interval change during travel switches half-way today).
+
+---
+
+## Session 2: Milestone 0 fixes (2026-10-31)
+
+The developer confirmed Milestone 0 in GarageBand: it loads, passes audio, the location
+list switches.
+
+### Intensity 0: a true dry path
+
+Milestone 0 made Intensity 0 transparent by returning the level matcher to unity at a
+neutral frame (CI: −82.9 dB). It was still the chain at neutral settings, not the
+input. Now the processor crossfades (30 ms, linear) to the **latency-aligned input**
+(times Output) whenever Intensity is 0: the residual is −272 dB (bit-exact apart from
+float rounding), from a fresh start, after a place, and within 0.1 s of moving the
+fader to 0 mid-chord, for every location (tests `smoke`, `transparency`).
+
+### The AUAudioUnit route: rendered by AVAudioEngine, now a gate
+
+The harness drove the out-of-process AUAudioUnit itself: it fetched `renderBlock` and
+called it with its own pull-input block. On that route even Apple's AULowpass came
+back silent or with −10876 (`kAudioUnitErr_NoConnection`). That points at the harness's
+way of connecting the input bus, not the plug-in. The suite now does what hosts do:
+
+- `AVAudioUnit instantiateWithComponentDescription:` with `LoadOutOfProcess`;
+- an `AVAudioEngine` in real-time **manual rendering** mode (48 kHz stereo, 512 frames)
+  with an `AVAudioSourceNode` (the sine) → the unit → the output node;
+- rendering paced like a host (one block per block duration) through
+  `manualRenderingBlock`.
+
+Its checks: render status, input pulled, audible, right channel written, Output to
+minimum via the `AUParameterTree`, **Intensity 0 transparent (< −40 dB)**,
+`shouldBypassEffect` transparent, factory presets (reported), `fullState`, and the
+remote view controller. In `ci-user-install-test.sh` the route is now a **gate** on
+arm64 and x86_64, and so is the AULowpass control on the same route. The control
+tells a harness problem from a plug-in problem.
+
+**Not yet verified on macOS.** This session has no Mac; the next CI run is the
+route's first. If it fails, read the `harness-*-auaudiounit` and
+`control-apple-lowpass-auaudiounit` logs: if the control also fails, the harness is
+still at fault.
+
+The macOS job runs on `macos-15`.
+
+---
+
+## Milestone 1: the place engine (2026-10-31)
+
+### The world (data model)
+
+`Source/World/Locations.{h,cpp}`: ten locations, each with
+
+- its own **scene** (sub-location 0, the place you arrive at): Corridors, Courtyard,
+  Cloister, Forest Edge, Cave Mouth, Village Green, Mire, Foothills, Gates, Stairwell;
+- the brief's **sub-locations** (2–4 each, 30 in all, so **40 places**);
+- **3–4 themed macros** with their mappings.
+
+A place's frame is the location's base changes with the sub-location's changes on
+top. The data is built once at static initialisation and only read after that.
+
+### Host parameters (`Source/Parameters.h`)
+
+| Parameter | Notes |
+|---|---|
+| Location | choice, 10, automatable (unchanged) |
+| **Sub-location** | int 0–4, automatable; its text is the current location's sub-location name ("Treasure Room"). Above a location's count it means the last one. Choosing a location in the editor arrives at its scene (0). |
+| **Travel Time** | 0–10 s (skewed, default 1.5 s); below 20 ms reads "Instant" |
+| **Travel Sync** | Free, 1/4, 1/2, 1 bar, 2 bars, 4 bars (host tempo, 120 BPM without one) |
+| **Macro 1–4** | 0–1, 0.5 = as designed, shown as −100…+100 %. Names follow the location (Dungeon: Depth, Damp, Echo, Dread). |
+| **Adv …** (61) | the Advanced drawer: one per module parameter. Continuous: an **offset** (−100…+100 % of the range; Log ranges in ratios of the whole range). Choices: an **override** ("Place" = as designed). Offsets travel with you. |
+
+Order of application: place → macros → Advanced → Intensity (neutral … as designed).
+State version 2; older states load with the new parameters at their defaults.
+
+### Travel and morphing (`Source/Engine.*`)
+
+- **Controls** are read once per host block (`setControls`). A change of place starts
+  a journey from wherever the sound is, over Travel Time. "Instant" is 20 ms, still
+  click-free. Macros, Advanced and Intensity change the target in place: the modules
+  smooth continuous values, and a choice switches through a 50 ms journey.
+- **Incompatible states crossfade.** Some choices cannot morph: the Choir's voice
+  count and interval, the Tomb's note and octave, the Relics' metal kind, note and
+  octave. When a journey changes one, that layer dips out. It stays silent for about
+  80 ms on each side of the switch, fading over about 120 ms, and the switch happens
+  in the silence. Such journeys last at least 0.4 s. Other choices already crossfade
+  inside their modules (Crypt chamber, Echoes reverse and descent, Abyss slope).
+- **Reverb tails continue.** The Crypt runs as a pool of three rooms. A journey to a
+  place with a different room starts the new room in the quietest free instance and
+  hands the send over (equal power, along the journey's curve). The old room gets no
+  new input and **rings out with its own decay**. Within a place, the active room
+  follows the frame. The Crypt and the Echoes also hold their return level: when
+  their mix falls, the return falls no faster than the tail decays, while new input
+  enters at the new mix. Test: leaving the Nave for the Tavern as the music stops,
+  the tail 1–1.5 s later is at −46 dBFS (the Tavern alone: −105 dBFS), and it decays
+  smoothly.
+
+### Level matching across places
+
+- **Calibrated trims** (`Source/World/LevelTrims.h`, generated by
+  `DungeonCrawlerTests --calibrate Source/World/LevelTrims.h`). Each place's raw level
+  is measured with the matcher off, as the mean of a sustained saw chord and guitar-like
+  plucks; the trim is its negative, scaled by Intensity, and interpolated in dB while
+  travelling. The adaptive matcher then only fine-tunes.
+- The `levels` group re-measures every place and **fails if a stored trim is more than
+  1 dB off**, so trims cannot silently go stale after sound-design changes.
+- Result for all 40 places: chord within ±0.6 dB of the input, plucks within ±1.3 dB.
+  Loudness while travelling stays within 2.4 dB of the level before leaving.
+
+### New module: VII. Relics (`Source/DSP/Relics.cpp`)
+
+The brief asks for additions beyond VEIL's modules: torch-flicker tremolo, metallic
+resonators, bell resonances, and gentle noise beds where fitting. Relics sits after
+Ancient Blood, so the echoes and reverb carry what it adds:
+
+- **Torch Flicker** (+ rate): an irregular tremolo (a random walk plus a slow sine),
+  up to 55 % dips.
+- **Metal** (+ kind, note, octave, decay): six SVF band-pass resonators, unity peak
+  gain, with a T60 per partial. Iron bars (plate-like modes), a minor-third church
+  bell (hum, prime, tierce, quint, nominal), and crystal. It is **keyed**: note and
+  octave are choices, so a producer can tune it to the song in the Advanced drawer.
+- **Wind** and **Drips**: band-passed noise with a slowly moving centre, and sparse
+  rising-pitch water drops. Both follow the input's envelope (20 ms attack, 1.2 s
+  release), so they fall silent with the playing (never a constant noise floor).
+
+### The editor (simple, Milestone 1)
+
+960 × 560: the locations as a list, the current location's places (its scene plus
+sub-locations) as a second list, the title "Location › Place", the location's macros
+as faders under their themed names (unused macros hidden), Input, Intensity, Mix and
+Output, Travel (time and sync), Bypass, and **Advanced**. That drawer covers the right
+side: the 61 module parameters in two columns grouped by module, sliders for offsets
+(the red track starts at 0) and menus for overrides. Still no timer. Repaint: 1.8 ms;
+15 ms with the drawer open. Snapshots: [snapshots/m1-editor.png](snapshots/m1-editor.png),
+[snapshots/m1-editor-advanced.png](snapshots/m1-editor-advanced.png).
+
+### Tests (512 checks, Linux)
+
+- New group `place`: sub-location journeys; Travel Time Instant (≤ 40 ms), 3 s, and
+  1 bar = 2 s at 120 BPM; the Choir dip at the switch; Treasure Room → Boss Lair
+  without clicks, instant and 1.5 s; an Advanced Interval override without a click;
+  tails continue; every Dungeon macro audible both ways; Advanced Cutoff and choice
+  overrides.
+- New group `levels`: stored trims against measurements.
+- `parameters`: the brief's sub-locations for every location, 3–4 macros each, every
+  macro changes the place, 50 % leaves it as designed, every Advanced parameter
+  published, Sub-location's text.
+- `locations` now covers all 40 places: level (chord ±3 dB, plucks ±4 dB), peak, and a
+  **distinctness fingerprint** (report-only here, a gate in Milestone 2a; see below).
+- `realtime` also changes sub-locations, macros and Advanced while checking for heap
+  allocations.
+
+CPU (one core of this container, 48 kHz stereo, report only): 3.0 % (Wizard's Tower)
+to 7.0 % (Necropolis); travelling every second 9.5–10 % (two rooms and the dips).

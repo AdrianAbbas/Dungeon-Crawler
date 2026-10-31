@@ -22,6 +22,8 @@ enum P : std::size_t {
     // VI. The Crypt: FDN reverb.
     Space, Decay, PreDelay, Damping, ReverbLowCut, Shimmer, ReverbWidth, ReverbMix, Character,
     CryptMode, RiseTime, Eternal,
+    // VII. Relics: torch flicker, struck metal, wind and drips (DUNGEON CRAWLER).
+    Flicker, FlickerRate, Metal, MetalKind, MetalNote, MetalOctave, MetalDecay, Wind, Drips,
     Count
 };
 using Frame = std::array<float, Count>;
@@ -92,6 +94,16 @@ inline constexpr std::array<ModuleParamSpec, Count> moduleSpecs {{
     { "cryptMode", "Crypt Mode", 0, 1, 0, Glide::Step, "Normal|Rising" },
     { "riseTime", "Rise Time", .2f, 4, 1.2f, Glide::Log, "" },
     { "eternal", "Eternal", 0, 1, 0, Glide::Step, "Off|On" },
+
+    { "flicker", "Torch Flicker", 0, 1, 0, Glide::Lin, "" },
+    { "flickerRate", "Flicker Rate", .3f, 12, 3, Glide::Log, "" },
+    { "metal", "Metal", 0, 1, 0, Glide::Lin, "" },
+    { "metalKind", "Metal Kind", 0, 2, 0, Glide::Step, "Iron Bars|Bell|Crystal" },
+    { "metalNote", "Metal Note", 0, 11, 2, Glide::Step, "C|C#|D|D#|E|F|F#|G|G#|A|A#|B" },
+    { "metalOctave", "Metal Octave", 0, 4, 2, Glide::Step, "2|3|4|5|6" },
+    { "metalDecay", "Metal Decay", .05f, 8, .8f, Glide::Log, "" },
+    { "wind", "Wind", 0, 1, 0, Glide::Lin, "" },
+    { "drips", "Drips", 0, 1, 0, Glide::Lin, "" },
 }};
 
 inline Frame neutralFrame() noexcept {

@@ -65,6 +65,7 @@ void Crypt::reset() {
     counter = 0;
     tapFade = erFade = 1;
     mix.value = -1;   // not primed
+    held = 0;
 }
 
 void Crypt::process(float* l, float* r, int n, const Frame& p, const Context&) noexcept {
@@ -104,6 +105,7 @@ void Crypt::process(float* l, float* r, int n, const Frame& p, const Context&) n
         erFade = 1;
         for (int k = 0; k < 8; ++k) diffuserWeight[static_cast<std::size_t>(k)] = k < diffuserCount ? 1.0f : 0.0f;
         riseLength = riseTarget;
+        held = std::sqrt(mix.value);
     }
     // A new size starts a crossfade from the current tap to one at the new length
     // (only once the previous crossfade has finished; a moving target is followed in
@@ -126,6 +128,10 @@ void Crypt::process(float* l, float* r, int n, const Frame& p, const Context&) n
     // Inject less into long, dense tails so the level stays usable across Decay.
     injectionTarget = chamber.injection * 1.7f * std::pow(std::max(0.02f, 1.0f - meanGain * meanGain), 0.3f);
     if (priming) { gain = gainTarget; injection = injectionTarget; }
+    // Tail continuity: when the mix falls (travelling to a drier place) the return
+    // level falls no faster than the tail decays, while new input enters at the new
+    // mix. What is already ringing rings out as it would in the old room.
+    const float holdDecay = e > 0.5f ? 1.0f : static_cast<float>(std::pow(10.0, -3.0 / (sr * t60)));
     const float dampCoefficient = lerp(poleForHz(dampingHz.skip(0), sr), 1.0f, e);
     const float lowCutCoefficient = poleForHz(std::clamp(p[ReverbLowCut], 10.0f, 2000.0f), sr);
     const float body = bodyDb.skip(n);
@@ -135,7 +141,11 @@ void Crypt::process(float* l, float* r, int n, const Frame& p, const Context&) n
     reflectionScale.set(static_cast<float>((0.7 + 0.6 * space) * 0.001 * sr));
 
     for (int i = 0; i < n; ++i) {
-        const float m = mix.next(), w = width.next(), shim = shimmer.next(), in = inputGain.next(), rise = risingBlend.next();
+        const float m = mix.next(), w = width.next(), shim = shimmer.next(), rise = risingBlend.next();
+        const float wetTarget = std::sqrt(clamp01(m));
+        held = std::max(wetTarget, held * holdDecay);
+        const float send = held > 1.0e-6f ? wetTarget / held : 0.0f;
+        const float in = inputGain.next() * send;
         const float hold = eternal.next(); dampingHz.next();
         // Eternal also fades out the two things that would slowly eat a held tail:
         // delay modulation (interpolation loss) and shimmer (it replaces loop energy).
@@ -200,6 +210,7 @@ void Crypt::process(float* l, float* r, int n, const Frame& p, const Context&) n
             const float inject = injection * in * (d * lineSign[k] + side * ((k & 1) ? -0.6f : 0.6f));
             delay[K].push(softLimit(gain[K] * y + inject, 3.0f));
         }
+        er *= send;
         float wetL = 0.5f * (o[0] - o[2] + o[4] - o[6]) + 0.25f * (o[1] + o[5]) + er * 0.55f;
         float wetR = 0.5f * (o[1] - o[3] + o[5] - o[7]) + 0.25f * (o[2] + o[6]) + er * 0.5f;
         const float wm = 0.5f * (wetL + wetR), ws = 0.5f * (wetL - wetR) * w;
@@ -220,10 +231,9 @@ void Crypt::process(float* l, float* r, int n, const Frame& p, const Context&) n
             wetL = lerp(wetL, revL * 1.3f, rise);
             wetR = lerp(wetR, revR * 1.3f, rise);
         }
-        float dryGain, wetGain;
-        equalPowerGains(m, dryGain, wetGain);
-        l[i] = finiteOr(dryL * dryGain + wetL * wetGain);
-        r[i] = finiteOr(dryR * dryGain + wetR * wetGain);
+        const float dryGain = wetOnly ? 0.0f : std::sqrt(1.0f - clamp01(m));
+        l[i] = finiteOr(dryL * dryGain + wetL * held);
+        r[i] = finiteOr(dryR * dryGain + wetR * held);
     }
 }
 }

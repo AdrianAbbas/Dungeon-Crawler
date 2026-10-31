@@ -14,10 +14,35 @@ EngravedLookAndFeel::EngravedLookAndFeel() {
     setColour(juce::Label::textColourId, colours::ivory);
     setColour(juce::TooltipWindow::backgroundColourId, colours::charcoal);
     setColour(juce::TooltipWindow::textColourId, colours::ivory);
+    setColour(juce::ComboBox::backgroundColourId, colours::charcoal);
+    setColour(juce::ComboBox::textColourId, colours::ivory);
+    setColour(juce::ComboBox::outlineColourId, colours::dust.withAlpha(0.6f));
+    setColour(juce::ComboBox::arrowColourId, colours::ash);
+    setColour(juce::PopupMenu::backgroundColourId, colours::charcoal);
+    setColour(juce::PopupMenu::textColourId, colours::ivory);
+    setColour(juce::PopupMenu::highlightedBackgroundColourId, colours::blood.withAlpha(0.5f));
+    setColour(juce::ScrollBar::thumbColourId, colours::dust);
 }
 
 void EngravedLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int width, int height, float sliderPos, float,
-                                           float, juce::Slider::SliderStyle, juce::Slider& slider) {
+                                           float, juce::Slider::SliderStyle style, juce::Slider& slider) {
+    if (style == juce::Slider::LinearHorizontal) {
+        // Thin horizontal slider (travel time, the Advanced drawer). A bipolar range
+        // (an Advanced offset) draws its red track from zero.
+        const auto area = juce::Rectangle<int>(x, y, width, height).toFloat();
+        const float cy = area.getCentreY();
+        const auto track = juce::Rectangle<float>(area.getX(), cy - 1.5f, area.getWidth(), 3.0f);
+        g.setColour(colours::ink.brighter(0.08f));
+        g.fillRoundedRectangle(track, 1.5f);
+        const bool bipolar = slider.getMinimum() < 0.0 && slider.getMaximum() > 0.0;
+        const float origin = bipolar ? static_cast<float>(slider.getPositionOfValue(0.0)) : area.getX();
+        g.setColour(slider.isEnabled() ? colours::blood : colours::dust);
+        g.fillRect(juce::Rectangle<float>::leftTopRightBottom(juce::jmin(origin, sliderPos), cy - 1.5f, juce::jmax(origin, sliderPos), cy + 1.5f));
+        const auto cap = juce::Rectangle<float>(8.0f, juce::jmin(16.0f, area.getHeight() - 2.0f)).withCentre({ sliderPos, cy });
+        g.setColour(slider.isMouseOverOrDragging() ? colours::ivory.brighter(0.2f) : colours::ivory);
+        g.fillRoundedRectangle(cap, 3.0f);
+        return;
+    }
     const auto area = juce::Rectangle<int>(x, y, width, height).toFloat();
     const float trackWidth = 6.0f, capWidth = juce::jmin(46.0f, area.getWidth() - 4.0f), capHeight = 16.0f;
     const float cx = area.getCentreX();

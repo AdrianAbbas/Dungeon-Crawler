@@ -1,11 +1,12 @@
 #pragma once
-// The world's locations. Milestone 0 gives each one a first sketch of its sound (a
-// Frame of module settings); Milestone 1 adds sub-locations and macros, Milestone 2
-// replaces these sketches with the real sound design.
+// The world: ten locations, each a place of its own (its "scene", sub-location 0) with
+// two to four sub-locations, and three or four themed macros. A place is a Frame of
+// module settings: the location's base design with the sub-location's changes on top.
+// Macros and the Advanced drawer adjust a place; Intensity scales it towards neutral.
+// The data is built once at static initialisation and only read afterwards.
 #include "DSP/ModuleParams.h"
 #include <array>
-#include <initializer_list>
-#include <utility>
+#include <vector>
 
 namespace dc {
 enum Location : int {
@@ -19,66 +20,36 @@ inline constexpr std::array<const char*, LocationCount> locationNames {
     "Village", "Swamp", "Mountains", "Necropolis", "Wizard's Tower"
 };
 
-namespace detail {
-inline Frame with(std::initializer_list<std::pair<P, float>> changes) noexcept {
-    auto f = neutralFrame();
-    for (const auto& [id, value] : changes) f[id] = value;
-    return f;
-}
-}
+inline constexpr int maxSubLocations = 4;   // per location, besides the location's own scene
+inline constexpr int placesPerLocation = maxSubLocations + 1;
+inline constexpr int macroCount = 4;
 
-// Character values: 0 Forgotten Chapel, 1 Ancient Cathedral, 2 Underground Crypt, 3 Endless Void.
-inline Frame locationFrame(int location) noexcept {
-    using detail::with;
-    switch (location) {
-        case Dungeon:   // stone, damp darkness
-            return with({ { Cutoff, 3800 }, { Darkness, .45f }, { HighPass, 55 }, { Resonance, .12f },
-                          { Drive, 5 }, { BloodMix, .3f }, { Age, .12f },
-                          { WraithMix, .12f }, { Blur, .45f }, { Ghost, .15f },
-                          { Character, 2 }, { Space, .65f }, { Decay, 3.2f }, { Damping, .62f }, { PreDelay, 14 }, { ReverbMix, .42f } });
-        case Castle:    // a grand, bright stone hall with a slap from the far wall
-            return with({ { HighPass, 45 }, { Darkness, .05f },
-                          { DelayTime, 190 }, { Feedback, .18f }, { Diffusion, .55f }, { DelayDamping, .35f }, { Spread, .7f }, { DelayMix, .16f },
-                          { Character, 0 }, { Space, .8f }, { Decay, 2.4f }, { Damping, .3f }, { PreDelay, 28 }, { ReverbMix, .36f } });
-        case Cathedral: // very long, dark gothic reverb, a faint choir
-            return with({ { Cutoff, 7000 }, { Darkness, .3f },
-                          { Voices, 2 }, { Interval, 0 }, { ChoirBlend, .14f }, { Formant, .55f }, { Drone, .08f },
-                          { Character, 1 }, { Space, 1 }, { Decay, 9.5f }, { Damping, .55f }, { PreDelay, 55 }, { Shimmer, .1f }, { ReverbMix, .52f } });
-        case HauntedForest: // damped open air, eerie spectral blur
-            return with({ { Cutoff, 6500 }, { Darkness, .22f }, { FilterMovement, .22f }, { FilterRate, .07f },
-                          { WraithMix, .32f }, { Blur, .72f }, { Ghost, .35f }, { WraithDetune, 22 }, { Drift, .55f },
-                          { DelayTime, 520 }, { Feedback, .32f }, { DelayDamping, .7f }, { Diffusion, .7f }, { DelayMix, .18f },
-                          { Character, 0 }, { Space, .55f }, { Decay, 2.4f }, { Damping, .7f }, { ReverbMix, .22f } });
-        case Caverns:   // vast rock, long dripping echoes
-            return with({ { HighPass, 70 }, { Cutoff, 9000 },
-                          { DelayTime, 290 }, { Feedback, .42f }, { Diffusion, .3f }, { DelayDamping, .35f }, { Spread, .85f }, { DelayMix, .2f },
-                          { Character, 1 }, { Space, .9f }, { Decay, 5.5f }, { Damping, .3f }, { PreDelay, 62 }, { ReverbMix, .42f } });
-        case Village:   // a warm wooden tavern room
-            return with({ { Cutoff, 12000 }, { Darkness, .1f },
-                          { Drive, 4 }, { Texture, .2f }, { Age, .08f }, { BloodMix, .3f },
-                          { DelayTime, 105 }, { Feedback, .08f }, { DelayDamping, .55f }, { DelayMix, .08f },
-                          { Character, 0 }, { Space, .22f }, { Decay, .9f }, { Damping, .65f }, { PreDelay, 6 }, { ReverbMix, .24f } });
-        case Swamp:     // murky, low-passed, wobbling
-            return with({ { Cutoff, 1500 }, { Resonance, .32f }, { Slope, 1 }, { Darkness, .3f }, { FilterMovement, .4f }, { FilterRate, .3f },
-                          { Drive, 4 }, { Instability, .5f }, { Age, .22f }, { BloodMix, .4f },
-                          { DelayTime, 430 }, { Feedback, .38f }, { DelayDamping, .8f }, { Diffusion, .5f }, { DelayMix, .22f },
-                          { Character, 2 }, { Space, .5f }, { Decay, 2.4f }, { Damping, .8f }, { ReverbMix, .26f } });
-        case Mountains: // long open echoes, thin cold air
-            return with({ { HighPass, 110 },
-                          { DelayTime, 640 }, { Feedback, .42f }, { Diffusion, .2f }, { DelayDamping, .45f }, { Spread, .9f }, { DelayMix, .3f },
-                          { Character, 3 }, { Space, .65f }, { Decay, 4.5f }, { Damping, .25f }, { PreDelay, 80 }, { ReverbLowCut, 220 }, { ReverbMix, .22f } });
-        case Necropolis: // cold, sparse, ghostly
-            return with({ { HighPass, 140 }, { Darkness, .1f },
-                          { WraithMix, .38f }, { Blur, .55f }, { Ghost, .55f }, { WraithDetune, 30 }, { Drift, .6f },
-                          { DelayTime, 700 }, { Feedback, .3f }, { Reverse, 1 }, { DelayMix, .14f },
-                          { Character, 0 }, { Space, .6f }, { Decay, 3.8f }, { Damping, .2f }, { ReverbMix, .3f } });
-        case WizardsTower: // strange shimmering arcana
-            return with({ { Voices, 2 }, { Interval, 4 }, { ChoirBlend, .18f }, { ChoirDetune, 18 }, { ChoirMovement, .5f },
-                          { WraithMix, .18f }, { Ghost, .3f }, { Blur, .4f },
-                          { DelayTime, 375 }, { Feedback, .35f }, { DelayMix, .16f },
-                          { Character, 1 }, { Space, .8f }, { Decay, 6.5f }, { Shimmer, .4f }, { Damping, .3f }, { ReverbMix, .36f } });
-        default:
-            return neutralFrame();
-    }
-}
+struct Change { P id; float value; };
+// A macro at 0.5 leaves the place as designed; towards 0 it adds `down`, towards 1 `up`
+// (linear in between). For Log parameters the offsets are octaves (factors of 2).
+struct MacroTarget { P id; float down, up; };
+struct Macro { const char* name; std::vector<MacroTarget> targets; };
+struct SubLocation { const char* name; std::vector<Change> changes; };
+struct LocationDesign {
+    const char* name;
+    const char* scene;   // the location's own place (sub-location 0)
+    std::vector<Change> base;
+    std::vector<SubLocation> subs;
+    std::vector<Macro> macros;
+};
+
+const LocationDesign& design(int location) noexcept;
+int subLocationCount(int location) noexcept;                  // excluding the scene
+int clampSubLocation(int location, int sub) noexcept;         // 0 .. subLocationCount
+const char* subLocationName(int location, int sub) noexcept;  // 0: the scene's name
+int macroCountFor(int location) noexcept;
+const char* macroName(int location, int macro) noexcept;      // "" when unused
+
+// The place as designed (macros at 0.5, no Advanced offsets).
+Frame placeFrame(int location, int sub) noexcept;
+inline Frame locationFrame(int location) noexcept { return placeFrame(location, 0); }
+// Macro values 0..1 (0.5 = as designed) applied to a frame, clamped to the ranges.
+void applyMacros(Frame&, int location, const std::array<float, macroCount>&) noexcept;
+// The calibrated level trim of a place (dB), so the level matcher only fine-tunes.
+float placeTrimDb(int location, int sub) noexcept;
 }

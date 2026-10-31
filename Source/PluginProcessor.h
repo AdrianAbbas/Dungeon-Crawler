@@ -31,21 +31,35 @@ public:
     void getStateInformation(juce::MemoryBlock&) override;
     void setStateInformation(const void*, int) override;
 
-    juce::AudioProcessorValueTreeState parameters;
-    // For the editor and tests (written on the audio thread, read anywhere).
-    std::atomic<float> inputLevel { 0 }, outputLevel { 0 }, travelProgress { 1 }, cpuLoad { 0 };
-    std::atomic<int> currentDestination { 0 };
-    const dc::Engine& engine() const noexcept { return world; }
-
 private:
-    void process(juce::AudioBuffer<float>&, bool forcedBypass);
-    static constexpr float neutralIntensity = 1.0e-4f;   // at or below: the dry path
+    // Raw parameter values (declared before `parameters`: the Sub-location display
+    // function reads `location`).
     std::atomic<float>* location = nullptr;
+    std::atomic<float>* subLocation = nullptr;
     std::atomic<float>* intensity = nullptr;
     std::atomic<float>* mix = nullptr;
     std::atomic<float>* input = nullptr;
     std::atomic<float>* output = nullptr;
     std::atomic<float>* bypass = nullptr;
+    std::atomic<float>* travelTime = nullptr;
+    std::atomic<float>* travelSync = nullptr;
+    std::array<std::atomic<float>*, dc::macroCount> macros {};
+    std::array<std::atomic<float>*, dc::Count> advanced {};
+
+public:
+    juce::AudioProcessorValueTreeState parameters;
+    // For the editor and tests (written on the audio thread, read anywhere).
+    std::atomic<float> inputLevel { 0 }, outputLevel { 0 }, travelProgress { 1 }, cpuLoad { 0 };
+    std::atomic<int> currentDestination { 0 }, currentSubLocation { 0 };
+    const dc::Engine& engine() const noexcept { return world; }
+    int locationIndex() const noexcept;
+    // Calibration only (tests): the chain's raw level, without trims or level matcher.
+    void setLevelMatching(bool on) noexcept { world.setLevelMatching(on); }
+
+private:
+    void process(juce::AudioBuffer<float>&, bool forcedBypass);
+    static constexpr float neutralIntensity = 1.0e-4f;   // at or below: the dry path
+    dc::Controls controls;
     dc::Engine world;
     dc::SafetyLimiter limiter;
     std::array<dc::dsp::DelayLine, 2> dryDelay;   // aligns the dry path with the engine's latency

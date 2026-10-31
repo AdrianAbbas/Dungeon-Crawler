@@ -69,6 +69,32 @@ private:
 };
 
 //==============================================================================
+// VII. RELICS (DUNGEON CRAWLER addition): torch flicker (an irregular tremolo), a
+// keyed resonator bank of struck metal (bars, a bell, crystal), and two subtle beds
+// that follow the playing and fall silent with it: wind and water drops. It sits
+// after Ancient Blood, so the echoes and the reverb carry what it adds.
+class Relics {
+public:
+    static constexpr int partials = 6;
+    void prepare(double sampleRate);
+    void reset();
+    void process(float* l, float* r, int n, const Frame&, const Context&) noexcept;
+private:
+    void configure(int kind, int note, int octave, float decaySeconds) noexcept;
+    struct Drop { float phase = 0, frequency = 1000, amplitude = 0, pan = 0; };
+    double sr = 48000;
+    std::array<std::array<dsp::Svf, partials>, 2> resonators;
+    std::array<float, partials> partialGain{};
+    std::array<dsp::Svf, 2> windFilter;
+    std::array<Drop, 4> dropsActive;
+    dsp::Smoothed flicker, metal, wind, drips;
+    float envelope = 0, attack = 0.01f, release = 0.0001f, gainSmooth = 0.01f;
+    float flickerGain = 1, flickerTarget = 0, flickerValue = 0, flickerPhase = 0, windPhase = 0, configuredDecay = -1;
+    int flickerCountdown = 0, dripCountdown = 0, configured = -1;
+    dsp::Random random;
+};
+
+//==============================================================================
 // III. THE CHOIR: 1-4 granular pitch-shifted voices with detune, movement and a
 // vowel formant bank, plus Drone: a sub-octave layer that holds after notes end.
 class Choir {
@@ -142,7 +168,9 @@ public:
     void prepare(double sampleRate);
     void reset();
     void process(float* l, float* r, int n, const Frame&, const Context&) noexcept;
+    bool ringing() const noexcept { return held > 1.0e-3f; }   // a tail still sounds
 private:
+    float held = 0;   // the return level, held while the tail decays
     double sr = 48000;
     std::array<double, 2> headPhase { 0.0, 0.5 };   // the two reverse heads
     std::array<dsp::DelayLine, 2> lines;
@@ -170,7 +198,14 @@ public:
     void prepare(double sampleRate);
     void reset();
     void process(float* l, float* r, int n, const Frame&, const Context&) noexcept;
+    bool ringing() const noexcept { return held > 1.0e-3f; }   // a tail still sounds
+    float level() const noexcept { return held; }
+    // Wet only: the output is the reverb's return alone (the engine runs several rooms
+    // in parallel while travelling and adds the dry signal itself).
+    void setWetOnly(bool on) noexcept { wetOnly = on; }
 private:
+    float held = 0;   // the return level, held while the tail decays
+    bool wetOnly = false;
     static constexpr int lines = 8;
     double sr = 48000;
     std::array<dsp::DelayLine, lines> delay;

@@ -37,6 +37,7 @@ void Echoes::reset() {
     headLength.fill(tapB);
     headPhase = { 0.0, 0.5 };
     feedback.value = -1;   // not primed
+    held = 0;
 }
 
 void Echoes::process(float* l, float* r, int n, const Frame& p, const Context& c) noexcept {
@@ -61,7 +62,11 @@ void Echoes::process(float* l, float* r, int n, const Frame& p, const Context& c
         tapA = tapB = wanted;
         headLength.fill(wanted);
         crossfade = 1;
+        held = std::sqrt(mix.value);
     }
+    // Tail continuity (as in the Crypt): the return falls no faster than the repeats
+    // die away (at least 10 dB per repeat), new input enters at the new mix.
+    const float holdDecay = static_cast<float>(std::pow(std::max(0.3, static_cast<double>(feedback.target)), 1.0 / std::max(64.0f, tapB)));
     // Time changes crossfade between two taps (no pitch bend, no zipper).
     if (std::abs(wanted - tapB) > 0.5f && crossfade >= 1.0f) { tapA = tapB; tapB = wanted; crossfade = 0; }
     const float crossfadeStep = static_cast<float>(1.0 / (0.06 * sr));
@@ -71,6 +76,9 @@ void Echoes::process(float* l, float* r, int n, const Frame& p, const Context& c
     float* io[] = { l, r };
     for (int i = 0; i < n; ++i) {
         const float fb = feedback.next(), m = mix.next(), dif = diffusion.next(), spr = spread.next();
+        const float wetTarget = std::sqrt(clamp01(m));
+        held = std::max(wetTarget, held * holdDecay);
+        const float send = held > 1.0e-6f ? wetTarget / held : 0.0f;
         const float rev = reverseBlend.next(), dsc = descentBlend.next();
         damping.next();
         crossfade = std::min(1.0f, crossfade + crossfadeStep);
@@ -117,14 +125,13 @@ void Echoes::process(float* l, float* r, int n, const Frame& p, const Context& c
             const float shifted = descent[static_cast<std::size_t>(ch)].process(s, descentRatio);
             echo[ch] = lerp(s, shifted, dsc);
         }
-        float dryGain, wetGain;
-        equalPowerGains(m, dryGain, wetGain);
+        const float dryGain = std::sqrt(1.0f - clamp01(m));
         for (int ch = 0; ch < 2; ++ch) {
             // Ping-pong crossfeed is a convex mix, so the loop gain stays <= feedback < 1;
             // the soft limiter bounds anything left over.
             const float loop = lerp(echo[ch], echo[1 - ch], spr * 0.75f);
-            lines[static_cast<std::size_t>(ch)].push(softLimit(dry[ch] + fb * loop, 1.6f));
-            io[ch][i] = finiteOr(dry[ch] * dryGain + echo[ch] * wetGain * 1.15f);
+            lines[static_cast<std::size_t>(ch)].push(softLimit(dry[ch] * send + fb * loop, 1.6f));
+            io[ch][i] = finiteOr(dry[ch] * dryGain + echo[ch] * held * 1.15f);
         }
     }
 }
