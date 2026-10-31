@@ -23,6 +23,11 @@ DungeonCrawlerView::Drawer::Drawer(juce::AudioProcessorValueTreeState& state) {
     hint.setFont(labelFont(13.0f));
     hint.setColour(juce::Label::textColourId, colours::ash);
     addAndMakeVisible(hint);
+    close.setButtonText(juce::String::fromUTF8("\xe2\x9c\x95"));
+    close.setTooltip("Close (Esc)");
+    close.onClick = [this] { if (onClose) onClose(); };
+    addAndMakeVisible(close);
+    setWantsKeyboardFocus(true);
     int group = -1;
     for (std::size_t i = 0; i < dc::Count; ++i) {
         if (moduleOf(i) != group) {
@@ -68,7 +73,9 @@ void DungeonCrawlerView::Drawer::paint(juce::Graphics& g) {
 
 void DungeonCrawlerView::Drawer::resized() {
     auto area = getLocalBounds().reduced(10);
-    hint.setBounds(area.removeFromTop(34));
+    auto top = area.removeFromTop(34);
+    close.setBounds(top.removeFromRight(28).withSizeKeepingCentre(28, 26));
+    hint.setBounds(top);
     viewport.setBounds(area);
     // Two columns of rows, headings spanning their column.
     const int width = viewport.getWidth() - viewport.getScrollBarThickness() - 4;
@@ -157,8 +164,7 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
         // drawn, then the view zooms in.
         button->onClick = [this, i] {
             const bool already = i == shown;
-            subLocationAttachment->setValueAsCompleteGesture(0.0f);
-            locationAttachment->setValueAsCompleteGesture(static_cast<float>(i));
+            travelManually(i, 0);
             if (already) goTo(View::Place, { i, 0 }, 1);
             else { zoomAt = nowSeconds() + 0.55; wakeTimer(); }
         };
@@ -171,12 +177,12 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
     for (int k = 0; k < dc::placesPerLocation; ++k) {
         auto& spot = hotspots[static_cast<std::size_t>(k)];
         spot = std::make_unique<HotspotButton>();
-        spot->onClick = [this, k] { subLocationAttachment->setValueAsCompleteGesture(static_cast<float>(k)); };
+        spot->onClick = [this, k] { travelManually(shown, k); };
         addChildComponent(*spot);
         auto& button = subs[static_cast<std::size_t>(k)];
         button = std::make_unique<juce::TextButton>();
         button->setClickingTogglesState(false);
-        button->onClick = [this, k] { subLocationAttachment->setValueAsCompleteGesture(static_cast<float>(k)); };
+        button->onClick = [this, k] { travelManually(shown, k); };
         addChildComponent(*button);
     }
     locationAttachment = std::make_unique<juce::ParameterAttachment>(*locationParameter, [this](float value) { showLocation(juce::roundToInt(value)); });
@@ -186,7 +192,7 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
     mapCrumb.onClick = [this] { goTo(View::Map, { -1, 0 }, 2); };
     locationCrumb.onClick = [this] {
         if (view == View::Map) goTo(View::Place, { shown, dc::clampSubLocation(shown, shownSub) }, 1);
-        else subLocationAttachment->setValueAsCompleteGesture(0.0f);
+        else travelManually(shown, 0);
     };
     placeCrumb.setFont(titleFont(16.0f));
     placeCrumb.setColour(juce::Label::textColourId, colours::ivory);
@@ -231,19 +237,53 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
     addAndMakeVisible(bypass);
     advancedToggle.setClickingTogglesState(true);
     advancedToggle.onClick = [this] {
+        // A second click closes it (as do its close button, Esc and a click outside).
         drawer.setVisible(advancedToggle.getToggleState());
-        if (drawer.isVisible()) { journeyToggle.setToggleState(false, juce::dontSendNotification); journeyPanel.setVisible(false); }
+        if (drawer.isVisible()) {
+            journeyToggle.setToggleState(false, juce::dontSendNotification);
+            journeyPanel.setVisible(false);
+            drawer.grabKeyboardFocus();
+        }
+        repaint();
     };
+    drawer.onClose = [this] { advancedToggle.setToggleState(false, juce::dontSendNotification); drawer.setVisible(false); repaint(); };
     addAndMakeVisible(advancedToggle);
     journeyToggle.setClickingTogglesState(true);
     journeyToggle.onClick = [this] {
         journeyPanel.refresh();
         journeyPanel.setVisible(journeyToggle.getToggleState());
-        if (journeyPanel.isVisible()) { advancedToggle.setToggleState(false, juce::dontSendNotification); drawer.setVisible(false); }
+        if (journeyPanel.isVisible()) {
+            advancedToggle.setToggleState(false, juce::dontSendNotification);
+            drawer.setVisible(false);
+            journeyPanel.grabKeyboardFocus();
+        }
         repaint();
     };
+    journeyPanel.onClose = [this] { journeyToggle.setToggleState(false, juce::dontSendNotification); journeyPanel.setVisible(false); repaint(); };
     addAndMakeVisible(journeyToggle);
     addChildComponent(journeyPanel);
+    // The Journey / Roam badge with its Stop button, and the short note.
+    steerBadge.stop.setTooltip("Stop the journey here");
+    steerBadge.stop.onClick = [this] {
+        const auto stopped = processor.stopSteering();
+        wasSteering = false;
+        if (stopped.isNotEmpty()) showNotice(stopped + " stopped");
+        refreshSteering();
+        refreshToolbar();
+        journeyPanel.refresh();
+    };
+    steerBadge.text.setFont(titleFont(13.0f));
+    steerBadge.text.setColour(juce::Label::textColourId, colours::blood.brighter(0.5f));
+    steerBadge.text.setInterceptsMouseClicks(false, false);
+    steerBadge.addAndMakeVisible(steerBadge.text);
+    steerBadge.addAndMakeVisible(steerBadge.stop);
+    addChildComponent(steerBadge);
+    notice.setFont(titleFont(13.0f));
+    notice.setJustificationType(juce::Justification::centred);
+    notice.setColour(juce::Label::textColourId, colours::ivory);
+    notice.setColour(juce::Label::backgroundColourId, juce::Colours::black.withAlpha(0.72f));
+    notice.setInterceptsMouseClicks(false, false);
+    addChildComponent(notice);
     follower.startTimerHz(10);
 
     // Toolbar (Milestone 11).
@@ -277,6 +317,7 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
     controlsToggle.setTooltip("Show or hide the controls");
     controlsToggle.onClick = [this] {
         controlsShown = !controlsShown;
+        if (!controlsShown) closePanels();   // their buttons are hidden with the controls
         controlsToggle.setButtonText(juce::String::fromUTF8(controlsShown ? "\xe2\x96\xbe" : "\xe2\x96\xb4"));
         resized();
         repaint();
@@ -286,7 +327,105 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
 
     locationAttachment->sendInitialUpdate();
     subLocationAttachment->sendInitialUpdate();
+    // Clicks anywhere in the window (on any child) can close an open panel.
+    addMouseListener(this, true);
+    setWantsKeyboardFocus(true);
     setSize(defaultWidth, defaultHeight);
+    refreshSteering();
+}
+
+void DungeonCrawlerView::travelManually(int l, int k) {
+    const auto stopped = processor.travelTo(l, k);
+    wasSteering = false;
+    if (stopped.isNotEmpty()) showNotice(stopped + " stopped");
+    // Shown explicitly: when the parameter already had this value (a journey had moved
+    // the view elsewhere) its attachment does not call back.
+    showLocation(processor.locationIndex());
+    showSubLocation(dc::clampSubLocation(processor.locationIndex(), k));
+    refreshSteering();
+    refreshToolbar();
+    if (journeyPanel.isVisible()) journeyPanel.refresh();
+}
+
+void DungeonCrawlerView::showNotice(const juce::String& text) {
+    notice.setText(text, juce::dontSendNotification);
+    noticeUntil = nowSeconds() + 2.5;
+    notice.setVisible(true);
+    notice.toFront(false);
+}
+
+void DungeonCrawlerView::refreshSteering() {
+    const bool journey = processor.journeyRunning(), roam = processor.roamRunning();
+    const bool on = journey || roam;
+    if (on) {
+        const juce::String what = journey && roam ? "Journey and Roam active" : (journey ? "Journey active" : "Roam active");
+        if (steerBadge.text.getText() != what) steerBadge.text.setText(what, juce::dontSendNotification);
+    }
+    if (on != steerBadge.isVisible()) { steerBadge.setVisible(on); if (on) steerBadge.toFront(false); }
+    if (notice.isVisible() && nowSeconds() >= noticeUntil) notice.setVisible(false);
+    const auto label = processor.presetDisplayName() + juce::String::fromUTF8("  \xe2\x96\xbe");
+    if (presetButton.getButtonText() != label) presetButton.setButtonText(label);
+}
+
+void DungeonCrawlerView::chooseInit() {
+    processor.applyInit();
+    wasSteering = false;
+    notice.setVisible(false);
+    showLocation(processor.locationIndex());
+    showSubLocation(juce::roundToInt(processor.parameters.getRawParameterValue(dc::ids::subLocation)->load()));
+    refreshToolbar();
+    refreshSteering();
+    journeyPanel.refresh();
+}
+
+void DungeonCrawlerView::choosePreset(int index) {
+    processor.applyFactoryPreset(index);
+    wasSteering = false;
+    notice.setVisible(false);
+    refreshToolbar();
+    refreshSteering();
+    journeyPanel.refresh();
+}
+
+void DungeonCrawlerView::closePanels() {
+    journeyToggle.setToggleState(false, juce::dontSendNotification);
+    advancedToggle.setToggleState(false, juce::dontSendNotification);
+    const bool any = journeyPanel.isVisible() || drawer.isVisible();
+    journeyPanel.setVisible(false);
+    drawer.setVisible(false);
+    if (any) repaint();
+}
+
+bool DungeonCrawlerView::keyPressed(const juce::KeyPress& key) {
+    if (key == juce::KeyPress::escapeKey && (journeyPanel.isVisible() || drawer.isVisible())) { closePanels(); return true; }
+    return false;
+}
+
+void DungeonCrawlerView::mouseDown(const juce::MouseEvent& e) { pointerDown(e.eventComponent); }
+
+void DungeonCrawlerView::pointerDown(juce::Component* target) {
+    // A click outside an open panel closes it. Its own button is left to toggle it
+    // (closing here first would make that click open it again).
+    const auto within = [target](juce::Component& c) { return target == &c || c.isParentOf(target); };
+    if (journeyPanel.isVisible() && !within(journeyPanel) && target != &journeyToggle) journeyPanel.onClose();
+    if (drawer.isVisible() && !within(drawer) && target != &advancedToggle) drawer.onClose();
+}
+
+void DungeonCrawlerView::SteerBadge::paint(juce::Graphics& g) {
+    const auto r = getLocalBounds().toFloat();
+    g.setColour(juce::Colours::black.withAlpha(0.78f));
+    g.fillRoundedRectangle(r, 4.0f);
+    g.setColour(colours::blood.withAlpha(0.8f));
+    g.drawRoundedRectangle(r.reduced(0.5f), 4.0f, 1.0f);
+    // A small crimson light: something is steering the place.
+    g.setColour(colours::blood.brighter(0.4f));
+    g.fillEllipse(juce::Rectangle<float>(8.0f, 8.0f).withCentre({ 14.0f, r.getCentreY() }));
+}
+
+void DungeonCrawlerView::SteerBadge::resized() {
+    auto r = getLocalBounds();
+    stop.setBounds(r.removeFromRight(58).reduced(3));
+    text.setBounds(r.withTrimmedLeft(24));
 }
 
 DungeonCrawlerView::~DungeonCrawlerView() {
@@ -493,7 +632,7 @@ void DungeonCrawlerView::parameterGestureChanged(int, bool starting) {
 }
 
 void DungeonCrawlerView::refreshToolbar() {
-    presetButton.setButtonText(processor.presetName + juce::String::fromUTF8("  \xe2\x96\xbe"));
+    presetButton.setButtonText(processor.presetDisplayName() + juce::String::fromUTF8("  \xe2\x96\xbe"));
     slotA.setToggleState(processor.currentSlot() == 0, juce::dontSendNotification);
     slotB.setToggleState(processor.currentSlot() == 1, juce::dontSendNotification);
     undoButton.setEnabled(processor.canUndo());
@@ -506,12 +645,17 @@ void DungeonCrawlerView::stepPreset(int direction) {
     const int count = static_cast<int>(dc::factoryPresets().size());
     const int next = processor.presetIndex < 0 ? (direction > 0 ? 0 : count - 1) : (processor.presetIndex + direction + count) % count;
     processor.applyFactoryPreset(next);
+    wasSteering = false;
+    notice.setVisible(false);
     refreshToolbar();
+    refreshSteering();
     journeyPanel.refresh();
 }
 
 void DungeonCrawlerView::showPresetMenu() {
     juce::PopupMenu menu, spots, journeys, user;
+    menu.addItem(899, "Init / No preset", true, processor.presetIndex < 0 && processor.presetName == "Init" && !processor.presetModified());
+    menu.addSeparator();
     const auto& presets = dc::factoryPresets();
     for (int k = 0; k < static_cast<int>(presets.size()); ++k) {
         auto& target = juce::String(presets[static_cast<std::size_t>(k)].category) == "Journeys" ? journeys : spots;
@@ -532,7 +676,8 @@ void DungeonCrawlerView::showPresetMenu() {
         [safe = juce::Component::SafePointer<DungeonCrawlerView>(this), sorted](int result) {
             if (safe == nullptr || result == 0) return;
             auto& self = *safe;
-            if (result >= 1 && result < 900) self.processor.applyFactoryPreset(result - 1);
+            if (result == 899) { self.chooseInit(); return; }
+            if (result >= 1 && result < 899) { self.choosePreset(result - 1); return; }
             else if (result >= 1000 && result - 1000 < sorted.size()) self.processor.loadUserPreset(sorted[result - 1000]);
             else if (result == 901) { self.processor.userPresetFolder().createDirectory(); self.processor.userPresetFolder().startAsProcess(); }
             else if (result == 900) {
@@ -546,6 +691,7 @@ void DungeonCrawlerView::showPresetMenu() {
                 return;
             }
             self.refreshToolbar();
+            self.refreshSteering();
             self.journeyPanel.refresh();
         });
 }
@@ -572,18 +718,22 @@ void DungeonCrawlerView::showSettingsMenu() {
 }
 
 void DungeonCrawlerView::followSteering() {
-    const bool steering = processor.steering();
+    // Until the audio thread has seen the latest manual choice, what it reports is the
+    // journey just stopped: following it would take the view back there.
+    const bool current = processor.steeringCurrent();
+    const bool steering = current && processor.steering();
     if (steering) {
         const int l = processor.currentDestination.load(), k = processor.currentSubLocation.load();
         if (l != shown) showLocation(l);
         if (k != dc::clampSubLocation(shown, shownSub)) showSubLocation(k);
-    } else if (wasSteering) {
+    } else if (wasSteering && current) {
         // Back to the Location parameters.
         showLocation(processor.locationIndex());
         showSubLocation(juce::roundToInt(processor.parameters.getRawParameterValue(dc::ids::subLocation)->load()));
     }
-    wasSteering = steering;
+    if (current) wasSteering = steering;
     if (journeyPanel.isVisible()) journeyPanel.refresh();
+    refreshSteering();
 }
 
 void DungeonCrawlerView::refreshLights() {
@@ -862,6 +1012,13 @@ void DungeonCrawlerView::layoutOverlays() {
     placeCrumb.setBounds(locationCrumb.getRight(), 14, 320, 28);
     locationCrumb.setVisible(!map || true);
     placeCrumb.setVisible(view == View::Place);
+    // The Journey badge and the note: top centre, clear of the breadcrumb's text and the
+    // place list.
+    const int crumbText = placeCrumb.isVisible() ? placeCrumb.getX() + juce::roundToInt(juce::GlyphArrangement::getStringWidth(titleFont(16.0f), placeCrumb.getText())) + 14
+                                                 : locationCrumb.getRight();
+    const int badgeX = juce::jlimit(0, getWidth() - 200 - 236, juce::jmax((getWidth() - 236) / 2, crumbText + 12));
+    steerBadge.setBounds(badgeX, 14, 236, 28);
+    notice.setBounds(badgeX, 46, 236, 24);
 }
 
 void DungeonCrawlerView::paintTransition(juce::Graphics& g, double now) {
@@ -1145,8 +1302,12 @@ void DungeonCrawlerView::resized() {
             macros[static_cast<std::size_t>(m)].slider.setVisible(used && controlsShown);
             macros[static_cast<std::size_t>(m)].label.setVisible(used && controlsShown);
         }
-    drawer.setBounds(200, 56, w - 214, (controlsShown ? top : h) - 64);
-    journeyPanel.setBounds(w - 344, 56, 330, h - 64);
+    // The panels end above the controls (their buttons stay clickable) and, with the
+    // controls hidden, above the show-controls button. The Journey panel sits on the
+    // left so the place list (top right) stays free.
+    const int panelBottom = controlsShown ? top - 34 : h - 44;
+    drawer.setBounds(200, 56, w - 214, panelBottom - 56);
+    journeyPanel.setBounds(14, 56, 330, panelBottom - 56);
     layoutOverlays();
     const auto px = pixelSize();
     cache.request(scene, px.x, px.y);
@@ -1157,6 +1318,21 @@ void DungeonCrawlerView::resized() {
 DungeonCrawlerView::JourneyPanel::JourneyPanel(DungeonCrawlerProcessor& p, std::function<dc::Stop()> place)
     : processor(p), currentPlace(std::move(place)) {
     setOpaque(true);
+    setWantsKeyboardFocus(true);
+    close.setButtonText(juce::String::fromUTF8("\xe2\x9c\x95"));
+    close.setTooltip("Close (Esc)");
+    close.onClick = [this] { if (onClose) onClose(); };
+    addAndMakeVisible(close);
+    viewport.setViewedComponent(&body, false);
+    viewport.setScrollBarsShown(true, false);
+    addAndMakeVisible(viewport);
+    body.painter = [this](juce::Graphics& g) {
+        g.setColour(colours::blood.brighter(0.3f));
+        g.setFont(titleFont(15.0f));
+        g.drawText("Roam", 12, roam.getY() - 26, 200, 20, juce::Justification::centredLeft);
+        g.drawText("MIDI travel", 12, midi.getY() - 26, 200, 20, juce::Justification::centredLeft);
+        g.drawText("Atmosphere", 12, atmosDensity.getY() - 24, 200, 20, juce::Justification::centredLeft);
+    };
     auto& state = processor.parameters;
     journeyAttachment = std::make_unique<juce::ButtonParameterAttachment>(*state.getParameter(dc::ids::journeyOn), journey);
     roamAttachment = std::make_unique<juce::ButtonParameterAttachment>(*state.getParameter(dc::ids::roamOn), roam);
@@ -1188,6 +1364,7 @@ DungeonCrawlerView::JourneyPanel::JourneyPanel(DungeonCrawlerProcessor& p, std::
     midiHint.setText("Notes C..A of this octave choose the ten locations, C..E an octave higher the places. "
                      "Needs a host that sends MIDI to effects (Logic: side-chain MIDI; VST3 hosts). GarageBand does not.",
                      juce::dontSendNotification);
+    for (auto* label : { &barsLabel, &randomLabel, &seedLabel, &atmosDensityLabel, &atmosSeedLabel }) label->setFont(labelFont(14.0f));
     midiHint.setFont(labelFont(11.5f));
     midiHint.setColour(juce::Label::textColourId, colours::ash);
     routeText.setFont(labelFont(13.0f));
@@ -1202,7 +1379,7 @@ DungeonCrawlerView::JourneyPanel::JourneyPanel(DungeonCrawlerProcessor& p, std::
     for (auto* c : std::initializer_list<juce::Component*> { &journey, &roam, &midi, &mode, &roamRate, &octave, &bars, &randomness, &seed,
                                                              &add, &removeLast, &clear, &routeText, &barsLabel, &randomLabel, &seedLabel, &midiHint,
                                                              &atmosDensity, &atmosSeed, &atmosDensityLabel, &atmosSeedLabel })
-        addAndMakeVisible(*c);
+        body.addAndMakeVisible(*c);
     refresh();
 }
 
@@ -1222,34 +1399,36 @@ void DungeonCrawlerView::JourneyPanel::paint(juce::Graphics& g) {
     g.setColour(colours::blood.brighter(0.3f));
     g.setFont(titleFont(15.0f));
     g.drawText("Journey", 12, 8, 200, 20, juce::Justification::centredLeft);
-    g.drawText("Roam", 12, roam.getY() - 26, 200, 20, juce::Justification::centredLeft);
-    g.drawText("MIDI travel", 12, midi.getY() - 26, 200, 20, juce::Justification::centredLeft);
-    g.drawText("Atmosphere", 12, atmosDensity.getY() - 24, 200, 20, juce::Justification::centredLeft);
 }
 
 void DungeonCrawlerView::JourneyPanel::resized() {
-    const int w = getWidth();
-    journey.setBounds(10, 32, 100, 24);
-    mode.setBounds(120, 32, w - 132, 24);
-    bars.setBounds(10, 60, w - 90, 22);
-    barsLabel.setBounds(w - 78, 60, 70, 22);
-    routeText.setBounds(12, 86, w - 24, 110);
-    add.setBounds(10, 198, 120, 26);
-    removeLast.setBounds(134, 198, 100, 26);
-    clear.setBounds(238, 198, w - 248, 26);
-    roam.setBounds(10, 254, 80, 22);
-    roamRate.setBounds(120, 254, w - 132, 22);
-    randomLabel.setBounds(10, 280, 90, 20);
-    randomness.setBounds(100, 280, w - 110, 20);
-    seedLabel.setBounds(10, 302, 90, 20);
-    seed.setBounds(100, 302, w - 110, 20);
-    midi.setBounds(10, 352, 120, 22);
-    octave.setBounds(140, 352, w - 152, 22);
-    midiHint.setBounds(10, 376, w - 20, 44);
-    atmosDensityLabel.setBounds(10, 446, 90, 20);
-    atmosDensity.setBounds(100, 446, w - 110, 20);
-    atmosSeedLabel.setBounds(10, 468, 90, 20);
-    atmosSeed.setBounds(100, 468, w - 110, 20);
+    // Title row (with the close button), then the contents, scrolling when the panel is
+    // shorter than they are.
+    close.setBounds(getWidth() - 34, 5, 28, 24);
+    viewport.setBounds(getLocalBounds().withTrimmedTop(32).reduced(1, 0).withTrimmedBottom(1));
+    const int w = viewport.getWidth() - viewport.getScrollBarThickness();
+    journey.setBounds(10, 2, 100, 24);
+    mode.setBounds(120, 2, w - 132, 24);
+    bars.setBounds(10, 30, w - 90, 22);
+    barsLabel.setBounds(w - 78, 30, 70, 22);
+    routeText.setBounds(12, 56, w - 24, 110);
+    add.setBounds(10, 168, 120, 26);
+    removeLast.setBounds(134, 168, 100, 26);
+    clear.setBounds(238, 168, w - 248, 26);
+    roam.setBounds(10, 224, 80, 22);
+    roamRate.setBounds(120, 224, w - 132, 22);
+    randomLabel.setBounds(10, 250, 90, 20);
+    randomness.setBounds(100, 250, w - 110, 20);
+    seedLabel.setBounds(10, 272, 90, 20);
+    seed.setBounds(100, 272, w - 110, 20);
+    midi.setBounds(10, 322, 120, 22);
+    octave.setBounds(140, 322, w - 152, 22);
+    midiHint.setBounds(10, 346, w - 20, 44);
+    atmosDensityLabel.setBounds(10, 416, 90, 20);
+    atmosDensity.setBounds(100, 416, w - 110, 20);
+    atmosSeedLabel.setBounds(10, 438, 90, 20);
+    atmosSeed.setBounds(100, 438, w - 110, 20);
+    body.setSize(w, 466);
 }
 
 //==============================================================================

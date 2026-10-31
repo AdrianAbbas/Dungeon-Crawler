@@ -27,6 +27,9 @@ public:
     std::function<void(float)> onScaleChosen;
     void paint(juce::Graphics&) override;
     void resized() override;
+    // Panels close on Esc and on a click outside them (Hotfix 2).
+    bool keyPressed(const juce::KeyPress&) override;
+    void mouseDown(const juce::MouseEvent&) override;
     int shownLocation() const noexcept { return shown; }
     int shownSubLocation() const noexcept { return shownSub; }
     juce::Button& locationButton(int index) { return *landmarks[static_cast<std::size_t>(index)]; }
@@ -40,6 +43,24 @@ public:
     juce::String presetLabel() const { return presetButton.getButtonText(); }
     void nextPresetForTest() { stepPreset(1); }
     bool journeyOpen() const { return journeyPanel.isVisible(); }
+    juce::Button& journeyCloseButton() { return journeyPanel.closeButton(); }
+    juce::Button& advancedCloseButton() { return drawer.closeButton(); }
+    juce::Component& journeyPanelForTest() { return journeyPanel; }
+    juce::Component& drawerForTest() { return drawer; }
+    juce::Button& controlsButton() { return controlsToggle; }
+    // Tests: what a mouse-down on a component (anywhere in the window) does to the panels.
+    void pointerDownForTest(juce::Component& c) { pointerDown(&c); }
+    bool pressEscapeForTest() { return keyPressed(juce::KeyPress(juce::KeyPress::escapeKey)); }
+    // Hotfix 1: the "Journey active" badge, its Stop button, the short note.
+    bool steerBadgeVisible() const { return steerBadge.isVisible(); }
+    juce::String steerBadgeText() const { return steerBadge.text.getText(); }
+    juce::Button& stopButton() { return steerBadge.stop; }
+    juce::String noticeText() const { return notice.isVisible() ? notice.getText() : juce::String(); }
+    // Tests: what the 10 Hz follower does (there is no message loop in the tests).
+    void followForTest() { followSteering(); }
+    // Tests: the preset menu's "Init / No preset" entry.
+    void chooseInitForTest() { chooseInit(); }
+    void choosePresetForTest(int index) { choosePreset(index); }
     juce::String macroLabel(int index) const { return macros[static_cast<std::size_t>(index)].label.getText(); }
     bool macroVisible(int index) const { return macros[static_cast<std::size_t>(index)].slider.isVisible(); }
     bool advancedOpen() const { return drawer.isVisible(); }
@@ -98,7 +119,10 @@ private:
         explicit Drawer(juce::AudioProcessorValueTreeState&);
         void paint(juce::Graphics&) override;
         void resized() override;
+        juce::Button& closeButton() { return close; }
+        std::function<void()> onClose;
     private:
+        juce::TextButton close;
         struct Row {
             juce::Label label;
             std::unique_ptr<juce::Slider> slider;
@@ -122,7 +146,17 @@ private:
         void refresh();
         juce::Button& addButton() { return add; }
         juce::Button& clearButton() { return clear; }
+        juce::Button& closeButton() { return close; }
+        std::function<void()> onClose;
     private:
+        // The panel's contents scroll under its title row (it ends above the controls).
+        struct Body final : juce::Component {
+            std::function<void(juce::Graphics&)> painter;
+            void paint(juce::Graphics& g) override { if (painter) painter(g); }
+        };
+        juce::Viewport viewport;
+        Body body;
+        juce::TextButton close;
         DungeonCrawlerProcessor& processor;
         std::function<dc::Stop()> currentPlace;
         juce::ToggleButton journey { "Journey" }, roam { "Roam" }, midi { "MIDI travel" };
@@ -149,6 +183,23 @@ private:
         DungeonCrawlerView& editor;
     };
     void followSteering();
+    // Hotfix 1: a manual choice of place (map, landmark, list, hotspot, breadcrumb)
+    // always wins: it stops a Journey or Roam, sets the place and shows it.
+    void travelManually(int location, int sub);
+    void showNotice(const juce::String&);
+    void refreshSteering();
+    void chooseInit();
+    void choosePreset(int factoryIndex);
+    // Hotfix 2: the panels and how they close.
+    void closePanels();
+    void pointerDown(juce::Component*);
+    // A small plate, top centre, while a Journey or Roam runs: what runs and Stop.
+    struct SteerBadge final : juce::Component {
+        juce::Label text;
+        juce::TextButton stop { "Stop" };
+        void paint(juce::Graphics&) override;
+        void resized() override;
+    };
     // Parameter gestures (edits from this window) open an undo step.
     void parameterValueChanged(int, float) override {}
     void parameterGestureChanged(int, bool starting) override;
@@ -242,6 +293,9 @@ private:
     bool controlsShown = true;
     Drawer drawer;
     JourneyPanel journeyPanel;
+    SteerBadge steerBadge;
+    juce::Label notice;
+    double noticeUntil = 0;
     Follower follower { *this };
     bool wasSteering = false;
     int shown = -1, shownSub = -1;
