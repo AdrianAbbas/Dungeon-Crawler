@@ -7,7 +7,7 @@
 //   2. AUv2 API, in-process      (AudioComponentInstantiate + LoadInProcess)
 //   3. AUAudioUnit API, out-of-process (what modern hosts such as GarageBand
 //      and Logic use on Apple Silicon, where AUv2 plug-ins are bridged into
-//      AUHostingServiceXPC)
+//      AUHostingServiceXPC), rendered by AVAudioEngine in manual rendering mode
 //
 // DUNGEON CRAWLER is an effect (audio in, audio out). Each path renders a 440 Hz
 // sine and checks that the input is pulled and processed, host bypass, Mix 0 and
@@ -796,69 +796,56 @@ void v2Suite(Report& r, AudioComponent component, bool outOfProcess, bool useWin
 
 //==============================================================================
 // AUAudioUnit API, out-of-process: the hosting route used by modern hosts.
+// Milestone 1: the unit is instantiated as an AVAudioUnit (LoadOutOfProcess) and rendered
+// by AVAudioEngine in real-time manual rendering mode, paced like a host, with an
+// AVAudioSourceNode as its input. Earlier the harness called the AUAudioUnit's
+// renderBlock itself with a pull block; on this out-of-process route that returned
+// silence (or -10876, kAudioUnitErr_NoConnection) even for Apple's AULowpass, so the
+// route could only be diagnostic. AVAudioEngine connects the input bus the way hosts do.
+// The route is a gate again, with AULowpass as its control.
 void auAudioUnitSuite(Report& r, AudioComponentDescription description, bool useWindow) {
     r.scope = "AUAudioUnit out-of-process";
-    __block AUAudioUnit* unit = nil;
+    __block AVAudioUnit* avUnit = nil;
     __block NSError* error = nil;
     dispatch_semaphore_t done = dispatch_semaphore_create(0);
-    [AUAudioUnit instantiateWithComponentDescription: description
+    [AVAudioUnit instantiateWithComponentDescription: description
                                              options: kAudioComponentInstantiation_LoadOutOfProcess
-                                   completionHandler: ^(AUAudioUnit* u, NSError* e) {
-                                       unit = u;
+                                   completionHandler: ^(AVAudioUnit* u, NSError* e) {
+                                       avUnit = u;
                                        error = e;
                                        dispatch_semaphore_signal(done);
                                    }];
     const bool answered = waitFor(done, 30.0);
-    if (!r.check(answered && unit != nil, "instantiate", answered ? toString(error.description) : "timed out")) return;
+    if (!r.check(answered && avUnit != nil, "instantiate", answered ? toString(error.description) : "timed out")) return;
+    AUAudioUnit* unit = avUnit.AUAudioUnit;
     r.info("instance", strf("class=%s name=%s; plug-in image in harness process=%d; AUHostingService processes: %s",
                               toString(NSStringFromClass([unit class])).c_str(), toString(unit.audioUnitName).c_str(),
                               int(imageLoaded(pluginImageNeedle)), hostingServices().c_str()));
 
     AVAudioFormat* format48 = [[AVAudioFormat alloc] initStandardFormatWithSampleRate: 48000.0 channels: 2];
-    NSError* e = nil;
-    const bool inOkay = unit.inputBusses.count > 0 && [unit.inputBusses[0] setFormat: format48 error: &e];
-    const bool outOkay = unit.outputBusses.count > 0 && [unit.outputBusses[0] setFormat: format48 error: &e];
-    r.check(inOkay && outOkay, "set stereo 48 kHz bus formats", toString(e.description));
-    unit.maximumFramesToRender = 512;
-    // Hosts fetch and cache the render block, then allocate render resources.
-    AURenderBlock renderBlock = unit.renderBlock;
-    e = nil;
-    if (!r.check([unit allocateRenderResourcesAndReturnError: &e], "allocateRenderResources", toString(e.description))) return;
-    pump(0.3);
-
-    // Buffers live here; blocks capture raw pointers only.
     Source source;
     source.sampleRate = 48000.0;
-    std::vector<float> inScratch0(512), inScratch1(512), out0(512), out1(512);
     Source* src = &source;
-    float* in0 = inScratch0.data();
-    float* in1 = inScratch1.data();
-    // What the system hands the pull block: buffer count, null mData, byte sizes.
-    struct PullObservation { UInt32 buffers = 0, nullData = 0, firstByteSize = 0, firstChannels = 0; bool seen = false; };
-    PullObservation observed;
-    PullObservation* seen = &observed;
-    AURenderPullInputBlock pull = ^AUAudioUnitStatus(AudioUnitRenderActionFlags*, const AudioTimeStamp*, AUAudioFrameCount frames,
-                                                       NSInteger, AudioBufferList* input) {
-        if (!seen->seen) {
-            seen->seen = true;
-            seen->buffers = input->mNumberBuffers;
-            seen->firstByteSize = input->mNumberBuffers > 0 ? input->mBuffers[0].mDataByteSize : 0;
-            seen->firstChannels = input->mNumberBuffers > 0 ? input->mBuffers[0].mNumberChannels : 0;
-        }
-        for (UInt32 b = 0; b < input->mNumberBuffers; ++b) {
-            if (input->mBuffers[b].mData == nullptr) {
-                ++seen->nullData;
-                input->mBuffers[b].mData = b == 0 ? in0 : in1;
-            }
-            input->mBuffers[b].mDataByteSize = frames * sizeof(float);
-        }
-        src->fill(input, frames);
-        return noErr;
-    };
-    AudioUnitRenderActionFlags lastFlags = 0;
-    Float64 sampleTime = 0;
-    // Hosts either pass their own output buffers or null pointers (the unit supplies them).
-    bool hostOutputBuffers = true;
+    AVAudioSourceNode* input = [[AVAudioSourceNode alloc] initWithFormat: format48
+                                                             renderBlock: ^OSStatus(BOOL*, const AudioTimeStamp*, AVAudioFrameCount frames, AudioBufferList* io) {
+                                                                 src->fill(io, frames);
+                                                                 return noErr;
+                                                             }];
+    AVAudioEngine* engine = [[AVAudioEngine alloc] init];
+    NSError* e = nil;
+    const bool manual = [engine enableManualRenderingMode: AVAudioEngineManualRenderingModeRealtime format: format48 maximumFrameCount: 512 error: &e];
+    if (!r.check(manual, "AVAudioEngine manual rendering (real-time, 48 kHz stereo)", toString(e.description))) return;
+    [engine attachNode: input];
+    [engine attachNode: avUnit];
+    [engine connect: input to: avUnit format: format48];
+    [engine connect: avUnit to: engine.outputNode format: format48];
+    [engine prepare];
+    e = nil;
+    if (!r.check([engine startAndReturnError: &e], "AVAudioEngine starts with the unit connected", toString(e.description))) return;
+    pump(0.3);
+
+    AVAudioPCMBuffer* buffer = [[AVAudioPCMBuffer alloc] initWithPCMFormat: engine.manualRenderingFormat frameCapacity: 512];
+    AVAudioEngineManualRenderingBlock renderBlock = engine.manualRenderingBlock;
     AUAudioUnit* const renderUnit = unit;
     auto render = [&](double seconds, double skipSeconds) {
         RenderResult result;
@@ -866,34 +853,26 @@ void auAudioUnitSuite(Report& r, AudioComponentDescription description, bool use
         source.reset(total);
         Meter meter;
         if (renderUnit.latency >= 0 && renderUnit.latency < 1) meter.latency = size_t(std::llround(renderUnit.latency * 48000.0));
-        std::vector<uint8_t> storage(offsetof(AudioBufferList, mBuffers) + sizeof(AudioBuffer) * 2);
-        auto* abl = reinterpret_cast<AudioBufferList*>(storage.data());
         size_t doneFrames = 0;
         Pacer pacer;
         pacer.realTime = true;
         pacer.begin();
         while (doneFrames < total) {
             pacer.wait(doneFrames, 48000.0);
-            const auto frames = UInt32(std::min<size_t>(512, total - doneFrames));
-            abl->mNumberBuffers = 2;
-            float* outs[2] = { out0.data(), out1.data() };
-            for (UInt32 c = 0; c < 2; ++c) {
-                abl->mBuffers[c].mNumberChannels = 1;
-                abl->mBuffers[c].mDataByteSize = frames * sizeof(float);
-                abl->mBuffers[c].mData = hostOutputBuffers ? outs[c] : nullptr;
-            }
-            AudioUnitRenderActionFlags flags = 0;
-            const AudioTimeStamp ts = hostTimeStamp(sampleTime);
-            result.status = renderBlock(&flags, &ts, frames, 0, abl, pull);
-            if (result.status == noErr && (abl->mBuffers[0].mData == nullptr || abl->mBuffers[1].mData == nullptr)) {
-                result.status = kAudioUnitErr_FailedInitialization;   // unit left an output buffer unset
+            const auto frames = AVAudioFrameCount(std::min<size_t>(512, total - doneFrames));
+            OSStatus status = noErr;
+            const auto rendered = renderBlock(frames, buffer.mutableAudioBufferList, &status);
+            if (rendered != AVAudioEngineManualRenderingStatusSuccess) {
+                result.status = status != noErr ? status : OSStatus(rendered);
                 break;
             }
-            lastFlags = flags;
-            if (result.status != noErr) break;
+            const AudioBufferList* abl = buffer.audioBufferList;
+            if (abl->mNumberBuffers < 2 || abl->mBuffers[0].mData == nullptr || abl->mBuffers[1].mData == nullptr) {
+                result.status = kAudioUnitErr_FailedInitialization;
+                break;
+            }
             const float* channels[2] = { static_cast<const float*>(abl->mBuffers[0].mData), static_cast<const float*>(abl->mBuffers[1].mData) };
             meter.add(channels, 2, frames, doneFrames, skip, source);
-            sampleTime += frames;
             doneFrames += frames;
         }
         meter.finish(result, 2);
@@ -902,28 +881,19 @@ void auAudioUnitSuite(Report& r, AudioComponentDescription description, bool use
     };
 
     auto res = render(3.0, 1.0);
-    if (res.status == noErr && res.peak == 0.0f) {
-        r.info("host-supplied output buffers stayed silent", "retrying with unit-supplied output buffers");
-        hostOutputBuffers = false;
-        auto retry = render(3.0, 1.0);
-        r.info("unit-supplied output buffers", retry.describe());
-        if (retry.status == noErr && retry.peak > 0.0f) res = retry;
-        else hostOutputBuffers = true;
-    }
-    r.info("pull block observations", strf("buffers=%u channels/buffer=%u first byte size=%u null-mData pulls=%u; last render flags=0x%x",
-                                           unsigned(observed.buffers), unsigned(observed.firstChannels), unsigned(observed.firstByteSize),
-                                           unsigned(observed.nullData), unsigned(lastFlags)));
-    r.check(res.status == noErr, "renderBlock calls succeed", res.describe());
+    r.check(res.status == noErr, "manual render calls succeed", res.describe());
     r.check(res.pulls > 0, "plug-in pulls its input");
     r.check(res.finite && res.rmsDb() > -40.0, "default settings are audible", strf("%.1f dBFS", res.rmsDb()));
     r.check(toDb(res.outRms[1]) > -40.0, "right channel is written", strf("R %.1f dBFS", toDb(res.outRms[1])));
 
-    // Parameter through the AUParameterTree (what generic UIs and automation use).
-    AUParameter* output = nil;
-    for (AUParameter* p in unit.parameterTree.allParameters)
-        if ([p.displayName caseInsensitiveCompare: @"Output"] == NSOrderedSame) output = p;
+    // Parameters through the AUParameterTree (what generic UIs and automation use).
+    const auto named = [&](NSString* name) -> AUParameter* {
+        for (AUParameter* p in unit.parameterTree.allParameters)
+            if ([p.displayName caseInsensitiveCompare: name] == NSOrderedSame) return p;
+        return nil;
+    };
     r.info("parameter tree", strf("%lu parameters", (unsigned long) unit.parameterTree.allParameters.count));
-    if (output != nil) {
+    if (AUParameter* output = named(@"Output")) {
         const AUValue original = output.value;
         auto before = render(1.5, 0.5);
         output.value = output.minValue;
@@ -931,8 +901,18 @@ void auAudioUnitSuite(Report& r, AudioComponentDescription description, bool use
         r.check(before.rmsDb() - after.rmsDb() > 12.0, "AUParameter(Output -> minimum) is audible",
                 strf("%.1f dBFS -> %.1f dBFS", before.rmsDb(), after.rmsDb()));
         output.value = original;
+    } else if (description.componentManufacturer == fourCC("Veil")) {
+        r.check(false, "parameter named Output exists");
     } else {
-        r.skip("AUParameter(Output) is audible", "no parameter named Output");
+        r.skip("AUParameter(Output) is audible", "no parameter named Output (control unit)");
+    }
+    if (AUParameter* intensity = named(@"Intensity")) {
+        const AUValue original = intensity.value;
+        intensity.value = intensity.minValue;
+        auto neutral = render(3.0, 2.0);
+        r.check(neutral.finite && neutral.diffDb() < -40.0, "Intensity 0 passes the input through (residual < -40 dB)", neutral.describe());
+        intensity.value = original;
+        render(0.5, 0.0);
     }
 
     unit.shouldBypassEffect = YES;
@@ -955,7 +935,8 @@ void auAudioUnitSuite(Report& r, AudioComponentDescription description, bool use
     NSDictionary<NSString*, id>* state = unit.fullState;
     r.check(state != nil, "fullState readable", strf("%lu keys", (unsigned long) state.count));
     pump(0.2);
-    [unit deallocateRenderResources];
+    [engine stop];
+    pump(0.2);
 
     if (useWindow) {
         __block AUViewControllerBase* controller = nil;

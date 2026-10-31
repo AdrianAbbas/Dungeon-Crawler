@@ -65,36 +65,21 @@ strict=""  # becomes -strict when this auval supports it
 /usr/bin/auval -h 2>&1 | /usr/bin/grep -qE -- '(^|[[:space:]])-strict([[:space:]]|$)' && strict="-strict"
 # shellcheck disable=SC2086  # $strict is empty or one flag
 run_check auval-arm64 /usr/bin/arch -arm64 /usr/bin/auval $strict -v aufx Dgcr Veil
-# Diagnostic run: reported in the logs, never fails the build.
-run_diagnostic() {
-    local name="$1"; shift
-    set +e
-    limit 600 "$@" > "$logs/$name.txt" 2>&1
-    local code=$?
-    set -e
-    echo "$name (diagnostic, not a gate): exit $code"
-}
-# One process per hosting route, so a crash in one cannot hide the others. The
-# brief's routes (AUv2 API out-of-process and in-process) are gates. The AUAudioUnit
-# route is diagnostic only: as driven by the harness it gives silence/-10876 for
-# Apple's own AULowpass too (see docs/DEVLOG.md), so it cannot judge DUNGEON CRAWLER yet.
-suites="v2-oop v2-inproc"
+# One process per hosting route, so a crash in one cannot hide the others. Every
+# route is a gate: AUv2 API out-of-process and in-process, and the AUAudioUnit API
+# out-of-process (rendered through AVAudioEngine since Milestone 1, see docs/DEVLOG.md).
+suites="v2-oop v2-inproc auaudiounit"
 for suite in $suites; do run_check "harness-arm64-$suite" /usr/bin/arch -arm64 "$harness" --strict --only "$suite"; done
-run_diagnostic harness-arm64-auaudiounit /usr/bin/arch -arm64 "$harness" --only auaudiounit
 if /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null; then
     # shellcheck disable=SC2086
     run_check auval-x86_64 /usr/bin/arch -x86_64 /usr/bin/auval $strict -v aufx Dgcr Veil
     for suite in $suites; do run_check "harness-x86_64-$suite" /usr/bin/arch -x86_64 "$harness" --strict --only "$suite"; done
-    run_diagnostic harness-x86_64-auaudiounit /usr/bin/arch -x86_64 "$harness" --only auaudiounit
 else
     echo "::error::Rosetta unavailable: the x86_64 slice was not validated"; status=1
 fi
-# Control (diagnostic, not a gate): Apple's own AULowpass effect through the AUAudioUnit route,
-# to tell a harness problem on that route from a DUNGEON CRAWLER problem.
-set +e
-limit 300 "$harness" --only auaudiounit --no-window --component "aufx:lpas:appl" > "$logs/control-apple-lowpass-auaudiounit.txt" 2>&1
-echo "control (Apple AULowpass, AUAudioUnit route): exit $?"
-set -e
+# Control (also a gate): Apple's own AULowpass through the same AUAudioUnit route, so a
+# failure there tells a harness problem from a DUNGEON CRAWLER problem.
+run_check control-apple-lowpass-auaudiounit "$harness" --strict --only auaudiounit --no-window --component "aufx:lpas:appl"
 grep -h -E "^(FAIL|SUMMARY)" "$logs"/harness-*.txt || true
 python3 "$(dirname "${BASH_SOURCE[0]}")/ci-crash-summary.py" 60 DungeonCrawlerAUHarness AUHostingService auval DungeonCrawler > "$logs/crashes.txt" 2>&1 || true
 cat "$logs/crashes.txt"

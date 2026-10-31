@@ -39,6 +39,7 @@ public:
 
 private:
     void process(juce::AudioBuffer<float>&, bool forcedBypass);
+    static constexpr float neutralIntensity = 1.0e-4f;   // at or below: the dry path
     std::atomic<float>* location = nullptr;
     std::atomic<float>* intensity = nullptr;
     std::atomic<float>* mix = nullptr;
@@ -51,6 +52,9 @@ private:
     std::array<std::array<float, dc::maxChunk>, 2> dryAligned {}, work {};
     dc::dsp::Smoothed inputGain, outputGain, wetMix;
     dc::dsp::Ramp bypassRamp;
+    // Intensity 0 is a true dry path: the output crossfades (30 ms) to the latency-aligned
+    // input, so it is exactly transparent instead of a neutral-sounding chain.
+    dc::dsp::Ramp neutralRamp;
     double rate = 48000;
     int latency = 0;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DungeonCrawlerProcessor)

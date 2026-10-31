@@ -238,11 +238,11 @@ void testSmoke(Suite& s) {
     hi.render(3.0, sine(440.0, 0.25f));
     hi.set(dc::ids::intensity, 0.0f); hi.render(3.0, sine(440.0, 0.25f));
     s.metric("harness sequence: Intensity 0 residual", hi.residualDb(hi.end() - hi.at(1.0), hi.end()), " dB");
-    s.check(hi.residualDb(hi.end() - hi.at(1.0), hi.end()) < -60.0, "Intensity 0 after the Dungeon is transparent within 2 s (the harness needs < -40 dB)",
+    s.check(hi.residualDb(hi.end() - hi.at(1.0), hi.end()) < -100.0, "Intensity 0 after the Dungeon is the latency-aligned input (the harness needs < -40 dB)",
             fmt(hi.residualDb(hi.end() - hi.at(1.0), hi.end())) + " dB");
     // Intensity 0 is transparent.
     Host n; n.set(dc::ids::intensity, 0.0f); n.render(3.0, sine(440.0, 0.25f));
-    s.check(n.residualDb(n.at(1.0), n.end()) < -60.0, "Intensity 0 passes the input through", fmt(n.residualDb(n.at(1.0), n.end())) + " dB");
+    s.check(n.residualDb(n.at(1.0), n.end()) < -100.0, "Intensity 0 passes the input through exactly", fmt(n.residualDb(n.at(1.0), n.end())) + " dB");
     // State round trip of every parameter.
     Host a;
     a.location(dc::Swamp); a.set(dc::ids::intensity, 0.4f); a.set(dc::ids::mix, 0.7f); a.set(dc::ids::input, 3.0f); a.set(dc::ids::output, -2.0f);
@@ -325,7 +325,14 @@ void testTransparency(Suite& s) {
         s.check(b.residualDb(b.at(0.2), b.end()) < -100.0, placeName(l) + ": Bypass is the input exactly", fmt(b.residualDb(b.at(0.2), b.end())) + " dB");
         Host z; z.location(l); z.set(dc::ids::intensity, 0.0f);
         z.render(3.0, sawChord(0.3f));
-        s.check(z.residualDb(z.at(1.5), z.end()) < -60.0, placeName(l) + ": Intensity 0 is transparent", fmt(z.residualDb(z.at(1.5), z.end())) + " dB");
+        s.check(z.residualDb(z.at(0.2), z.end()) < -100.0, placeName(l) + ": Intensity 0 is the input exactly (latency-aligned)", fmt(z.residualDb(z.at(0.2), z.end())) + " dB");
+        // Into Intensity 0 from the full place, mid-chord: the 30 ms crossfade, then exact.
+        Host y; y.location(l);
+        y.render(2.0, sawChord(0.3f));
+        y.set(dc::ids::intensity, 0.0f);
+        y.render(1.0, sawChord(0.3f));
+        s.check(y.residualDb(y.at(2.1), y.end()) < -100.0, placeName(l) + ": Intensity 1 -> 0 reaches the exact dry path within 0.1 s",
+                fmt(y.residualDb(y.at(2.1), y.end())) + " dB");
     }
     // The bypass switch fades (no click) both ways.
     Host t;

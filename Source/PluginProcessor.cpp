@@ -26,6 +26,8 @@ void DungeonCrawlerProcessor::prepareToPlay(double sampleRate, int) {
     wetMix.snap(mix->load());
     bypassRamp.prepare(0.025, rate);
     bypassRamp.value = bypass->load() >= 0.5f ? 1.0f : 0.0f;
+    neutralRamp.prepare(0.03, rate);
+    neutralRamp.value = intensity->load() <= neutralIntensity ? 1.0f : 0.0f;
     setLatencySamples(latency);
     inputLevel = 0;
     outputLevel = 0;
@@ -71,6 +73,7 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
     outputGain.set(dc::dsp::dbToGain(juce::jlimit(-24.0f, 12.0f, finiteOr(output->load(), 0))));
     wetMix.set(juce::jlimit(0.0f, 1.0f, finiteOr(mix->load(), 1)));
     const float bypassTarget = forcedBypass || bypass->load() >= 0.5f ? 1.0f : 0.0f;
+    const float neutralTarget = amount <= neutralIntensity ? 1.0f : 0.0f;
 
     float inPeak = 0, outPeak = 0;
     for (int start = 0; start < numSamples; start += dc::maxChunk) {
@@ -95,8 +98,11 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
         for (int i = 0; i < n; ++i) {
             const auto k = static_cast<std::size_t>(i);
             const float m = wetMix.next(), og = outputGain.next(), bypassed = bypassRamp.next(bypassTarget);
+            const float dry = neutralRamp.next(neutralTarget);
             const float dl = dryAligned[0][k], dr = dryAligned[1][k];
             float ol = (dl + (l[i] - dl) * m) * og, orr = (dr + (r[i] - dr) * m) * og;
+            ol += dry * (dl * og - ol);
+            orr += dry * (dr * og - orr);
             limiter.process(ol, orr);
             ol += bypassed * (dl - ol);
             orr += bypassed * (dr - orr);

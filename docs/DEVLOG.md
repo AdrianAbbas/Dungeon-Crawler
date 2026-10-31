@@ -18,10 +18,21 @@ unticked item.
 - [x] 4. Linux test suite (244 checks) passing, also under AddressSanitizer + UBSan; CPU report
 - [x] 5. DEVLOG, README, manual test; pushed without `[skip ci]`
 - [x] 5b. First macOS CI run: one harness gate failed (Intensity 0 at -39.6 dB); fixed, pushed again
-- [ ] 6. **Developer:** GarageBand check on the MacBook Air ([MANUAL_TEST.md](MANUAL_TEST.md))
+- [x] 6. **Developer:** GarageBand check on the MacBook Air: loads, passes audio, the location list switches (confirmed)
 
-**Next: Milestone 1** (place engine): sub-locations, Travel Time, calibrated per-place
-level trims, macros, Advanced drawer.
+**Session 2** (2026-10-31): Milestone 0 fixes, Milestone 1, Milestone 2a.
+
+- [x] 0a. Intensity 0 is a true, latency-aligned dry path (30 ms crossfade; residual −272 dB)
+- [x] 0b. AUAudioUnit out-of-process route rendered through AVAudioEngine, now a hard gate (AULowpass control too); macOS job on `macos-15`
+- [ ] 1a. Place data model: 10 locations, all sub-locations, Sub-location parameter (automatable)
+- [ ] 1b. Travel Time (instant, seconds, tempo-synced); crossfade of incompatible states; tails continue
+- [ ] 1c. Level matching across places (calibrated per-place trims + matcher)
+- [ ] 1d. Macros (3–4 themed per location) and the Advanced drawer; simple editor (location list, sub-location list, macros)
+- [ ] 1e. Tests, DEVLOG, push `[skip ci]`
+- [ ] 2a-1. Sound design: Dungeon, Castle, Cathedral, Haunted Forest, Caverns with all sub-locations
+- [ ] 2a-2. Distinctness test across all places + closest pairs listed
+- [ ] 2a-3. Listening render (same guitar and synth phrase through every place) to WAV in the test-logs artifact
+- [ ] 2a-4. DEVLOG, manual test, final push without `[skip ci]`
 
 ---
 
