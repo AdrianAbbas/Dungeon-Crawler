@@ -32,6 +32,7 @@ void Choir::reset() {
     droneShifter.clear();
     std::fill(capture.begin(), capture.end(), 0.0f);
     captureWrite = captureFrozenAt = 0;
+    captureCount = 0;
     voiceGain.fill(0);
     for (auto& ch : formants) for (auto& f : ch) f.clear();
     for (auto& f : choirTone) f.clear();
@@ -119,22 +120,28 @@ void Choir::process(float* l, float* r, int n, const Frame& p, const Context&) n
         inputEnvelope += (level > inputEnvelope ? attack : release) * (level - inputEnvelope);
         const bool playing = inputEnvelope > 0.003f;
         const float sub = droneShifter.process(band, 0.5f);
+        // The capture runs whenever notes play (not only while the Drone is up): when a
+        // journey fades the Drone in, its grains find real history instead of the
+        // boundary between silence and fresh material (a click).
+        if (playing) {
+            capture[captureWrite] = sub;
+            captureWrite = (captureWrite + 1) % captureSize;
+            captureFrozenAt = captureWrite;
+            captureCount = std::min(captureCount + 1, captureSize);
+            holdEnvelope += rise * (1.0f - holdEnvelope);
+        } else {
+            holdEnvelope *= holdDecay;
+        }
         float drone = 0;
         if (droneLevel.value > 0.0001f) {
-            if (playing) {
-                capture[captureWrite] = sub;
-                captureWrite = (captureWrite + 1) % captureSize;
-                captureFrozenAt = captureWrite;
-                holdEnvelope += rise * (1.0f - holdEnvelope);
-            } else {
-                holdEnvelope *= holdDecay;
-            }
             for (auto& g : grains) {
                 g.age += 1.0f / grainLength;
                 if (g.age >= 1.0f) {
                     g.age -= 1.0f;
-                    const double back = (0.3 + 0.65 * random.unit()) * droneCaptureSeconds * sr * 0.5 + grainLength;
-                    g.position = static_cast<double>(captureFrozenAt) + static_cast<double>(captureSize) - back;
+                    double back = (0.3 + 0.65 * random.unit()) * droneCaptureSeconds * sr * 0.5 + grainLength;
+                    // Never reach back past what has been captured since the last reset.
+                    back = std::min(back, static_cast<double>(captureCount) - 8.0);
+                    g.position = static_cast<double>(captureFrozenAt) + static_cast<double>(captureSize) - std::max(0.0, back);
                     g.rate = 1.0f + 0.004f * random.bipolar();
                     g.pan = 0.6f * random.bipolar();
                 }
@@ -143,7 +150,10 @@ void Choir::process(float* l, float* r, int n, const Frame& p, const Context&) n
                 drone += capture[index] * w;
                 g.position += g.rate;
             }
-            drone *= 0.55f * holdEnvelope;
+            // Until a couple of grains' worth is captured, the layer stays out (it rises
+            // smoothly as the capture fills).
+            const float ready = clamp01((static_cast<float>(captureCount) - 2.0f * grainLength) / (2.0f * grainLength));
+            drone *= 0.55f * holdEnvelope * ready;
         }
         for (int ch = 0; ch < 2; ++ch) {
             float* io = ch == 0 ? l : r;

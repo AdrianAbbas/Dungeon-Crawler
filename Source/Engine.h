@@ -93,6 +93,7 @@ private:
     std::array<Crypt, roomCount> rooms;
     std::array<Frame, roomCount> roomFrames {};
     std::array<bool, roomCount> roomIdle { true, true, true };
+    std::array<int, roomCount> roomWarmUp {};
     int activeRoom = 0, departingRoom = -1;
     bool roomCrossfade = false;
     dsp::Smoothed roomDry;

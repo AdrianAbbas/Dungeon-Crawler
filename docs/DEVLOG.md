@@ -35,7 +35,8 @@ unticked item.
 - [x] 2a-4. DEVLOG, manual test, ASan run, final push without `[skip ci]`
 - [x] 0c. CI run of `cc34c95`: AUAudioUnit route failed (-50, also the AULowpass control). Fix attempt 1 (output buffer sizes) passed: run 41182793128 green on arm64 and x86_64
 
-**Session 3: overnight plan, Direction Update 1** (2026-10-31, unattended). Direction
+**Session 3: overnight plan, Direction Update 1** (2026-10-31, unattended): **all done**,
+handoff at the end of this file ("Overnight handoff"). Direction
 Update 1 ([DIRECTION_UPDATE_1.md](DIRECTION_UPDATE_1.md)) replaces the brief's remaining
 milestones (2b, 3, 4, 5) with Milestones 6–12. Push with `[skip ci]` after each part,
 without after each milestone. Resume from the first unticked item.
@@ -61,9 +62,9 @@ without after each milestone. Resume from the first unticked item.
 - [x] 11a. Preset browser (factory spots + journeys, user presets), A/B compare, undo/redo
 - [x] 11b. Resizable window (fixed aspect), Eco/Standard/High quality modes
 - [x] 11c. State restoration (versioned), stable IDs; CPU report; tests, DEVLOG; push without `[skip ci]` (Milestone 11 build)
-- [ ] 12a. 20+ factory presets, README, MANUAL_TEST, install docs
-- [ ] 12b. Final QA pass (distinctness, levels, clicks on every travel, animation, editor CPU)
-- [ ] 12c. Final DEVLOG handoff (GarageBand: what to listen for and look at per milestone); push without `[skip ci]`
+- [x] 12a. 20+ factory presets, README, MANUAL_TEST, install docs
+- [x] 12b. Final QA pass (distinctness, levels, clicks on every travel, animation, editor CPU)
+- [x] 12c. Final DEVLOG handoff (GarageBand: what to listen for and look at per milestone); push without `[skip ci]`
 
 ---
 
@@ -1022,3 +1023,98 @@ sounds; a preset starts from the defaults and can be undone; A/B switches and co
 undo, undo, redo; Quality not automatable; Eco cheaper than Standard and both sound;
 IDs unique and stable; a duplicated instance is identical; state version 4; the
 window scales to 150 % (1440 × 840) and the scale is restored with the project.
+
+---
+
+## Milestone 12: release polish, and the overnight handoff (2026-10-31)
+
+- **Factory presets:** 26 (17 favourite spots, 9 journeys incl. 3 roaming ones), in the
+  preset menu; see Milestone 11.
+- **README** rewritten: what it is, install, GarageBand/Logic usage, every control
+  (main strip, toolbar, Journey panel, Advanced groups), MIDI host support, troubleshooting,
+  build and test commands, layout. **INSTALL.txt** updated (the map, MIDI travel note,
+  the data folder). **uninstall-mac.sh** `--purge` now also removes
+  `~/Library/Application Support/DungeonCrawler` (presets, drop-in scenes). The zip
+  now includes `diagnose-mac.sh`, which the troubleshooting table refers to.
+- **MANUAL_TEST.md:** sections M6, M7+M8, M9, M10, M11 and a 15-minute M12 release check.
+- **Final QA pass:**
+  - **Clicks on every travel** (new group `qa`, run explicitly: each place to the next
+    through all 40, and every location to every other: 130 journeys, a 220 Hz sine,
+    the reference being the larger of the two places' own largest step including their
+    drips, echoes and crackle). The first run found 5 journeys with steps of 2.5–9×,
+    three causes, all fixed:
+    1. **A fresh reverb room started abruptly.** A journey to another room starts it
+       in a cleared instance; its input began at full scale, and that onset came back
+       as a click through the early reflections (Great Hall → Throne Room, 5.4×) and,
+       in the Observatory's Rising mode, 1.35 s later through the reversed segments
+       (Alchemy Lab → Observatory, 9.3×). Rooms now fade their input in over 5 ms when
+       they start, as the other modules always did. Now 1.2× and 0.9×.
+    2. **The Drone captured only while it was up.** Fading the Drone in during a journey
+       (Throne Room → Chapel, 4.1×) made its grains read the boundary between silence
+       and fresh material. The capture now runs whenever notes play, grains never reach
+       back past what was captured, and the layer rises as the capture fills. Now 1.3×.
+    3. **The Prison Cells' dust crackle** passes briefly unfiltered while the cell's
+       muffling signature fades out (3.2×): not a morph glitch but the crackle itself;
+       its Dust was lowered from 0.25 to 0.12. Now 2.1×.
+    Result: no click on any of the 130 journeys; the worst step is 1.77× the places' own (Prison Cells → Treasure Room).
+  - **Loudness while travelling** (report-only in `qa`): up to 13 dB on a pure sine
+    (Forest Edge → Village Green). Forest Edge alone swings ±3.6 dB on a sine: its
+    drifting trunk echoes move comb notches across a single frequency. On the chord
+    (the gated travel test) every journey stays within 4 dB.
+  - **Distinctness:** every pair of the 40 places ≥ 10 dB-eq (closest 10.7, Great Hall ↔ Stairwell).
+  - **Level matching:** every place's stored trim within 1 dB of its measurement, every
+    place within ±3 dB of the input on a chord and ±4 dB on plucks.
+  - **No stuck animation:** the editor's timer stops on a still map, with no lights, in
+    Eco, and when nothing moves (editor tests).
+  - **Editor CPU:** one life frame (only the lights' regions) costs about 3.2 ms in
+    software here, i.e. under 5 % of one core at 15 fps (an upper bound: macOS draws
+    with CoreGraphics); a full repaint 1.6 ms (map) to 4 ms (scene with life). Eco
+    turns the animation off.
+  - **Full suite:** 1537 checks + the QA group, 0 failures (Linux, four shards in CI now: the QA group runs as the fourth).
+
+### Overnight handoff
+
+**Done:** Milestones 6–12 of Direction Update 1, in order, each pushed without
+`[skip ci]` (CI builds: Milestones 6, 7, 8, 9 and 10 green on macOS (auval, AU harness
+in- and out-of-process on arm64 and x86_64) and Linux; 11 and 12 pushed last, see the
+Actions tab). The installable zip of each green run is under Actions → Native build →
+Artifacts → `DungeonCrawler-macOS-Universal`.
+
+**Decisions made without asking** (each explained in its milestone above):
+1. Signatures numbered in place order; the Signature also in the Advanced drawer.
+2. Procedural engraving instead of public-domain scans or Blender (no licences, any
+   size, off the message thread).
+3. Two tests reworded to measure what they mean (a tail *cut* = a step; travel loudness
+   measured after 5 s of settling); journey/QA click checks use each place's own largest
+   step as the reference.
+4. MIDI input declared (`aufx` kept so GarageBand loads it): MIDI travel only where the
+   host sends MIDI to effects.
+5. Host program list stays one inert program; presets live in the plug-in's own menu.
+6. Quality "High" changes the display only (the DSP is already full quality in Standard).
+7. A/B slots are per session (not saved with the project).
+
+**What to listen for and look at in GarageBand** (details: [MANUAL_TEST.md](MANUAL_TEST.md)):
+
+| Milestone | Listen for | Look at |
+|---|---|---|
+| 6 Distinct places | Every place's signature (bars ringing in the Prison Cells, octave glitter in the Treasure Room, the low "oh" choir in the Boss Lair, the church bell in the Bell Tower, crooked wobble in the Witch's Hut, glass in the Crystal Cavern, underwater wobble at the Lake, slap-back in the Market, anvil at the Blacksmith, canyon echoes in the Pass, reverse swells in the Graveyard, circling echoes on the Stairwell…). Any two places tellable apart eyes closed; guitar/synth/piano/voice always usable; no loudness jumps; tails ring on when you leave. | Advanced → VIII Signature (Amount −100 % removes it, to compare). |
+| 7 The map | — | The engraved map on opening; hover rings and name plates; the red path drawn as you travel, then the zoom into the place; "‹ Map" zooms back out. No flicker, no freeze. |
+| 8 Scenes | — | All 40 illustrations; rings and list to move; torches/candles flicker, glints twinkle, fog drifts (gently); the Air stays cool. |
+| 9 Journeys | Morphs on the bar, smooth, at your Travel setting; same bar = same place on every playback; Roam wandering by itself. | The window following the journey; the numbered route on the map. |
+| 10 Atmosphere | Off by default. At 50–100 %: sparse, quiet place sounds (drips, torches, crows, a distant bell, the Tavern's murmur, frogs) that step back when you play loud. | The Atmosphere slider (toolbar row). |
+| 11 Workflow | Presets, A/B, undo/redo all audible as expected; Eco sounds nearly the same. | Window resizing (corner or ⚙), Eco/High, the preset menu, Save as your preset. |
+| 12 Release | The 15-minute release check at the end of MANUAL_TEST.md. | Same. |
+
+**Known issues / not verified here:**
+- Nothing was heard or seen on a Mac tonight: everything was verified by the Linux test
+  suite, rendered images and WAVs, and the macOS CI (auval, the AU harness opening the
+  editor in- and out-of-process). The engraving's look at Retina size, the animation's
+  CPU on the Air and GarageBand's handling of the resizable window need your check.
+- The places' sound is still procedural design without reference audio (the full
+  redesign with references is planned for a later session).
+- MIDI travel does nothing in GarageBand (host limitation, documented).
+- The engraved scenes are composed from simple motifs: readable and distinct, but not
+  yet detailed illustrations; any scene can be replaced by a PNG (drop-in folder).
+- User presets and drop-in scenes live in `~/Library/Application Support/DungeonCrawler`;
+  inside a sandboxed host the plug-in may see the host's container instead.
+- CPU (one core of the Linux container, report-only): 4.3 % (Mountains) to 12.9 % (Haunted Forest) per location in Standard, 17.6 % when travelling every second; Eco takes about a fifth off the spectral places (Old Path 10.1 → 8.1 %). Your MacBook Air's cores are faster than this container's; Activity Monitor will tell.

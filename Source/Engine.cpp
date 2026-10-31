@@ -221,9 +221,18 @@ void Engine::runRooms(float* l, float* r, int n, float eased) noexcept {
         auto& room = rooms[K];
         if (f[ReverbMix] <= 1.0e-4f && !room.ringing() && !roomIdle[K]) { roomIdle[K] = true; continue; }
         if (f[ReverbMix] <= 1.0e-4f && roomIdle[K]) continue;
-        if (roomIdle[K]) { room.reset(); roomIdle[K] = false; }
+        if (roomIdle[K]) { room.reset(); roomIdle[K] = false; roomWarmUp[K] = 0; }
         std::copy(roomIn[0].begin(), roomIn[0].begin() + n, roomWet[0].begin());
         std::copy(roomIn[1].begin(), roomIn[1].begin() + n, roomWet[1].begin());
+        // A room that starts again starts from cleared lines: its input fades in over
+        // 5 ms, or the hard onset comes back later as a click (early reflections, the
+        // first loop pass, Rising mode's reversed segments). As runSlot does.
+        auto& warm = roomWarmUp[K];
+        for (int i = 0; i < n && warm < warmUpSamples; ++i, ++warm) {
+            const float ramp = 0.5f - 0.5f * std::cos(dsp::twoPi * 0.5f * static_cast<float>(warm) / static_cast<float>(warmUpSamples));
+            roomWet[0][static_cast<std::size_t>(i)] *= ramp;
+            roomWet[1][static_cast<std::size_t>(i)] *= ramp;
+        }
         room.process(roomWet[0].data(), roomWet[1].data(), n, f, context);
         for (int i = 0; i < n; ++i) {
             roomSum[0][static_cast<std::size_t>(i)] += roomWet[0][static_cast<std::size_t>(i)];

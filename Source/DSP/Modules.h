@@ -187,7 +187,7 @@ private:
     // Drone: sub-octave shifter feeding a capture buffer that grains play from.
     dsp::GranularShifter droneShifter;
     std::vector<float> capture;
-    std::size_t captureWrite = 0, captureFrozenAt = 0;
+    std::size_t captureWrite = 0, captureFrozenAt = 0, captureCount = 0;
     struct Grain { double position = 0; float age = 1, length = 1, pan = 0, rate = 1; };
     std::array<Grain, 4> grains;
     float inputEnvelope = 0, holdEnvelope = 0, droneLevelTrack = 0;

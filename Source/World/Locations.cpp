@@ -30,7 +30,7 @@ std::vector<LocationDesign> buildWorld() {
           // A cramped cell: boxy and muffled, iron bars ringing, a flutter between the
           // walls, grime on everything.
           { "Prison Cells", { { Cutoff, 1900 }, { Resonance, .25f }, { Darkness, .45f }, { HighPass, 130 },
-                              { Drive, 5 }, { Age, .35f }, { Dust, .25f }, { BloodMix, .35f },
+                              { Drive, 5 }, { Age, .35f }, { Dust, .12f }, { BloodMix, .35f },
                               { Metal, .42f }, { MetalKind, 0 }, { MetalNote, 2 }, { MetalOctave, 2 }, { MetalDecay, .7f }, { Drips, .3f }, { Flicker, .12f },
                               { DelayTime, 55 }, { Feedback, .42f }, { Diffusion, .15f }, { DelayDamping, .5f }, { Spread, .3f }, { DelayMix, .16f },
                               { Character, 0 }, { Space, .08f }, { Decay, .7f }, { Damping, .7f }, { PreDelay, 2 }, { ReverbMix, .38f } } },

@@ -11,12 +11,13 @@ mkdir -p "$logs"
 "$tests" --only smoke,parameters,state,layouts,transparency,editor,art,levels,workflow > "$logs/1-basics.txt" 2>&1 &
 "$tests" --only rates,extremes,realtime,place,journeys,atmosphere > "$logs/2-robustness.txt" 2>&1 &
 "$tests" --only locations,travel,modules,musicality > "$logs/3-locations.txt" 2>&1 &
+"$tests" --only qa > "$logs/5-qa.txt" 2>&1 &
 wait
 "$tests" --only cpu > "$logs/4-cpu.txt" 2>&1
 
 passed=0
 failed=0
-for log in "$logs"/[1-4]-*.txt; do
+for log in "$logs"/[1-5]-*.txt; do
     line=$(grep -E '^[0-9]+ passed, [0-9]+ failed' "$log" | tail -1)
     if [[ -z "$line" ]]; then
         echo "$log: did not finish"

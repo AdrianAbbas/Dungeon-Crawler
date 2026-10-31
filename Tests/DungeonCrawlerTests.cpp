@@ -1769,30 +1769,20 @@ int signatureCheck() {
 }
 
 int tailDebug() {
-    const auto trial = [](std::vector<std::pair<int, int>> places, bool transport) {
+    for (auto pair : { std::make_pair(std::make_pair(3, 0), std::make_pair(5, 0)) }) {
         Host h;
-        if (transport) { h.useTransport = true; h.transport.playing = true; }
-        h.go(places[0].first, places[0].second);
-        h.render(2.0, sine(220.0, 0.25f));
-        const double before = h.maxStep(h.at(1.0), h.at(2.0));
-        double worst = 0;
-        for (std::size_t k = 1; k < places.size(); ++k) {
-            const auto start = h.end();
-            h.go(places[k].first, places[k].second);
-            h.render(2.0, sine(220.0, 0.25f));
-            worst = std::max(worst, h.maxStep(start, h.end()) / before);
-        }
-        return worst;
-    };
-    std::cout << "throne->nave->corridors (params): " << trial({ { 1, 2 }, { 2, 1 }, { 0, 0 } }, false) << "x\n";
-    std::cout << "same with a playing transport: " << trial({ { 1, 2 }, { 2, 1 }, { 0, 0 } }, true) << "x\n";
-    std::cout << "corridors->throne: " << trial({ { 0, 0 }, { 1, 2 } }, false) << "x\n";
-    std::cout << "throne->nave: " << trial({ { 1, 2 }, { 2, 1 } }, false) << "x\n";
-    std::cout << "nave->corridors: " << trial({ { 2, 1 }, { 0, 0 } }, false) << "x\n";
+        h.go(pair.first.first, pair.first.second);
+        h.render(3.0, sine(220.0, 0.25f));
+        const double before = toDb(h.rms(h.at(2.0), h.at(3.0)));
+        h.go(pair.second.first, pair.second.second);
+        h.render(4.0, sine(220.0, 0.25f));
+        std::cout << placeName(pair.first.first, pair.first.second) << " -> " << placeName(pair.second.first, pair.second.second) << ":";
+        for (double t = 2.0; t < 7.0; t += 0.1) std::cout << " " << fmt(toDb(h.rms(h.at(t), h.at(t + 0.1))) - before, 1);
+        std::cout << "\n";
+    }
     return 0;
 }
 
-// Renders the map and every place's scene to PNG files (art review, docs/snapshots).
 int renderArt(const juce::String& directory, int width) {
     juce::File dir(directory);
     dir.createDirectory();
