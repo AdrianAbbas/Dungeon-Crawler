@@ -1,0 +1,79 @@
+{
+ "scene": "cathedral/crypt",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 428.2,
+   "y": 450.6
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 480.4,
+   "y": 280.2
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 478.8,
+   "y": 286.3
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 272.6,
+   "y": 287.2
+  },
+  {
+   "kind": "candle",
+   "radius": 6,
+   "x": 99.3,
+   "y": 313.1
+  },
+  {
+   "kind": "candle",
+   "radius": 6,
+   "x": 762.8,
+   "y": 304.2
+  },
+  {
+   "kind": "candle",
+   "radius": 6,
+   "x": 310.5,
+   "y": 297.6
+  },
+  {
+   "kind": "candle",
+   "radius": 6,
+   "x": 638.8,
+   "y": 295.3
+  },
+  {
+   "kind": "candle",
+   "radius": 6,
+   "x": 489.3,
+   "y": 292.7
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  0,
+  -999,
+  0
+ ],
+ "glows": [
+  [
+   480,
+   280,
+   90,
+   0.4
+  ]
+ ]
+}

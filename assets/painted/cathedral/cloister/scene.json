@@ -1,0 +1,48 @@
+{
+ "scene": "cathedral/cloister",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 441.7,
+   "y": 396.8
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 480.0,
+   "y": 378.7
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 31.1,
+   "y": 450.5
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 551.3,
+   "y": -13.7
+  },
+  {
+   "kind": "window",
+   "radius": 20,
+   "x": 480.0,
+   "y": 240.1
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  650,
+  120,
+  92
+ ],
+ "glows": []
+}
