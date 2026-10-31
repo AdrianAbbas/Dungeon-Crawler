@@ -1,0 +1,48 @@
+{
+ "scene": "mountains/foothills",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 626.9
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 480.0,
+   "y": 444.6
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 538.7,
+   "y": 187.9
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 258.8,
+   "y": 307.5
+  },
+  {
+   "kind": "window",
+   "radius": 8,
+   "x": 252.1,
+   "y": 307.3
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  700,
+  100,
+  80
+ ],
+ "glows": []
+}

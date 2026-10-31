@@ -1,0 +1,42 @@
+{
+ "scene": "mountains/frozen-peak",
+ "anchors": [
+  {
+   "kind": "hotspot",
+   "sub": 0,
+   "x": 480.0,
+   "y": 640.2
+  },
+  {
+   "kind": "hotspot",
+   "sub": 1,
+   "x": 104.2,
+   "y": 280.0
+  },
+  {
+   "kind": "hotspot",
+   "sub": 2,
+   "x": 851.2,
+   "y": 242.4
+  },
+  {
+   "kind": "hotspot",
+   "sub": 3,
+   "x": 574.2,
+   "y": 462.6
+  }
+ ],
+ "layers": [
+  "sky",
+  "far",
+  "mid",
+  "fog",
+  "near"
+ ],
+ "moon": [
+  520,
+  130,
+  120
+ ],
+ "glows": []
+}
