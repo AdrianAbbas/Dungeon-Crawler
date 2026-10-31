@@ -44,8 +44,8 @@ without after each milestone. Resume from the first unticked item.
 - [x] 6b. Sound design: Village, Swamp, Mountains, Necropolis, Wizard's Tower with all sub-locations; signatures on all 40 places
 - [x] 6c. Distinctness gate over all pairs (closest listed), musicality over all 40 places, trims recalibrated, listening render updated
 - [x] 6d. DEVLOG, manual test; push without `[skip ci]` (Milestone 6 build)
-- [ ] 7a. Engraving renderer: tone + hatch-direction fields to hatched line art, off the message thread, cached
-- [ ] 7b. The engraved map: landmarks, compass rose, cartouche, parchment; hover names, current place marked, travel path line
+- [x] 7a. Engraving renderer: tone + hatch-direction fields to hatched line art, off the message thread, cached
+- [x] 7b. The engraved map: landmarks, compass rose, cartouche, parchment; hover names, current place marked, travel path line
 - [ ] 7c. Map ↔ location transitions (zoom/fade), double-buffered; drop-in override folder; `docs/ART_SOURCES.md`
 - [ ] 7d. Snapshots, tests, DEVLOG; push without `[skip ci]` (Milestone 7 build)
 - [ ] 8a. Scenes for all 10 locations (their own scene)
