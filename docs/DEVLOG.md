@@ -56,8 +56,8 @@ without after each milestone. Resume from the first unticked item.
 - [x] 9b. Roam mode: rate, randomness, seed; deterministic
 - [x] 9c. MIDI travel (optional), host support documented; Travel Time in seconds or bars; tests
 - [x] 9d. DEVLOG; push without `[skip ci]` (Milestone 9 build)
-- [ ] 10a. Atmosphere layer: synthesised one-shots/beds per place, level/density/seed, off by default, tempo-aware, never masking
-- [ ] 10b. Tests, DEVLOG; push without `[skip ci]` (Milestone 10 build)
+- [x] 10a. Atmosphere layer: synthesised one-shots/beds per place, level/density/seed, off by default, tempo-aware, never masking
+- [x] 10b. Tests, DEVLOG; push without `[skip ci]` (Milestone 10 build)
 - [ ] 11a. Preset browser (factory spots + journeys, user presets), A/B compare, undo/redo
 - [ ] 11b. Resizable window (fixed aspect), Eco/Standard/High quality modes
 - [ ] 11c. State restoration (versioned), stable IDs; CPU report; tests, DEVLOG; push without `[skip ci]` (Milestone 11 build)
@@ -929,3 +929,45 @@ identical for a seed, different for another seed, in order at randomness 0, visi
 several places; MIDI note → location, note an octave up → sub-location, other notes
 ignored, MIDI travel off returns to the parameters; the route survives a state round
 trip; the Journey panel opens.
+
+**Full suite after Milestone 9: 1498 checks, 0 failures.** (The Milestone 9 commit
+already contains the Atmosphere engine of Milestone 10, off by default.)
+
+---
+
+## Milestone 10: the Atmosphere layer (2026-10-31)
+
+A new module, **IX. Atmosphere** (`Source/DSP/Atmosphere.*`): sparse, synthesised
+sounds that belong to a place, added to the wet signal after the place's chain (so
+Mix 0, Intensity 0 and Bypass remove it too). Original synthesis only: no samples.
+
+- **19 sounds:** torch crackle, fire crackle (crackle + low roar), drip, wind (a short
+  band-passed gust), chains (inharmonic clinks), growl (a far-off throbbing rumble),
+  bubbles, crow (formant-filtered caws), bell toll (a distant minor-third bell),
+  owl, murmur (a room of voices: band-passed noise with syllable-rate movement),
+  clink (a hammer on an anvil), frog, howl (a distant gliding wolf), ice creak,
+  rustle (a page or cloth), tinkle (glass), water lap, whisper.
+- **Each place has up to three** (the first most often), e.g. Dungeon Corridors: drip,
+  torch crackle, chains; Final Boss Lair: growl, fire crackle, chains; Chapel: bell
+  toll, whisper, torch; Tavern: murmur, fire crackle, clink; Mountain Pass: wind,
+  howl, crow; Graveyard: crow, owl, whisper; Alchemy Lab: bubbles, clink, drip.
+- **Controls:** Atmosphere (level, default **0 % = off**, in the controls strip),
+  Atmosphere Density and Atmosphere Seed (Journey panel). All automatable.
+- **Scheduling:** one chance per eighth note of the musical position (host transport,
+  or the free-running count when stopped), decided by a hash of (seed, slot, place):
+  deterministic and tempo-aware (half the tempo, half the events). At full density
+  about 1.4 events per bar; at most eight voices; events never repeat into a texture.
+- **Never masking:** an event peaks around −20 dBFS at Level 100 %; the layer ducks
+  under the instrument (gain ÷ (1 + 6 × the input's envelope), about −12 dB when it is
+  loud). Measured: −40 dB relative to a loud sine. Level changes are smoothed (50 ms);
+  voices finish naturally when the place changes.
+- No risers, no noise waves: every sound is a one-shot or a short bed of a few seconds
+  with a soft in-out envelope.
+
+### Tests (group `atmosphere`, 10 checks; realtime extended)
+
+Off by default; every place has sounds; level 0 is silent; deterministic for a seed
+and different for another seed; sparse (11 events in 8 bars at full density); quiet
+(peak below −16 dBFS); tempo-aware (7 events in 16 s at 60 BPM vs 11 at 120 BPM);
+under a loud instrument it adds −40 dB (gate −24 dB). The real-time test now runs a
+journey, roaming and the atmosphere at full level and density with no heap allocation.
