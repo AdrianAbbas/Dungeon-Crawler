@@ -79,6 +79,12 @@ struct Svf {
         k = std::max(0.02f, damping);
         a1 = 1.0f / (1.0f + g * (g + k)); a2 = g * a1; a3 = g * a2;
     }
+    // For narrow resonators (long ring): damping may go far below set()'s 0.02.
+    void setResonant(double hz, double sampleRate, float damping) noexcept {
+        set(hz, sampleRate, 1.0f);
+        k = std::max(1.0e-4f, damping);
+        a1 = 1.0f / (1.0f + g * (g + k)); a2 = g * a1; a3 = g * a2;
+    }
     void clear() noexcept { s1 = s2 = 0; }
     // Returns low-pass; band and high available through out parameters.
     float process(float x, float& band, float& high) noexcept {

@@ -110,10 +110,10 @@ std::vector<LocationDesign> buildWorld() {
                        { Voices, 1 }, { Interval, 0 }, { ChoirBlend, .15f }, { Formant, .1f }, { DelayMix, 0 },
                        { Character, 2 }, { Space, .3f }, { Decay, 2 }, { Damping, .85f }, { PreDelay, 6 }, { ReverbMix, .45f } } },
           // In the belfry: the instrument strikes bells, wind through the louvres.
-          { "Bell Tower", { { HighPass, 100 }, { Cutoff, 14000 }, { Darkness, .05f }, { Wind, .25f },
+          { "Bell Tower", { { HighPass, 80 }, { Cutoff, 8000 }, { Darkness, .12f }, { Wind, .25f },
                             { Metal, .6f }, { MetalKind, 1 }, { MetalNote, 2 }, { MetalOctave, 1 }, { MetalDecay, 5 },
                             { DelayTime, 420 }, { Feedback, .25f }, { Diffusion, .4f }, { DelayMix, .12f },
-                            { Character, 0 }, { Space, .55f }, { Decay, 3 }, { Damping, .35f }, { PreDelay, 40 }, { Shimmer, .08f }, { ReverbMix, .3f } } },
+                            { Character, 0 }, { Space, .45f }, { Decay, 2.1f }, { Damping, .35f }, { PreDelay, 40 }, { Shimmer, .08f }, { ReverbMix, .3f } } },
         },
         {
           { "Vastness", { { Space, -.4f, 0 }, { Decay, -1.3f, .8f }, { PreDelay, -20, 40 }, { ReverbMix, -.15f, .12f } } },
@@ -166,7 +166,7 @@ std::vector<LocationDesign> buildWorld() {
           { Character, 1 }, { Space, .8f }, { Decay, 4.5f }, { Damping, .3f }, { PreDelay, 55 }, { ReverbMix, .38f } },
         {
           // Crystal: everything rings, cold and bright; long glassy echoes.
-          { "Crystal Cavern", { { Cutoff, 20000 }, { HighPass, 120 }, { Darkness, 0 }, { Wind, 0 },
+          { "Crystal Cavern", { { Cutoff, 20000 }, { HighPass, 180 }, { Darkness, 0 }, { Wind, 0 },
                                 { Metal, .7f }, { MetalKind, 2 }, { MetalNote, 4 }, { MetalOctave, 3 }, { MetalDecay, 4.5f }, { Drips, .5f },
                                 { DelayTime, 230 }, { Feedback, .45f }, { DelayDamping, .08f }, { Diffusion, .1f }, { Spread, 1 }, { DelayMix, .16f },
                                 { Character, 1 }, { Space, .6f }, { Decay, 5 }, { Damping, .08f }, { PreDelay, 30 }, { Shimmer, .12f }, { ReverbMix, .36f } } },
@@ -180,7 +180,7 @@ std::vector<LocationDesign> buildWorld() {
           // the glint of gold above it.
           { "Dragon's Hoard", { { Cutoff, 2400 }, { Darkness, .6f }, { HighPass, 25 }, { Wind, 0 }, { Drips, 0 },
                                 { Drive, 8 }, { BloodMix, .35f }, { Texture, .5f },
-                                { Voices, 2 }, { Interval, 0 }, { ChoirBlend, .22f }, { Formant, .12f }, { Drone, .42f }, { DroneHold, 10 },
+                                { Voices, 2 }, { Interval, 0 }, { ChoirBlend, .2f }, { Formant, .12f }, { Drone, .26f }, { DroneHold, 10 },
                                 { Tomb, .3f }, { TombNote, 2 }, { TombOctave, 0 },
                                 { Metal, .12f }, { MetalKind, 2 }, { MetalNote, 2 }, { MetalOctave, 4 }, { MetalDecay, 1.5f },
                                 { DelayMix, 0 },
@@ -193,124 +193,173 @@ std::vector<LocationDesign> buildWorld() {
           { "Rumble", { { Drone, 0, .35f }, { Drive, -4, 10 }, { BloodMix, -.15f, .25f }, { Tomb, 0, .25f } } },
         } });
 
+    // Milestone 6 sound design (Village, Swamp, Mountains, Necropolis, Wizard's Tower).
+    // Each place's signature (Signature.cpp) sits on top of the room designed here.
     //--------------------------------------------------------------------------
     w.push_back({ "Village", "Village Green",
-        { { HighPass, 50 }, { Wind, .12f },
-          { DelayTime, 140 }, { Feedback, .1f }, { Diffusion, .3f }, { DelayMix, .14f },
-          { Character, 0 }, { Space, .35f }, { Decay, 1 }, { Damping, .5f }, { ReverbMix, .15f } },
+        // The green: open air among cottages, light and lively; a second player's
+        // doubling (Folk Chorus), a little breeze, a small open reverb.
+        { { HighPass, 45 }, { Wind, .1f },
+          { DelayTime, 160 }, { Feedback, .08f }, { Diffusion, .4f }, { DelayDamping, .45f }, { Spread, .9f }, { DelayMix, .08f },
+          { Character, 0 }, { Space, .4f }, { Decay, 1.1f }, { Damping, .45f }, { PreDelay, 12 }, { ReverbMix, .16f } },
         {
-          { "Tavern", { { Cutoff, 12000 }, { Darkness, .1f }, { Wind, 0 }, { Drive, 4 }, { Texture, .2f }, { Age, .08f }, { BloodMix, .3f }, { Flicker, .15f },
-                        { DelayTime, 105 }, { Feedback, .08f }, { DelayDamping, .55f }, { DelayMix, .08f },
-                        { Space, .22f }, { Decay, .9f }, { Damping, .65f }, { PreDelay, 6 }, { ReverbMix, .24f } } },
-          { "Market Square", { { HighPass, 70 }, { DelayTime, 110 }, { Feedback, .12f }, { Spread, .8f }, { Diffusion, .2f }, { DelayMix, .2f },
-                               { Space, .45f }, { Decay, 1.3f }, { PreDelay, 15 }, { ReverbMix, .2f } } },
-          { "Blacksmith", { { Cutoff, 11000 }, { Wind, 0 }, { Drive, 12 }, { BloodMix, .5f }, { Texture, .7f }, { Dust, .2f }, { Flicker, .35f },
-                            { Metal, .3f }, { MetalKind, 0 }, { MetalOctave, 3 }, { MetalDecay, .9f },
-                            { Space, .25f }, { Decay, .9f }, { ReverbMix, .25f } } },
+          // A low-beamed tavern: a small, warm, wooden room by the fire.
+          { "Tavern", { { Cutoff, 9000 }, { Darkness, .15f }, { HighPass, 60 }, { Wind, 0 }, { Flicker, .12f }, { FlickerRate, 2.4f },
+                        { Tomb, .1f }, { TombNote, 7 }, { TombOctave, 1 }, { DelayMix, 0 },
+                        { Character, 0 }, { Space, .18f }, { Decay, .75f }, { Damping, .72f }, { PreDelay, 4 }, { ReverbMix, .26f } } },
+          // The market square: open and bright among the buildings (the slap-back is
+          // its signature), a busier breeze.
+          { "Market Square", { { HighPass, 80 }, { Wind, .14f }, { DelayMix, 0 },
+                               { Character, 1 }, { Space, .55f }, { Decay, 1.5f }, { Damping, .3f }, { PreDelay, 24 }, { ReverbWidth, 1 }, { ReverbMix, .17f } } },
+          // The smithy: hot, gritty, a hard little room with the forge flickering.
+          { "Blacksmith", { { Cutoff, 12000 }, { HighPass, 70 }, { Wind, 0 }, { Drive, 9 }, { BloodMix, .4f }, { Texture, .75f }, { Dust, .18f },
+                            { Flicker, .4f }, { FlickerRate, 6.5f }, { DelayMix, 0 },
+                            { Character, 2 }, { Space, .28f }, { Decay, 1.1f }, { Damping, .3f }, { PreDelay, 6 }, { ReverbMix, .24f } } },
         },
         {
           { "Warmth", { { Drive, -3, 6 }, { Texture, -.15f, .3f }, { Cutoff, 1, -1 }, { Damping, -.2f, .25f } } },
-          { "Bustle", { { DelayMix, -.1f, .15f }, { Space, -.15f, .25f }, { ReverbMix, -.1f, .15f } } },
-          { "Grit", { { Dust, 0, .4f }, { Age, 0, .4f }, { Metal, 0, .25f } } },
+          { "Bustle", { { DelayMix, -.08f, .15f }, { Space, -.15f, .25f }, { ReverbMix, -.1f, .15f }, { SigAmount, -.4f, .3f } } },
+          { "Grit", { { Dust, 0, .4f }, { Age, 0, .4f }, { BloodMix, 0, .25f } } },
         } });
 
     //--------------------------------------------------------------------------
     w.push_back({ "Swamp", "Mire",
-        { { Cutoff, 2400 }, { Resonance, .2f }, { Darkness, .25f }, { FilterMovement, .25f }, { FilterRate, .2f },
-          { Instability, .3f }, { BloodMix, .25f }, { Drips, .2f },
-          { DelayTime, 380 }, { Feedback, .3f }, { DelayDamping, .75f }, { Diffusion, .5f }, { DelayMix, .18f },
-          { Character, 2 }, { Space, .45f }, { Decay, 2 }, { Damping, .75f }, { ReverbMix, .22f } },
+        // The mire: thick, damp air over mud; dull and slow, attacks dragged (Mud Drag),
+        // slow murky filter movement, drips.
+        { { Cutoff, 4500 }, { Resonance, .12f }, { Darkness, .15f }, { FilterMovement, .2f }, { FilterRate, .15f },
+          { Instability, .25f }, { BloodMix, .2f }, { Drips, .28f },
+          { DelayTime, 380 }, { Feedback, .3f }, { DelayDamping, .78f }, { Diffusion, .6f }, { DelayMix, .14f },
+          { Character, 2 }, { Space, .45f }, { Decay, 2 }, { Damping, .78f }, { PreDelay, 18 }, { ReverbMix, .22f } },
         {
-          { "Bog", { { Cutoff, 1500 }, { Resonance, .32f }, { Slope, 1 }, { Darkness, .3f }, { FilterMovement, .4f }, { FilterRate, .3f },
-                     { Drive, 4 }, { Instability, .5f }, { Age, .22f }, { BloodMix, .4f }, { Drips, .3f },
-                     { DelayTime, 430 }, { Feedback, .38f }, { DelayDamping, .8f }, { DelayMix, .22f },
-                     { Space, .5f }, { Decay, 2.4f }, { Damping, .8f }, { ReverbMix, .26f } } },
-          { "Sunken Ruins", { { Cutoff, 900 }, { Resonance, .35f }, { Slope, 1 }, { FilterMovement, .3f },
-                              { WraithMix, .2f }, { Blur, .7f },
-                              { DelayTime, 520 }, { Feedback, .5f }, { DelayDamping, .9f }, { Diffusion, .8f }, { DelayMix, .3f },
-                              { Space, .7f }, { Decay, 3.5f }, { Damping, .9f }, { ReverbMix, .4f } } },
+          // The bog: deep and thick, everything low-passed and wobbling, bubbles of drips.
+          { "Bog", { { Cutoff, 2600 }, { Resonance, .3f }, { Slope, 1 }, { Darkness, .3f }, { FilterMovement, .35f }, { FilterRate, .3f },
+                     { Drive, 4 }, { Instability, .45f }, { Age, .22f }, { BloodMix, .35f }, { Drips, .4f },
+                     { DelayTime, 430 }, { Feedback, .36f }, { DelayDamping, .82f }, { DelayMix, .16f },
+                     { Space, .5f }, { Decay, 2.4f }, { Damping, .82f }, { ReverbMix, .24f } } },
+          // Sunken ruins: half under water, echoes off drowned stone, a slow haze.
+          { "Sunken Ruins", { { Cutoff, 2800 }, { Resonance, .25f }, { Slope, 1 }, { FilterMovement, .2f }, { Instability, .1f }, { Drips, .3f },
+                              { WraithMix, .18f }, { Blur, .7f },
+                              { DelayTime, 540 }, { Feedback, .5f }, { DelayDamping, .88f }, { Diffusion, .85f }, { DelayMix, .26f },
+                              { Character, 3 }, { Space, .7f }, { Decay, 3.5f }, { Damping, .88f }, { PreDelay, 35 }, { ReverbMix, .38f } } },
         },
         {
           { "Murk", { { Cutoff, 1.5f, -1.5f }, { Resonance, -.15f, .2f }, { Darkness, -.2f, .3f } } },
-          { "Wobble", { { Instability, -.25f, .4f }, { FilterMovement, -.2f, .4f } } },
+          { "Wobble", { { Instability, -.25f, .4f }, { FilterMovement, -.2f, .4f }, { SigRate, -1, 1 } } },
           { "Damp", { { Damping, -.3f, .15f }, { DelayMix, -.12f, .15f }, { Drips, -.2f, .4f } } },
         } });
 
     //--------------------------------------------------------------------------
     w.push_back({ "Mountains", "Foothills",
-        // Open hills (2b sketch): almost dry, wind, one long echo from the slopes.
-        { { HighPass, 70 }, { Wind, .3f },
-          { DelayTime, 600 }, { Feedback, .2f }, { Diffusion, .1f }, { DelayDamping, .6f }, { Spread, .6f }, { DelayMix, .2f },
-          { Character, 0 }, { Space, .3f }, { Decay, 1 }, { Damping, .5f }, { PreDelay, 10 }, { ReverbMix, .1f } },
+        // Open hills: almost dry, the wind, and one long answer from across the valley
+        // (its signature).
+        { { HighPass, 65 }, { Wind, .28f }, { DelayMix, 0 },
+          { Character, 0 }, { Space, .3f }, { Decay, .9f }, { Damping, .5f }, { PreDelay, 10 }, { ReverbMix, .1f } },
         {
-          { "Mountain Pass", { { HighPass, 110 }, { DelayTime, 640 }, { Feedback, .5f }, { Diffusion, .2f }, { Spread, .9f }, { DelayMix, .35f },
-                               { Character, 3 }, { Space, .65f }, { Decay, 3 }, { Damping, .25f }, { PreDelay, 80 }, { ReverbLowCut, 220 }, { ReverbMix, .22f } } },
-          { "Frozen Peak", { { HighPass, 350 }, { Cutoff, 15000 }, { Wind, .4f },
-                             { WraithMix, .2f }, { Blur, .4f }, { Ghost, .2f },
-                             { DelayTime, 900 }, { Feedback, .3f }, { DelayMix, .15f },
-                             { Character, 3 }, { Space, .5f }, { Decay, 3 }, { Damping, .1f }, { PreDelay, 100 }, { Shimmer, .3f }, { ReverbLowCut, 400 }, { ReverbMix, .3f } } },
-          { "Dwarven Hall", { { HighPass, 30 }, { Cutoff, 6000 }, { Darkness, .3f }, { Wind, 0 }, { Drive, 5 }, { BloodMix, .2f }, { Flicker, .2f },
-                              { Tomb, .3f }, { TombOctave, 1 }, { Metal, .1f }, { MetalKind, 0 }, { MetalOctave, 1 },
-                              { Voices, 1 }, { Interval, 0 }, { ChoirBlend, .12f }, { DelayMix, .05f },
-                              { Character, 1 }, { Space, .9f }, { Decay, 4.5f }, { Damping, .5f }, { PreDelay, 40 }, { ReverbMix, .45f } } },
+          // The pass: rock walls on both sides, discrete echoes receding down the canyon.
+          { "Mountain Pass", { { HighPass, 100 }, { Wind, .18f },
+                               { Character, 3 }, { Space, .6f }, { Decay, 2.6f }, { Damping, .25f }, { PreDelay, 70 }, { ReverbLowCut, 220 }, { ReverbMix, .18f } } },
+          // The peak: thin, cold, airy; ice above everything, sparse echoes, wind.
+          { "Frozen Peak", { { HighPass, 260 }, { Cutoff, 16000 }, { Wind, .38f },
+                             { WraithMix, .14f }, { Blur, .4f }, { Ghost, .2f },
+                             { Character, 3 }, { Space, .45f }, { Decay, 2.6f }, { Damping, .08f }, { PreDelay, 90 }, { Shimmer, .22f }, { ReverbLowCut, 400 }, { ReverbMix, .26f } } },
+          // The dwarven hall: deep stone carved into the mountain, warm with the forge,
+          // a low hum of voices.
+          { "Dwarven Hall", { { HighPass, 28 }, { Cutoff, 6500 }, { Darkness, .28f }, { Wind, 0 }, { Drive, 4 }, { BloodMix, .18f }, { Flicker, .22f }, { FlickerRate, 2 },
+                              { Voices, 1 }, { Interval, 0 }, { ChoirBlend, .1f }, { Formant, .2f },
+                              { Character, 1 }, { Space, .9f }, { Decay, 4.5f }, { Damping, .55f }, { PreDelay, 42 }, { ReverbMix, .42f } } },
         },
         {
           { "Altitude", { { HighPass, -.8f, 1.5f }, { Wind, -.2f, .3f }, { Darkness, .1f, 0 } } },
-          { "Echo", { { DelayMix, -.15f, .2f }, { Feedback, -.2f, .25f }, { DelayTime, -.6f, .5f } } },
+          { "Echo", { { SigAmount, -.6f, 0 }, { DelayMix, 0, .15f }, { Feedback, 0, .3f } } },
           { "Frost", { { Shimmer, 0, .35f }, { Damping, .2f, -.2f }, { Blur, 0, .3f }, { WraithMix, 0, .15f } } },
         } });
 
     //--------------------------------------------------------------------------
     w.push_back({ "Necropolis", "Gates",
-        { { HighPass, 100 }, { Darkness, .1f }, { Wind, .15f },
-          { WraithMix, .2f }, { Blur, .5f }, { Ghost, .35f },
-          { DelayTime, 520 }, { Feedback, .25f }, { DelayMix, .12f },
-          { Character, 0 }, { Space, .55f }, { Decay, 2.6f }, { Damping, .3f }, { ReverbMix, .26f } },
+        // The gates of the dead city: cold air, rusted iron groaning (its signature), a
+        // faint ghostly haze, a hard stone reverb.
+        { { HighPass, 95 }, { Darkness, .12f }, { Wind, .16f },
+          { WraithMix, .14f }, { Blur, .5f }, { Ghost, .3f },
+          { DelayTime, 520 }, { Feedback, .22f }, { DelayDamping, .6f }, { DelayMix, .08f },
+          { Character, 0 }, { Space, .55f }, { Decay, 2.4f }, { Damping, .3f }, { PreDelay, 22 }, { ReverbMix, .24f } },
         {
-          { "Graveyard", { { HighPass, 140 }, { WraithMix, .38f }, { Blur, .55f }, { Ghost, .55f }, { WraithDetune, 30 }, { Drift, .6f },
-                           { DelayTime, 700 }, { Feedback, .3f }, { Reverse, 1 }, { DelayMix, .14f },
-                           { Space, .6f }, { Decay, 3.8f }, { Damping, .2f }, { ReverbMix, .3f } } },
-          { "Mausoleum", { { HighPass, 50 }, { Cutoff, 3500 }, { Darkness, .4f }, { Wind, 0 }, { Drips, .15f },
-                           { Tomb, .2f }, { TombOctave, 2 }, { WraithMix, .15f }, { Ghost, .5f }, { DelayMix, .05f },
-                           { Character, 2 }, { Space, .25f }, { Decay, 1.5f }, { Damping, .6f }, { PreDelay, 5 }, { ReverbMix, .45f } } },
+          // The graveyard: open, cold and sparse; ghosts of every note, swells drawn in
+          // backwards.
+          { "Graveyard", { { HighPass, 140 }, { Cutoff, 11000 }, { WraithMix, .32f }, { Blur, .55f }, { Ghost, .5f }, { WraithDetune, 30 }, { Drift, .6f },
+                           { DelayTime, 760 }, { Feedback, .25f }, { DelayMix, .1f },
+                           { Space, .6f }, { Decay, 3.6f }, { Damping, .2f }, { PreDelay, 40 }, { ReverbMix, .28f } } },
+          // The mausoleum: a tight, sealed stone tomb, hollow and muffled.
+          { "Mausoleum", { { HighPass, 50 }, { Cutoff, 4500 }, { Darkness, .35f }, { Wind, 0 }, { Drips, .12f },
+                           { WraithMix, .08f }, { Ghost, .4f }, { DelayMix, 0 },
+                           { Character, 2 }, { Space, .2f }, { Decay, 1.3f }, { Damping, .6f }, { PreDelay, 3 }, { ReverbMix, .4f } } },
         },
         {
           { "Chill", { { HighPass, -.6f, 1 }, { Damping, .15f, -.2f }, { Shimmer, 0, .2f } } },
-          { "Ghosts", { { WraithMix, -.15f, .3f }, { Ghost, -.25f, .35f }, { Drift, -.2f, .3f } } },
-          { "Silence", { { ReverbMix, .1f, -.15f }, { DelayMix, .08f, -.1f }, { Space, .15f, -.25f } } },
+          { "Ghosts", { { WraithMix, -.12f, .3f }, { Ghost, -.25f, .35f }, { Drift, -.2f, .3f } } },
+          { "Silence", { { ReverbMix, .1f, -.15f }, { DelayMix, .06f, -.08f }, { Space, .15f, -.25f } } },
         } });
 
     //--------------------------------------------------------------------------
     w.push_back({ "Wizard's Tower", "Stairwell",
-        { { Cutoff, 9000 }, { Flicker, .2f },
-          { DelayTime, 95 }, { Feedback, .35f }, { Diffusion, .7f }, { DelayMix, .15f },
-          { Character, 0 }, { Space, .5f }, { Decay, 2.2f }, { Damping, .45f }, { ReverbMix, .35f } },
+        // The spiral stair: narrow, tall, bright stone; echoes circling up and around
+        // (its signature), a lamp's flicker.
+        { { Cutoff, 9000 }, { HighPass, 140 }, { Flicker, .18f }, { FlickerRate, 3 }, { DelayMix, 0 },
+          { Character, 2 }, { Space, .3f }, { Decay, 1.8f }, { Damping, .25f }, { PreDelay, 4 }, { ReverbMix, .3f } },
         {
-          { "Library", { { Cutoff, 5000 }, { Darkness, .35f }, { HighPass, 80 }, { Flicker, .1f },
-                         { BloodMix, .15f }, { Age, .2f }, { Dust, .15f }, { DelayMix, 0 },
-                         { Space, .3f }, { Decay, .8f }, { Damping, .8f }, { ReverbMix, .2f } } },
-          { "Alchemy Lab", { { Cutoff, 3000 }, { Resonance, .45f }, { FilterMovement, .5f }, { FilterRate, 1.5f },
-                             { Instability, .5f }, { BloodMix, .3f }, { Drips, .3f },
-                             { Voices, 2 }, { Interval, 3 }, { ChoirBlend, .25f }, { ChoirDetune, 35 }, { ChoirMovement, .8f },
-                             { DelayTime, 190 }, { Feedback, .4f }, { Descent, 2 }, { DelayMix, .18f },
-                             { Space, .35f }, { Decay, 1.4f }, { ReverbMix, .25f } } },
-          { "Observatory", { { Cutoff, 20000 }, { Flicker, 0 }, { CryptMode, 1 }, { RiseTime, 1.5f }, { Voices, 2 }, { Interval, 4 }, { ChoirBlend, .18f }, { ChoirDetune, 18 }, { ChoirMovement, .5f },
-                             { WraithMix, .18f }, { Ghost, .3f }, { Blur, .4f },
-                             { Metal, .12f }, { MetalKind, 2 }, { MetalOctave, 4 }, { MetalDecay, 4 },
-                             { DelayTime, 375 }, { DelayMix, .16f },
-                             { Character, 3 }, { Space, 1 }, { Decay, 12 }, { Shimmer, .55f }, { Damping, .3f }, { ReverbMix, .5f } } },
+          // The library: dry, hushed, paper-soft.
+          { "Library", { { Cutoff, 7000 }, { Darkness, .2f }, { HighPass, 70 }, { Flicker, .08f },
+                         { BloodMix, .12f }, { Age, .15f }, { Dust, .1f },
+                         { Character, 0 }, { Space, .3f }, { Decay, .7f }, { Damping, .85f }, { PreDelay, 5 }, { ReverbMix, .16f } } },
+          // The alchemy lab: bubbling, strange, resonant glassware and a crooked choir.
+          { "Alchemy Lab", { { Cutoff, 6000 }, { Resonance, .3f }, { FilterMovement, .35f }, { FilterRate, 1.2f },
+                             { Instability, .3f }, { BloodMix, .2f }, { Drips, .25f },
+                             { Voices, 2 }, { Interval, 3 }, { ChoirBlend, .14f }, { ChoirDetune, 35 }, { ChoirMovement, .8f },
+                             { DelayTime, 190 }, { Feedback, .35f }, { Descent, 2 }, { DelayMix, .12f },
+                             { Character, 0 }, { Space, .35f }, { Decay, 1.4f }, { Damping, .45f }, { ReverbMix, .24f } } },
+          // The observatory: open to the night sky; vast, slow-rising, starlight.
+          { "Observatory", { { Cutoff, 20000 }, { HighPass, 60 }, { Flicker, 0 }, { CryptMode, 1 }, { RiseTime, 1.5f },
+                             { WraithMix, .12f }, { Ghost, .3f }, { Blur, .4f },
+                             { DelayTime, 375 }, { Feedback, .3f }, { DelayDamping, .3f }, { DelayMix, .1f },
+                             { Character, 3 }, { Space, 1 }, { Decay, 12 }, { Shimmer, .4f }, { Damping, .3f }, { PreDelay, 60 }, { ReverbMix, .46f } } },
         },
         {
           { "Arcana", { { Shimmer, -.1f, .35f }, { ChoirBlend, -.1f, .2f }, { Ghost, 0, .3f } } },
-          { "Alchemy", { { FilterMovement, -.2f, .4f }, { Instability, -.2f, .4f }, { ChoirDetune, -10, 20 } } },
-          { "Starlight", { { Space, -.3f, .2f }, { Decay, -1, 1 }, { Metal, 0, .2f } } },
+          { "Alchemy", { { FilterMovement, -.2f, .4f }, { Instability, -.2f, .4f }, { SigRate, -1, 1 } } },
+          { "Starlight", { { Space, -.3f, .2f }, { Decay, -1, 1 }, { SigAmount, -.5f, .3f } } },
         } });
     return w;
 }
 
 const std::vector<LocationDesign> world = buildWorld();
 
+// Milestone 6: every place's signature (Signature.cpp), one kind per place and never
+// shared, with its amount. Kinds are numbered in place order (Dungeon scene = 1 ...
+// Wizard's Tower, Observatory = 40).
+struct SignatureSetting { float amount; };
+constexpr std::array<std::array<SignatureSetting, placesPerLocation>, LocationCount> signatureAmounts {{
+    {{ { 1 }, { 1 }, { 1 }, { 1 }, { 1 } }},   // Dungeon: Corridors, Entrance Hall, Prison Cells, Treasure Room, Final Boss Lair
+    {{ { 1 }, { 1 }, { 1 }, { 1 }, { 1 } }},   // Castle: Courtyard, Great Hall, Throne Room, Chapel, Tower Top
+    {{ { 1 }, { 1 }, { 1 }, { 1 }, { 0 } }},   // Cathedral: Cloister, Nave, Crypt, Bell Tower
+    {{ { 1 }, { 1 }, { 1 }, { 1 }, { 0 } }},   // Haunted Forest: Forest Edge, Old Path, Witch's Hut, Ancient Grove
+    {{ { 1 }, { 1 }, { 1 }, { 1 }, { 0 } }},   // Caverns: Cave Mouth, Crystal Cavern, Underground Lake, Dragon's Hoard
+    {{ { 1 }, { 1 }, { 1 }, { 1 }, { 0 } }},   // Village: Village Green, Tavern, Market Square, Blacksmith
+    {{ { 1 }, { 1 }, { 1 }, { 0 }, { 0 } }},   // Swamp: Mire, Bog, Sunken Ruins
+    {{ { 1 }, { 1 }, { 1 }, { 1 }, { 0 } }},   // Mountains: Foothills, Mountain Pass, Frozen Peak, Dwarven Hall
+    {{ { 1 }, { 1 }, { 1 }, { 0 }, { 0 } }},   // Necropolis: Gates, Graveyard, Mausoleum
+    {{ { 1 }, { 1 }, { 1 }, { 1 }, { 0 } }},   // Wizard's Tower: Stairwell, Library, Alchemy Lab, Observatory
+}};
+int firstSignature(int location) noexcept {
+    int kind = 1;
+    for (int l = 0; l < location; ++l) kind += 1 + static_cast<int>(world[static_cast<std::size_t>(l)].subs.size());
+    return kind;
+}
+
 float clampToSpec(P id, float v) noexcept { return std::clamp(v, moduleSpecs[id].min, moduleSpecs[id].max); }
+}
+
+int signatureKind(int location, int sub) noexcept {
+    location = std::clamp(location, 0, static_cast<int>(LocationCount) - 1);
+    return firstSignature(location) + clampSubLocation(location, sub);
 }
 
 const LocationDesign& design(int location) noexcept {
@@ -339,6 +388,9 @@ Frame placeFrame(int location, int sub) noexcept {
     sub = clampSubLocation(location, sub);
     if (sub > 0)
         for (const auto& c : d.subs[static_cast<std::size_t>(sub - 1)].changes) f[c.id] = clampToSpec(c.id, c.value);
+    location = std::clamp(location, 0, static_cast<int>(LocationCount) - 1);
+    f[SigKind] = static_cast<float>(firstSignature(location) + sub);
+    f[SigAmount] = signatureAmounts[static_cast<std::size_t>(location)][static_cast<std::size_t>(sub)].amount;
     return f;
 }
 

@@ -6,15 +6,15 @@
 
 namespace dc {
 inline constexpr std::array<std::array<float, 5>, 10> levelTrimsDb {{
-    {{ -0.59f, -0.88f, -0.76f, 0.73f, -0.44f }},   // Dungeon
-    {{ 0.83f, 1.08f, 1.31f, 1.27f, 2.66f }},   // Castle
-    {{ 0.50f, 2.12f, -1.49f, 0.72f, 0.00f }},   // Cathedral
-    {{ -0.00f, -0.28f, 1.99f, 2.21f, 0.00f }},   // Haunted Forest
-    {{ 1.17f, 1.21f, 2.07f, -1.52f, 0.00f }},   // Caverns
-    {{ 0.29f, 0.42f, 0.38f, 2.17f, 0.00f }},   // Village
-    {{ 0.09f, 1.05f, -0.74f, 0.00f, 0.00f }},   // Swamp
-    {{ -0.36f, 0.77f, 4.64f, -0.90f, 0.00f }},   // Mountains
-    {{ 0.23f, 0.67f, -2.11f, 0.00f, 0.00f }},   // Necropolis
-    {{ 1.01f, 0.61f, 3.00f, 2.04f, 0.00f }},   // Wizard's Tower
+    {{ -2.25f, -1.29f, -4.21f, 0.68f, -3.45f }},   // Dungeon
+    {{ 0.13f, 0.51f, -1.87f, -0.19f, 2.08f }},   // Castle
+    {{ -3.01f, 1.30f, -3.96f, 0.65f, 0.00f }},   // Cathedral
+    {{ -1.38f, 0.73f, 3.88f, 1.63f, 0.00f }},   // Haunted Forest
+    {{ 0.76f, 1.91f, 4.09f, -1.74f, 0.00f }},   // Caverns
+    {{ 2.73f, -0.57f, -1.01f, 0.07f, 0.00f }},   // Village
+    {{ 0.87f, 3.39f, 5.62f, 0.00f, 0.00f }},   // Swamp
+    {{ -0.68f, -0.36f, 2.98f, -3.70f, 0.00f }},   // Mountains
+    {{ -0.56f, 0.01f, -2.47f, 0.00f, 0.00f }},   // Necropolis
+    {{ 1.21f, 0.80f, 3.63f, 0.19f, 0.00f }},   // Wizard's Tower
 }};
 }

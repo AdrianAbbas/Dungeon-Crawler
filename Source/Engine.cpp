@@ -92,10 +92,12 @@ void Engine::prepare(double sampleRate) {
     context.sampleRate = sr;
     abyss.prepare(sr); blood.prepare(sr); relics.prepare(sr); choir.prepare(sr);
     wraith.prepare(sr); echoes.prepare(sr);
+    for (auto& sig : signatures) sig.prepare(sr);
     for (auto& room : rooms) { room.prepare(sr); room.setWetOnly(true); }
     roomDry.setTime(0.04, sr);
     levelMatcher.prepare(sr);
     for (auto& slot : slots) slot.gain.prepare(0.02, sr);
+    for (auto& slot : sigSlots) slot.gain.prepare(0.02, sr);
     trimGain.setTime(0.05, sr);
     warmUpSamples = std::max(1, static_cast<int>(0.005 * sr));
     settleSamples = static_cast<int>(0.5 * sr);
@@ -104,6 +106,9 @@ void Engine::prepare(double sampleRate) {
 
 void Engine::reset() {
     abyss.reset(); blood.reset(); relics.reset(); choir.reset(); wraith.reset(); echoes.reset();
+    for (auto& sig : signatures) sig.reset();
+    for (auto& slot : sigSlots) { slot.gain.value = 0; slot.idle = true; slot.warmUp = 0; }
+    activeSig = 0; departingSig = -1; sigCrossfade = false;
     for (auto& room : rooms) room.reset();
     roomIdle.fill(true);
     activeRoom = 0; departingRoom = -1; roomCrossfade = false;
@@ -114,7 +119,22 @@ void Engine::reset() {
     travel = 1;
 }
 
+void Engine::swapSignature() noexcept {
+    // The old kind rings out in its instance; the new one starts clean in the other.
+    sigFromAmount = current[SigAmount];
+    sigFrames[static_cast<std::size_t>(activeSig)] = current;
+    if (!sigSlots[static_cast<std::size_t>(activeSig)].idle) {
+        signatures[static_cast<std::size_t>(activeSig)].depart();
+        departingSig = activeSig;
+    } else departingSig = -1;
+    activeSig = 1 - activeSig;
+    auto& fresh = sigSlots[static_cast<std::size_t>(activeSig)];
+    fresh.idle = true;   // starts clean (runSignatures resets it)
+    sigCrossfade = true;
+}
+
 void Engine::startTravel(double seconds) noexcept {
+    if (current[SigKind] != to[SigKind]) swapSignature();
     from = current;
     trimFrom = trimDb;
     duration = std::max(minTravelSeconds, seconds);
@@ -210,8 +230,30 @@ void Engine::runRooms(float* l, float* r, int n, float eased) noexcept {
     }
 }
 
+void Engine::runSignatures(float* l, float* r, int n, float eased) noexcept {
+    if (sigCrossfade && travel >= 1.0f) sigCrossfade = false;
+    // The departing instance first (its serial part fading out, its tails ringing on),
+    // then the active one (fading in during a journey).
+    if (departingSig >= 0) {
+        const auto D = static_cast<std::size_t>(departingSig);
+        auto& f = sigFrames[D];
+        f[SigAmount] = sigCrossfade ? sigFromAmount * (1.0f - eased) : 0.0f;
+        auto& sig = signatures[D];
+        if (f[SigAmount] <= 1.0e-4f && !sig.ringing()) { sigSlots[D].idle = true; sigSlots[D].gain.value = 0; departingSig = -1; }
+        else {
+            sigSlots[D].gain.value = 1.0f;
+            runSlot(sig, sigSlots[D], true, l, r, n, &f);
+        }
+    }
+    const auto A = static_cast<std::size_t>(activeSig);
+    auto& f = sigFrames[A];
+    if (sigCrossfade) { f = to; f[SigAmount] = to[SigAmount] * eased; }
+    else f = current;
+    runSlot(signatures[A], sigSlots[A], f[SigAmount] > 1.0e-4f, l, r, n, &f);
+}
+
 template <class Module>
-void Engine::runSlot(Module& module, Slot& slot, bool enabled, float* l, float* r, int n) noexcept {
+void Engine::runSlot(Module& module, Slot& slot, bool enabled, float* l, float* r, int n, const Frame* frame) noexcept {
     const float wanted = enabled ? 1.0f : 0.0f;
     if (slot.gain.value == 0 && !enabled) { slot.idle = true; return; }
     if (slot.idle) { module.reset(); slot.idle = false; slot.warmUp = 0; }
@@ -225,7 +267,7 @@ void Engine::runSlot(Module& module, Slot& slot, bool enabled, float* l, float* 
         l[i] *= ramp;
         r[i] *= ramp;
     }
-    module.process(l, r, n, current, context);
+    module.process(l, r, n, frame != nullptr ? *frame : current, context);
     for (int i = 0; i < n; ++i) {
         const float g = slot.gain.next(wanted);
         const auto k = static_cast<std::size_t>(i);
@@ -257,12 +299,14 @@ void Engine::process(float* l, float* r, int n, const float* dryL, const float* 
     bool cryptActive = p[ReverbMix] > 1.0e-4f;
     for (const auto& room : rooms) cryptActive = cryptActive || room.ringing();
     const bool wetActive = p[ChoirBlend] > 1.0e-4f || p[Drone] > 1.0e-4f || p[WraithMix] > 1.0e-4f
-                        || echoesActive || cryptActive || p[BloodMix] > 1.0e-4f || relicsActive;
+                        || echoesActive || cryptActive || p[BloodMix] > 1.0e-4f || relicsActive || p[SigAmount] > 1.0e-4f
+                        || departingSig >= 0 || to[SigAmount] > 1.0e-4f;
     runSlot(abyss, slots[0], abyssActive, l, r, n);
     blood.process(l, r, n, p, context);
     runSlot(relics, slots[1], relicsActive, l, r, n);
     runSlot(choir, slots[2], p[ChoirBlend] > 1.0e-4f || p[Drone] > 1.0e-4f, l, r, n);
     runSlot(wraith, slots[3], p[WraithMix] > 1.0e-4f, l, r, n);
+    runSignatures(l, r, n, travel * travel * (3.0f - 2.0f * travel));
     runSlot(echoes, slots[4], echoesActive, l, r, n);
     runRooms(l, r, n, travel * travel * (3.0f - 2.0f * travel));
     if (!matching) return;

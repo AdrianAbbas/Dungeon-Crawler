@@ -24,6 +24,8 @@ enum P : std::size_t {
     CryptMode, RiseTime, Eternal,
     // VII. Relics: torch flicker, struck metal, wind and drips (DUNGEON CRAWLER).
     Flicker, FlickerRate, Metal, MetalKind, MetalNote, MetalOctave, MetalDecay, Wind, Drips,
+    // VIII. Signature: the one effect that belongs to a single place (Milestone 6).
+    SigKind, SigAmount, SigTone, SigRate,
     Count
 };
 using Frame = std::array<float, Count>;
@@ -32,6 +34,20 @@ using Frame = std::array<float, Count>;
 // (a choice or switch: the value changes once, half-way).
 enum class Glide { Lin, Log, Step };
 struct ModuleParamSpec { const char* id; const char* name; float min, max, neutral; Glide glide; const char* choices; };
+
+// The signature effects (VIII), one per place, in kind order (0 = none). See
+// Source/DSP/Signature.cpp for what each one does.
+inline constexpr const char* signatureChoices =
+    "None|Receding Footsteps|Stone Flutter|Bar Resonance|Glitter Sparkle|Sub Choir Menace"
+    "|Wall Ping-Pong|Banner Reflections|Regal Brass|Choir Pad Bloom|Wind-Blown Echoes"
+    "|Colonnade|Vault Cascade|Stone Resonance|Bell Resonators"
+    "|Trunk Scatter|Spectral Smear|Crooked Wobble|Breathing Shimmer"
+    "|Cave Hum|Glass Ring|Underwater|Growl"
+    "|Folk Chorus|Warm Tavern|Slap-Back|Anvil"
+    "|Mud Drag|Murky Wobble|Sloshing"
+    "|Valley Answer|Canyon Echoes|Icy Shimmer|Forge Resonance"
+    "|Iron Groan|Reverse Swell|Hollow Tomb"
+    "|Spiral Echoes|Paper Hush|Bubbling Alchemy|Starry Shimmer";
 
 // `neutral` is the transparent setting: every module at its neutral values leaves the
 // signal unchanged (the Abyss open, no drive, every wet layer at zero).
@@ -104,6 +120,11 @@ inline constexpr std::array<ModuleParamSpec, Count> moduleSpecs {{
     { "metalDecay", "Metal Decay", .05f, 8, .8f, Glide::Log, "" },
     { "wind", "Wind", 0, 1, 0, Glide::Lin, "" },
     { "drips", "Drips", 0, 1, 0, Glide::Lin, "" },
+
+    { "sigKind", "Signature", 0, 40, 0, Glide::Step, signatureChoices },
+    { "sigAmount", "Signature Amount", 0, 1, 0, Glide::Lin, "" },
+    { "sigTone", "Signature Tone", -1, 1, 0, Glide::Lin, "" },
+    { "sigRate", "Signature Rate", .25f, 4, 1, Glide::Log, "" },
 }};
 
 inline Frame neutralFrame() noexcept {

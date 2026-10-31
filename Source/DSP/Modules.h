@@ -95,6 +95,79 @@ private:
 };
 
 //==============================================================================
+// VIII. SIGNATURE (DUNGEON CRAWLER, Milestone 6): the one effect that belongs to a
+// single place, so any two places are tellable apart blind. Each kind is a recipe of
+// small primitives (saturation flavour, tone, attack softening, wobble, tremolo,
+// tuned combs, a modal bank, pitch sparkle, tap patterns, smear, reverse swell); see
+// Signature.cpp. A kind change cannot morph: the engine dips the layer out, switches,
+// and brings it back (as for the Choir interval).
+namespace sig { struct Recipe; }
+class Signature {
+public:
+    static constexpr int kinds = 41;   // 0 = none
+    static constexpr int maxTaps = 6, maxModes = 6, maxCombs = 3, smearStages = 4, diffuserStages = 3;
+    void prepare(double sampleRate);
+    void reset();
+    void process(float* l, float* r, int n, const Frame&, const Context&) noexcept;
+    static const char* kindName(int kind) noexcept;
+    // After a journey to another kind: stop taking input (as the amount falls) and ring
+    // out; the engine runs the new kind in a second instance.
+    void depart() noexcept;
+    bool isDeparting() const noexcept { return departing; }
+    bool ringing() const noexcept { return tail > 1.0e-4f; }
+private:
+    bool departing = false;
+    float heldOut = 0, tail = 0, tailDecay = 0.999f;
+    struct Lfo {
+        double phase = 0;
+        float value = 0, target = 0, follow = 0;
+        int countdown = 0;
+        float next(int shape, float hz, double sr, dsp::Random&) noexcept;
+    };
+    void configure(int kind, float tone) noexcept;
+    double sr = 48000;
+    int kind = -1;
+    float tone = 0, toneShift = 1;
+    const sig::Recipe* recipe = nullptr;
+    dsp::Smoothed amount;
+    // Serial stages.
+    std::array<dsp::Svf, 2> toneSvf, growlLow, growlSub;
+    std::array<dsp::Biquad, 2> toneEq, bite;
+    std::array<dsp::DcBlocker, 2> dc;
+    std::array<float, 2> growlPrev {}, held {};
+    std::array<int, 2> holdCount {};
+    float growlFlip = 1, driveGain = 1, driveComp = 1;
+    float envFast = 0, envSlow = 0, envSwell = 0, envBloom = 0, fastA = 0, fastR = 0, slowA = 0, slowR = 0, swellA = 0, bloomA = 0, bloomR = 0, gateEnv = 0, gateR = 0;
+    std::array<dsp::DelayLine, 2> wobbleLine;
+    Lfo wobbleLfo, wobbleLfoR, tremLfo;
+    // Parallel layers.
+    std::array<std::array<dsp::DelayLine, maxCombs>, 2> combLines;
+    std::array<std::array<float, maxCombs>, 2> combState {};
+    std::array<float, maxCombs> combSamples {};
+    float combCoefficient = 0.5f;
+    std::array<std::array<dsp::Svf, maxModes>, 2> modes;
+    std::array<float, maxModes> modeGain {};
+    std::array<std::array<dsp::GranularShifter, 2>, 2> shifters;
+    std::array<dsp::Svf, 2> pitchHp, pitchLp;
+    std::array<std::array<dsp::Biquad, 2>, 2> formants;
+    std::array<float, 2> twinkle { 1, 1 }, twinkleTarget { 1, 1 };
+    int twinkleCountdown = 0;
+    std::array<dsp::DelayLine, 2> tapLine;
+    std::array<float, maxTaps> tapLpState0 {}, tapLpState1 {}, tapCoefficient {}, tapJitter {};
+    std::array<Lfo, maxTaps> tapLfo;
+    int crackleCountdown = 0;
+    double circlePhase = 0;
+    std::array<std::array<dsp::DelayLine, smearStages>, 2> smearLines;
+    std::array<std::array<float, smearStages>, 2> smearSamples {};
+    std::array<std::array<dsp::DelayLine, diffuserStages>, 2> diffuserLines;
+    std::array<std::array<float, diffuserStages>, 2> diffuserSamples {};
+    std::array<dsp::DelayLine, 2> reverseLine;
+    std::array<dsp::Svf, 2> reverseLp;
+    double reversePhase = 0;
+    dsp::Random random;
+};
+
+//==============================================================================
 // III. THE CHOIR: 1-4 granular pitch-shifted voices with detune, movement and a
 // vowel formant bank, plus Drone: a sub-octave layer that holds after notes end.
 class Choir {

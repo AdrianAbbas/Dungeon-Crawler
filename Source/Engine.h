@@ -58,7 +58,7 @@ public:
 private:
     struct Slot { dsp::Ramp gain; bool idle = true; int warmUp = 0; };
     struct Place { int location = -1, sub = 0; bool operator!=(const Place& o) const noexcept { return location != o.location || sub != o.sub; } };
-    template <class Module> void runSlot(Module&, Slot&, bool enabled, float* l, float* r, int n) noexcept;
+    template <class Module> void runSlot(Module&, Slot&, bool enabled, float* l, float* r, int n, const Frame* frame = nullptr) noexcept;
     void startTravel(double seconds) noexcept;
 
     double sr = 48000;
@@ -69,6 +69,16 @@ private:
     Wraith wraith;
     Echoes echoes;
     std::array<Slot, 5> slots;   // abyss, relics, choir, wraith, echoes (Blood runs always: it carries the latency)
+    // Signatures: two instances. A journey to another kind starts the new kind in the
+    // other instance and lets the old one ring out (its tails continue).
+    void runSignatures(float* l, float* r, int n, float eased) noexcept;
+    void swapSignature() noexcept;
+    std::array<Signature, 2> signatures;
+    std::array<Slot, 2> sigSlots;
+    std::array<Frame, 2> sigFrames {};
+    int activeSig = 0, departingSig = -1;
+    bool sigCrossfade = false;
+    float sigFromAmount = 0;
     // The Crypt runs as a small pool of rooms. A journey to a place with a different
     // room starts the new room in a fresh instance and lets the old one ring out with
     // its own decay (tails continue); within a place the active room follows the frame.

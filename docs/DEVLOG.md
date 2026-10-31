@@ -40,8 +40,8 @@ Update 1 ([DIRECTION_UPDATE_1.md](DIRECTION_UPDATE_1.md)) replaces the brief's r
 milestones (2b, 3, 4, 5) with Milestones 6–12. Push with `[skip ci]` after each part,
 without after each milestone. Resume from the first unticked item.
 
-- [ ] 6a. Signature module (VIII): one signature effect per place, 40 kinds, crossfaded kind changes
-- [ ] 6b. Sound design: Village, Swamp, Mountains, Necropolis, Wizard's Tower with all sub-locations; signatures on all 40 places
+- [x] 6a. Signature module (VIII): one signature effect per place, 40 kinds, crossfaded kind changes
+- [x] 6b. Sound design: Village, Swamp, Mountains, Necropolis, Wizard's Tower with all sub-locations; signatures on all 40 places
 - [ ] 6c. Distinctness gate over all pairs (closest listed), musicality over all 40 places, trims recalibrated, listening render updated
 - [ ] 6d. DEVLOG, manual test; push without `[skip ci]` (Milestone 6 build)
 - [ ] 7a. Engraving renderer: tone + hatch-direction fields to hatched line art, off the message thread, cached

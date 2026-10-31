@@ -45,6 +45,8 @@ const char* subLocationName(int location, int sub) noexcept;  // 0: the scene's 
 int macroCountFor(int location) noexcept;
 const char* macroName(int location, int macro) noexcept;      // "" when unused
 
+// The place's signature effect (Signature kind 1..40, unique per place).
+int signatureKind(int location, int sub) noexcept;
 // The place as designed (macros at 0.5, no Advanced offsets).
 Frame placeFrame(int location, int sub) noexcept;
 inline Frame locationFrame(int location) noexcept { return placeFrame(location, 0); }

@@ -35,10 +35,9 @@ void operator delete[](void* p, std::size_t) noexcept { std::free(p); }
 
 namespace {
 
-// Locations with finished sound design (Milestone 2a). Distinctness and musicality
-// are gates for their places; places of the other locations (sketches until 2b) are
-// reported.
-bool designed(int location) { return location <= dc::Caverns; }
+// Locations with finished sound design: since Milestone 6 all of them. Distinctness
+// and musicality are gates for every place.
+bool designed(int) { return true; }
 
 struct Suite {
     int passed = 0, failed = 0;
@@ -638,11 +637,9 @@ double distance(const Fingerprint& a, const Fingerprint& b) {
     return std::sqrt(sum);
 }
 
-// Small misses after two design rounds (Milestone 2a), reported instead of gated:
-// both pairs are far apart by ear (an open slap vs ringing glass; a distorted choir vs
-// a watery wobble) and within 0.3 dB-eq of the gate.
-const std::vector<std::pair<std::string, std::string>> reportOnlyPairs {
-    { "Castle / Courtyard", "Caverns / Crystal Cavern" }, { "Dungeon / Final Boss Lair", "Caverns / Underground Lake" } };
+// Small misses after two design rounds would be listed here and reported instead of
+// gated. Milestone 6: none (every pair of the 40 places is at least 10 apart).
+const std::vector<std::pair<std::string, std::string>> reportOnlyPairs {};
 
 // Closest pairs across every place: a pair involving a designed place must be at
 // least `minimum` apart (dB-equivalent, Euclidean); other pairs are reported.
@@ -727,13 +724,19 @@ void testTravel(Suite& s) {
         s.check(std::abs(h.p->engine().travelProgress() - 1.0f) < 1.0e-6f && h.p->engine().destination() == l, "Dungeon -> " + placeName(l) + ": arrives");
 
         Host c;
-        c.render(3.0, sawChord(0.3f));
+        // Five seconds before leaving, so the level matcher has settled (Milestone 6: the
+        // signatures' echoes make the first seconds of a place settle more slowly).
+        c.render(5.0, sawChord(0.3f));
         c.location(l);
         c.render(3.0, sawChord(0.3f));
         // 50 ms windows through the journey vs the level before leaving.
-        const double reference = toDb(c.rms(c.at(2.0), c.at(3.0)));
+        const double reference = toDb(c.rms(c.at(4.0), c.at(5.0)));
         double deviation = 0;
-        for (double t = 3.0; t < 5.95; t += 0.05) deviation = std::max(deviation, std::abs(toDb(c.rms(c.at(t), c.at(t + 0.05))) - reference));
+        for (double t = std::getenv("DC_DEBUG_TRAVEL") != nullptr ? 4.0 : 5.0; t < 7.95; t += 0.05) {
+            deviation = std::max(deviation, std::abs(toDb(c.rms(c.at(t), c.at(t + 0.05))) - reference));
+            if (std::getenv("DC_DEBUG_TRAVEL") != nullptr && std::atoi(std::getenv("DC_DEBUG_TRAVEL")) == l)
+                std::cout << "    t " << fmt(t, 2) << ": " << fmt(toDb(c.rms(c.at(t), c.at(t + 0.05))) - reference) << " dB\n";
+        }
         worstLoudness = std::max(worstLoudness, deviation);
         s.check(deviation < 4.0, "Dungeon -> " + placeName(l) + ": loudness steady while travelling (< 4 dB)", fmt(deviation) + " dB");
     }
@@ -841,8 +844,13 @@ void testPlaceEngine(Suite& s) {
         s.metric("tail 1-1.5 s after leaving the Nave for the Tavern", ringing, " dBFS");
         s.metric("tail 1-1.5 s after the Tavern alone", dry, " dBFS");
         s.check(ringing > dry + 15.0, "leaving the Nave, its tail rings on", fmt(ringing) + " vs " + fmt(dry) + " dBFS");
-        const double first = toDb(a.rms(a.at(3.05), a.at(3.3))), later = toDb(a.rms(a.at(3.8), a.at(4.05)));
-        s.check(first - later < 12.0, "the tail decays naturally after leaving (no sudden cut)", fmt(first - later) + " dB in 0.75 s");
+        // No sudden cut: no step between consecutive 50 ms windows (Milestone 6: the Nave's
+        // vault cascade stops feeding its room when you leave, so the tail's first second
+        // decays faster than when you stay, but smoothly; a cut is a step).
+        double step = 0;
+        for (double t = 3.05; t < 4.45; t += 0.05)
+            step = std::max(step, toDb(a.rms(a.at(t), a.at(t + 0.05))) - toDb(a.rms(a.at(t + 0.05), a.at(t + 0.1))));
+        s.check(step < 6.0, "the tail decays naturally after leaving (no sudden cut)", fmt(step) + " dB largest 50 ms step");
     }
     // Macros and Advanced change the sound and travel with you.
     {
@@ -1242,6 +1250,47 @@ int renderToFile(const juce::String& path, int location, double seconds) {
 }
 }
 
+// Development aid: how much each place's signature changes it (output with the
+// signature against the same place with Signature Amount at zero), in dB.
+int signatureCheck() {
+    for (const auto& [l, k] : allPlaces()) {
+        Host a, b;
+        a.go(l, k); b.go(l, k);
+        b.set(dc::ids::advanced(dc::SigAmount), -1.0f);
+        a.render(3.0, plucks(0.4f)); b.render(3.0, plucks(0.4f));
+        double diff = 0, ref = 0;
+        for (std::size_t i = a.at(0.5); i < a.end(); ++i) { const double d = a.outL[i] - b.outL[i]; diff += d * d; ref += double(b.outL[i]) * b.outL[i]; }
+        // Level spread of 50 ms windows on a sustained chord (4-6 s), with and without.
+        const auto spread = [&](bool with) {
+            Host c; c.go(l, k);
+            if (!with) c.set(dc::ids::advanced(dc::SigAmount), -1.0f);
+            c.render(6.0, sawChord(0.3f));
+            double lo = 1e9, hi = -1e9;
+            for (double t = 4.0; t < 5.95; t += 0.05) { const double v = toDb(c.rms(c.at(t), c.at(t + 0.05))); lo = std::min(lo, v); hi = std::max(hi, v); }
+            return hi - lo;
+        };
+        std::cout << placeName(l, k) << " (" << dc::Signature::kindName(dc::signatureKind(l, k)) << "): " << fmt(toDb(std::sqrt(diff)) - toDb(std::sqrt(ref)))
+                  << " dB; chord spread " << fmt(spread(true)) << " dB (without " << fmt(spread(false)) << ")\n";
+    }
+    return 0;
+}
+
+int tailDebug() {
+    const std::pair<int, int> dests[] = { { dc::Village, 1 }, { dc::Village, 0 }, { dc::Castle, 1 }, { dc::Dungeon, 0 }, { dc::Cathedral, 1 } };
+    for (const auto& [dl, dk] : dests) {
+        Host a;
+        a.set(dc::ids::travelTime, 0.0f);
+        a.go(dc::Cathedral, 1);
+        a.render(3.0, sawChord(0.3f));
+        a.go(dl, dk);
+        a.render(2.0, silence());
+        std::cout << placeName(dl, dk) << " (" << fmt(a.p->engine().travelDuration(), 2) << " s):";
+        for (double t = 3.0; t < 4.5; t += 0.1) std::cout << " " << fmt(toDb(a.rms(a.at(t), a.at(t + 0.1))));
+        std::cout << "\n";
+    }
+    return 0;
+}
+
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
     juce::String snapshot;
@@ -1252,6 +1301,8 @@ int main(int argc, char** argv) {
         else if (arg == "--only" && i + 1 < argc) only = juce::StringArray::fromTokens(argv[++i], ",", "");
         else if (arg == "--calibrate" && i + 1 < argc) return calibrate(argv[i + 1]);
         else if (arg == "--listen" && i + 1 < argc) return listen(argv[i + 1]);
+        else if (arg == "--signatures") return signatureCheck();
+        else if (arg == "--tail-debug") return tailDebug();
         else if (arg == "--render" && i + 2 < argc)
             return renderToFile(argv[i + 1], juce::String(argv[i + 2]).getIntValue(), i + 3 < argc ? juce::String(argv[i + 3]).getDoubleValue() : 8.0);
     }
