@@ -246,7 +246,7 @@ inline void stars(Plate& plate, juce::Rectangle<float> area, int count, std::uin
         const float s = 1.0f + 2.5f * noise2(static_cast<float>(k), static_cast<float>(k), seed + 2);
         juce::Path star; star.addEllipse(x - s * 0.5f, y - s * 0.5f, s, s);
         plate.fill(star, 1.0f, 0.0f);
-        if (s > 2.6f) { plate.glow({ x, y }, s * 5.0f, 0.12f); }
+        if (s > 2.6f) plate.light({ x, y }, s * 4.0f, 2);
     }
 }
 }

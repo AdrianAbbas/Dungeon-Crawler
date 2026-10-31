@@ -31,6 +31,14 @@ juce::Image SceneCache::get(SceneId id, int width, int height) {
     return {};
 }
 
+std::vector<LightSource> SceneCache::lights(SceneId id, int width, int height) const {
+    const juce::ScopedLock sl(lock);
+    const Key key { id, width, height };
+    for (const auto& e : entries)
+        if (e.key == key) return e.lights;
+    return {};
+}
+
 void SceneCache::request(SceneId id, int width, int height) {
     if (width <= 0 || height <= 0) return;
     const juce::ScopedLock sl(lock);
@@ -42,7 +50,7 @@ void SceneCache::request(SceneId id, int width, int height) {
     wake.signal();
 }
 
-juce::Image SceneCache::produce(const Key& key) const {
+juce::Image SceneCache::produce(const Key& key, std::vector<LightSource>& lights) const {
     const auto file = overrideFile(key.id);
     if (file.existsAsFile()) {
         // Drop-in art: scaled to cover the window (the aspect is the editor's).
@@ -52,16 +60,17 @@ juce::Image SceneCache::produce(const Key& key) const {
             juce::Graphics g(out);
             g.setImageResamplingQuality(juce::Graphics::highResamplingQuality);
             g.drawImage(image, out.getBounds().toFloat(), juce::RectanglePlacement::fillDestination);
-            return out;
+            return out;   // drop-in art has no animated lights
         }
     }
-    return renderScene(key.id, key.width, key.height, &closing);
+    return renderScene(key.id, key.width, key.height, &closing, &lights);
 }
 
 juce::Image SceneCache::renderNow(SceneId id, int width, int height) {
-    auto image = produce({ id, width, height });
+    std::vector<LightSource> found;
+    auto image = produce({ id, width, height }, found);
     const juce::ScopedLock sl(lock);
-    entries.push_back({ { id, width, height }, image, ++clock });
+    entries.push_back({ { id, width, height }, image, ++clock, std::move(found) });
     return image;
 }
 
@@ -74,11 +83,12 @@ void SceneCache::run() {
             if (!queue.empty()) { key = queue.front(); queue.pop_front(); have = true; }
         }
         if (!have) { wake.wait(500); continue; }
-        auto image = produce(key);
+        std::vector<LightSource> found;
+        auto image = produce(key, found);
         if (threadShouldExit() || image.isNull()) break;
         {
             const juce::ScopedLock sl(lock);
-            entries.push_back({ key, image, ++clock });
+            entries.push_back({ key, image, ++clock, std::move(found) });
             while (static_cast<int>(entries.size()) > capacity) {
                 auto oldest = std::min_element(entries.begin(), entries.end(), [](const Entry& a, const Entry& b) { return a.used < b.used; });
                 entries.erase(oldest);

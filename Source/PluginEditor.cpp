@@ -333,6 +333,7 @@ void DungeonCrawlerEditor::wakeTimer() {
 void DungeonCrawlerEditor::sceneReady() {
     // A scene finished rendering: show it (or start the transition that waited for it).
     timerCallback();
+    if (!transition.active && !pending) refreshLights();
     repaint();
 }
 
@@ -370,6 +371,7 @@ void DungeonCrawlerEditor::timerCallback() {
             transition.from = {};
             transition.to = {};
             layoutOverlays();
+            refreshLights();
         }
         repaint();
     }
@@ -382,7 +384,70 @@ void DungeonCrawlerEditor::timerCallback() {
         else pathTo = -1;
         repaint();
     }
+    // Life: at 15 fps, only the small regions around the lights are repainted.
+    if (view == View::Place && !transition.active && !pending && animateLife && !lights.empty()) {
+        busy = true;
+        if ((++lifeTick & 1) == 0)
+            for (const auto& l : lights) repaint(lifeArea(l));
+    }
     if (!busy) stopTimer();
+}
+
+void DungeonCrawlerEditor::refreshLights() {
+    const auto px = pixelSize();
+    lights = view == View::Place ? cache.lights(scene, px.x, px.y) : std::vector<dc::art::LightSource> {};
+    if (!lights.empty()) wakeTimer();
+}
+
+juce::Rectangle<int> DungeonCrawlerEditor::lifeArea(const dc::art::LightSource& l) const {
+    const float sx = static_cast<float>(getWidth()) / dc::art::virtualWidth;
+    const auto c = toLocal(l.position);
+    if (l.kind == 3) return juce::Rectangle<float>(static_cast<float>(getWidth()), 70.0f * sx).withCentre({ static_cast<float>(getWidth()) * 0.5f, c.y }).toNearestInt();
+    const float r = (l.kind == 2 ? 10.0f : l.radius * 1.15f) * sx;
+    return juce::Rectangle<float>(2 * r, 2 * r).withCentre(c).toNearestInt().expanded(2);
+}
+
+void DungeonCrawlerEditor::paintLife(juce::Graphics& g, double now) {
+    const float sx = static_cast<float>(getWidth()) / dc::art::virtualWidth;
+    const auto t = static_cast<float>(std::fmod(now, 1000.0));
+    const juce::Colour warm(0xffd06a2a), pale = colours::ivory;
+    int index = 0;
+    for (const auto& l : lights) {
+        const auto area = lifeArea(l);
+        ++index;
+        if (!g.clipRegionIntersects(area)) continue;
+        const auto c = toLocal(l.position);
+        const float n = dc::art::noise2(t * 7.0f, static_cast<float>(index) * 3.7f, 5) * 0.7f + dc::art::noise2(t * 2.1f, static_cast<float>(index), 9) * 0.3f;
+        switch (l.kind) {
+            case 0: case 1: {
+                const float r = l.radius * sx * (l.kind == 0 ? 1.05f : 0.9f);
+                const float alpha = (l.kind == 0 ? 0.05f : 0.035f) + (l.kind == 0 ? 0.12f : 0.07f) * n;
+                g.setGradientFill(juce::ColourGradient(warm.withAlpha(alpha), c, warm.withAlpha(0.0f), c.translated(r, 0), true));
+                g.fillEllipse(juce::Rectangle<float>(2 * r, 2 * r).withCentre(c));
+                break;
+            }
+            case 2: {
+                const float tw = std::pow(dc::art::noise2(t * 3.0f, static_cast<float>(index) * 5.3f, 13), 3.0f);
+                g.setColour(pale.withAlpha(0.15f + 0.7f * tw));
+                const float r = (2.0f + 3.0f * tw) * sx;
+                g.drawLine(c.x - r, c.y, c.x + r, c.y, 0.8f);
+                g.drawLine(c.x, c.y - r, c.x, c.y + r, 0.8f);
+                break;
+            }
+            case 3: {
+                // Fog: two soft pale banks drifting slowly across.
+                const float h = 50.0f * sx, w = static_cast<float>(getWidth());
+                for (int k = 0; k < 2; ++k) {
+                    const float x = std::fmod(t * (6.0f + 3.0f * static_cast<float>(k)) * sx + static_cast<float>(k) * w * 0.55f + static_cast<float>(index) * 97.0f, w * 1.6f) - w * 0.3f;
+                    const auto bank = juce::Rectangle<float>(w * 0.6f, h).withCentre({ x, c.y + (static_cast<float>(k) - 0.5f) * h * 0.3f });
+                    g.setGradientFill(juce::ColourGradient(pale.withAlpha(0.07f), bank.getCentre(), pale.withAlpha(0.0f), bank.getCentre().translated(bank.getWidth() * 0.5f, 0), true));
+                    g.fillEllipse(bank);
+                }
+                break;
+            }
+            default: break;
+        }
+    }
 }
 
 void DungeonCrawlerEditor::settleForTest() {
@@ -396,6 +461,7 @@ void DungeonCrawlerEditor::settleForTest() {
     transition.to = {};
     pathTo = -1;
     layoutOverlays();
+    refreshLights();
     stopTimer();
 }
 
@@ -537,6 +603,7 @@ void DungeonCrawlerEditor::paint(juce::Graphics& g) {
             g.drawText(scene.isMap() ? "engraving the map..." : "engraving...", getLocalBounds(), juce::Justification::centred);
         }
         if (view == View::Map && !pending) paintMapOverlay(g);
+        else if (view == View::Place && animateLife) paintLife(g, now);
     }
     // Breadcrumb plate.
     const auto crumbs = juce::Rectangle<float>(8, 8, static_cast<float>((placeCrumb.isVisible() ? placeCrumb.getX() + juce::roundToInt(juce::GlyphArrangement::getStringWidth(titleFont(18.0f), placeCrumb.getText())) + 14 : locationCrumb.getRight()) + 6 - 8), 40);

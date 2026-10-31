@@ -36,8 +36,13 @@ public:
     void fillAccent(const juce::Path&, float alpha = 1.0f);
     // Red ink strokes (the active place's marker, a path line).
     void strokeAccent(const juce::Path&, float thickness, float alpha = 1.0f);
-    // A soft warm glow (torchlight, candles) added over the finished engraving.
+    // A soft warm glow (torchlight, candles) added over the finished engraving. It is
+    // also recorded as a light (kind 0 flame) for the editor's animated life.
     void glow(juce::Point<float> centre, float radius, float strength);
+    // Records a light for the animation only: kind 1 candle, 2 water glint, 3 fog band.
+    void light(juce::Point<float> centre, float radius, int kind) { lights.push_back({ centre + offset, radius, kind }); }
+    struct Light { juce::Point<float> centre; float radius; int kind; };
+    const std::vector<Light>& recordedLights() const noexcept { return lights; }
 
     struct Style {
         juce::Colour paper { 0xff9a8e76 }, ink { 0xff15110e }, accent { 0xffa8262a }, glow { 0xffd06a2a };
@@ -57,6 +62,7 @@ private:
     juce::Image fields;   // R tone, G angle (0..180 deg), B accent
     juce::Image inkMask, accentMask;
     std::vector<Glow> glows;
+    std::vector<Light> lights;
 };
 
 // Small deterministic value noise (0..1), for wobbles and textures.

@@ -19,6 +19,8 @@ public:
     juce::Image get(SceneId, int width, int height);
     bool ready(SceneId, int width, int height) const;
     void request(SceneId, int width, int height);
+    // The scene's light sources (for the animated life), once its image is ready.
+    std::vector<LightSource> lights(SceneId, int width, int height) const;
     // Renders synchronously on the calling thread (tests and snapshots only).
     juce::Image renderNow(SceneId, int width, int height);
 
@@ -27,10 +29,10 @@ private:
         SceneId id; int width, height;
         bool operator==(const Key& o) const noexcept { return id == o.id && width == o.width && height == o.height; }
     };
-    struct Entry { Key key; juce::Image image; juce::uint32 used; };
+    struct Entry { Key key; juce::Image image; juce::uint32 used; std::vector<LightSource> lights; };
     void run() override;
     void handleAsyncUpdate() override;
-    juce::Image produce(const Key&) const;
+    juce::Image produce(const Key&, std::vector<LightSource>&) const;
     std::atomic<bool> closing { false };
 
     std::function<void()> onReady;

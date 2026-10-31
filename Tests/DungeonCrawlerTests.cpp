@@ -1209,6 +1209,27 @@ void testEditor(Suite& s, const juce::String& snapshot) {
     s.check(juce::roundToInt(p.parameters.getRawParameterValue(dc::ids::subLocation)->load()) == 2 && editor->shownScene().sub == 2,
             "a hotspot travels to its sub-location and the scene follows");
     snap("-place");
+    {
+        // The life: lights in the scene animate (timer) and repaint only small regions.
+        editor->locationButton(dc::Dungeon).onClick();
+        editor->settleForTest();
+        s.check(editor->lightCount() > 0, "the Dungeon's torches are lights for the animated life", std::to_string(editor->lightCount()));
+        editor->setAnimation(true);
+        s.check(editor->animating(), "the life animates (timer runs) in a scene with lights");
+        const auto begin = std::chrono::steady_clock::now();
+        for (int k = 0; k < 10; ++k) auto image = editor->createComponentSnapshot(editor->getLocalBounds(), true, 1.0f);
+        const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - begin).count() / 10.0;
+        s.metric("full repaint of a scene with its life", ms, " ms");
+        s.check(ms < 33.0, "a full repaint with the life fits in a 30 fps frame", fmt(ms) + " ms");
+        editor->setAnimation(false);
+        editor->settleForTest();
+        s.check(!editor->animating(), "with the animation off the timer stops");
+        editor->setAnimation(true);
+        editor->locationButton(dc::Castle).onClick();
+        editor->settleForTest();
+        editor->hotspotButton(2).onClick();
+        editor->settleForTest();
+    }
     editor->mapButton().onClick();
     editor->settleForTest();
     s.check(editor->showingMap() && juce::roundToInt(p.parameters.getRawParameterValue(dc::ids::location)->load()) == dc::Castle,
@@ -1264,6 +1285,51 @@ void testEditor(Suite& s, const juce::String& snapshot) {
         juce::PNGImageFormat().writeImageToStream(image, stream);
         std::cout << "snapshot written to " << file.getFullPathName() << "\n";
     }
+}
+
+// Milestone 8: every place has its own illustration, distinct from every other, with
+// lights for the animated life where it has flames, water or fog.
+void testArt(Suite& s) {
+    s.section("art: the map and an illustration for every place");
+    std::vector<juce::Image> images;
+    int illustrated = 0, withLights = 0;
+    const auto start = std::chrono::steady_clock::now();
+    for (const auto& [l, k] : allPlaces()) {
+        const dc::art::SceneId id { l, k };
+        illustrated += dc::art::hasIllustration(id) ? 1 : 0;
+        std::vector<dc::art::LightSource> lights;
+        images.push_back(dc::art::renderScene(id, 192, 112, nullptr, &lights));
+        withLights += lights.empty() ? 0 : 1;
+    }
+    const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count() / 40.0;
+    s.check(illustrated == 40, "all 40 places have their own illustration", std::to_string(illustrated));
+    s.metric("places with animated lights (flames, glints, fog)", withLights);
+    s.check(withLights >= 30, "most places have something alive (lights, glints or fog)", std::to_string(withLights));
+    s.metric("scene render at 192 x 112 (mean)", ms, " ms");
+    // Distinct pictures: the correlation of the grey levels of every pair (structure, not
+    // brightness: two dark interiors may be equally dark).
+    const auto grey = [](const juce::Image& im, int x, int y) { const auto c = im.getPixelAt(x, y); return (c.getRed() + c.getGreen() + c.getBlue()) / 3.0; };
+    std::vector<std::vector<double>> pixels;
+    for (const auto& im : images) {
+        std::vector<double> v;
+        for (int y = 0; y < 112; y += 2) for (int x = 0; x < 192; x += 2) v.push_back(grey(im, x, y));
+        double mean = 0; for (double p : v) mean += p / static_cast<double>(v.size());
+        double norm = 0; for (double& p : v) { p -= mean; norm += p * p; }
+        norm = std::sqrt(std::max(1e-9, norm)); for (double& p : v) p /= norm;
+        pixels.push_back(v);
+    }
+    double highest = -1;
+    std::string pair;
+    for (std::size_t a = 0; a < pixels.size(); ++a)
+        for (std::size_t b = a + 1; b < pixels.size(); ++b) {
+            double r = 0;
+            for (std::size_t i = 0; i < pixels[a].size(); ++i) r += pixels[a][i] * pixels[b][i];
+            if (r > highest) { highest = r; pair = placeName(allPlaces()[a].first, allPlaces()[a].second) + " / " + placeName(allPlaces()[b].first, allPlaces()[b].second); }
+        }
+    s.metric("most similar pair of illustrations (" + pair + ")", highest, " correlation");
+    s.check(highest < 0.85, "every illustration differs from every other (correlation < 0.85)", fmt(highest, 2));
+    const auto map = dc::art::renderScene({ -1, 0 }, 192, 112);
+    s.check(map.isValid(), "the map renders");
 }
 
 int renderToFile(const juce::String& path, int location, double seconds) {
@@ -1381,6 +1447,7 @@ int main(int argc, char** argv) {
     if (run("extremes")) testExtremes(s);
     if (run("realtime")) testRealtime(s);
     if (run("editor")) testEditor(s, snapshot);
+    if (run("art")) testArt(s);
     if (only.contains("cpu")) testCpu(s);   // report only: run explicitly
     std::cout << "\n" << s.passed << " passed, " << s.failed << " failed" << std::endl;
     return s.failed == 0 ? 0 : 1;

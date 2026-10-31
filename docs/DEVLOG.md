@@ -48,10 +48,10 @@ without after each milestone. Resume from the first unticked item.
 - [x] 7b. The engraved map: landmarks, compass rose, cartouche, parchment; hover names, current place marked, travel path line
 - [x] 7c. Map ↔ location transitions (zoom/fade), double-buffered; drop-in override folder; `docs/ART_SOURCES.md`
 - [x] 7d. Snapshots, tests, DEVLOG; push without `[skip ci]` (Milestone 7 build)
-- [ ] 8a. Scenes for all 10 locations (their own scene)
-- [ ] 8b. Scenes for all 30 sub-locations
-- [ ] 8c. Clickable points of interest + compact list, breadcrumb/back; subtle life (torch glow, fog, candles, water glints), cached, ≤ 30 fps
-- [ ] 8d. Snapshots of every scene, tests, DEVLOG; push without `[skip ci]` (Milestone 8 build)
+- [x] 8a. Scenes for all 10 locations (their own scene)
+- [x] 8b. Scenes for all 30 sub-locations
+- [x] 8c. Clickable points of interest + compact list, breadcrumb/back; subtle life (torch glow, fog, candles, water glints), cached, ≤ 30 fps
+- [x] 8d. Snapshots of every scene, tests, DEVLOG; push without `[skip ci]` (Milestone 8 build)
 - [ ] 9a. Journey path: route of places over bars per stop, loop/one-way, tempo-synced, automatable
 - [ ] 9b. Roam mode: rate, randomness, seed; deterministic
 - [ ] 9c. MIDI travel (optional), host support documented; Travel Time in seconds or bars; tests
@@ -823,3 +823,43 @@ hotspots and the list appear; a hotspot travels to its sub-location and the scen
 follows; the breadcrumb returns to the map without moving the sound; full repaints
 of the map and a scene within a 30 fps frame. `DungeonCrawlerTests --art <dir> [width]`
 renders the map and every scene to PNG.
+
+---
+
+## Milestone 8: location and sub-location scenes (2026-10-31)
+
+All 40 places have a full-window engraved illustration
+(`Source/UI/ScenePlaces.cpp`), composed from the motifs over three set-ups: an
+**interior** in one-point perspective (walls, floor joints, optional vault ribs),
+an **exterior** under an engraved sky, or a **cave** framed by rough rock. New props:
+iron bars, chests, gold piles with glints, banners (red device), windows, tables,
+barrels, bookshelves, flasks, cauldrons, stairs, skulls, crows, tombstones,
+sarcophagi, cottages, crystals, a sleeping dragon, the lair's horned silhouette.
+Lighting rule: lit stone stays in the mid tones (0.45–0.8) so the hatching reads; only
+deep shadows go below 0.2 (first renders of the Underground Lake and the Dragon's
+Hoard were too dark and were lightened).
+
+Contact sheet: [snapshots/m8-contact-sheet.jpg](snapshots/m8-contact-sheet.jpg);
+every scene: [snapshots/scenes/](snapshots/scenes/); in the editor:
+[snapshots/m8-editor-place.jpg](snapshots/m8-editor-place.jpg).
+
+- **Points of interest:** each location has a fixed set of hotspot positions (the
+  door, stair or feature of each of its places) shown in all its scenes; the compact
+  list top right and the breadcrumb (Milestone 7) complete the navigation.
+- **Subtle life:** every glow drawn into a scene (torches, candles, fires, braziers,
+  lanterns) is recorded as a light, and scenes mark water and gold glints, stars and
+  fog banks. The editor draws them as overlays: torches and candles flicker (warm
+  radial glow, noise-driven), glints twinkle, fog banks drift slowly. 15 fps, and only
+  the small regions around the lights are repainted (fog: its band); a full repaint
+  with the life is 4.7 ms in software. 36 of the 40 places have something alive. The
+  lights are found while the scene is rendered on the worker thread, never on the
+  message thread.
+
+### Tests
+
+- New group `art`: all 40 places have their own illustration; at least 30 have
+  animated lights (36); every pair of illustrations differs (grey-level correlation
+  < 0.85; the most similar pair, Chapel and Bell Tower, 0.76); the map renders. Mean
+  render 5 ms at 192 × 112.
+- Editor: the Dungeon's torches are lights; the life runs the timer; a full repaint
+  with the life fits a 30 fps frame (4.7 ms); with the animation off the timer stops.

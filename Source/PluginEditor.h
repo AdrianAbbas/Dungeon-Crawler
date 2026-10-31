@@ -36,6 +36,8 @@ public:
     bool showingMap() const noexcept { return view == View::Map && !transition.active; }
     dc::art::SceneId shownScene() const noexcept { return scene; }
     bool animating() const noexcept { return isTimerRunning(); }
+    int lightCount() const noexcept { return static_cast<int>(lights.size()); }
+    void setAnimation(bool on) { animateLife = on; wakeTimer(); }
     // Tests and snapshots: render the pending scenes on this thread and finish any
     // transition at once.
     void settleForTest();
@@ -104,6 +106,10 @@ private:
     juce::Rectangle<float> controlsArea() const;
     void paintMapOverlay(juce::Graphics&);
     void paintTransition(juce::Graphics&, double now);
+    // Subtle life: flickering torches and candles, twinkling glints, drifting fog.
+    void paintLife(juce::Graphics&, double now);
+    juce::Rectangle<int> lifeArea(const dc::art::LightSource&) const;
+    void refreshLights();
 
     DungeonCrawlerProcessor& processor;
     dc::ui::EngravedLookAndFeel look;
@@ -121,6 +127,9 @@ private:
     int pathFrom = -1, pathTo = -1;
     double pathEnded = 0;
     int hovered = -1;
+    std::vector<dc::art::LightSource> lights;
+    bool animateLife = true;
+    int lifeTick = 0;
 
     std::array<std::unique_ptr<LandmarkButton>, dc::LocationCount> landmarks;
     std::array<std::unique_ptr<HotspotButton>, dc::placesPerLocation> hotspots;

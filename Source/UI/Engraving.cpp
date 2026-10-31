@@ -97,7 +97,10 @@ void Plate::strokeAccent(const juce::Path& path, float thickness, float alpha) {
     g.strokePath(path, juce::PathStrokeType(thickness, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 }
 
-void Plate::glow(juce::Point<float> centre, float radius, float strength) { glows.push_back({ centre + offset, radius, strength }); }
+void Plate::glow(juce::Point<float> centre, float radius, float strength) {
+    glows.push_back({ centre + offset, radius, strength });
+    lights.push_back({ centre + offset, radius, radius < 32.0f ? 1 : 0 });
+}
 
 juce::Image Plate::render(const Style& style, const std::atomic<bool>* abort) const {
     juce::Image out(juce::Image::RGB, w, h, false, juce::SoftwareImageType());

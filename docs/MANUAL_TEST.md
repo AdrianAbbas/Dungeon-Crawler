@@ -106,3 +106,38 @@ synth track, walk through all 40 places (location list, then each place) and lis
       no jump in loudness; the old place's echoes ring out instead of stopping.
 - [ ] Advanced drawer: the new "Signature" group (Signature, Amount, Tone, Rate) changes
       the signature; Amount −100 % removes it.
+
+## M7 + M8: the engraved map and the scenes
+
+Open the plug-in window (GarageBand: double-click the DUNGEON CRAWLER slot; the view
+menu must say "Editor", not "Controls").
+
+- [ ] It opens on a **full-window engraved map**: hatched mountains with snow, the sea
+      on the left with hatched coastline, a river, woods, dotted roads, a compass rose,
+      a cartouche with the title (red "D"). The art appears within about a second
+      ("engraving the map..." shows until then).
+- [ ] The current location has a **red ring** on the map. Hovering a landmark rings it
+      and shows its name and how many places it has.
+- [ ] Click another landmark: a **red dashed path** draws from where you were (as fast
+      as the sound travels), then the view **zooms into** the place.
+- [ ] Inside: a full-window illustration of the place, **rings** for its other places
+      (red = where you are; names on hover), the **list** top right, and the
+      **breadcrumb** top left (‹ Map · Location › Place).
+- [ ] Clicking a ring or a list entry travels there; the picture **crossfades** to the
+      new place. "‹ Map" zooms back out without changing the sound; the location name
+      travels back to the location's own scene.
+- [ ] Every one of the 40 places has its own picture (e.g. Treasure Room: gold piles,
+      chests, a crown; Final Boss Lair: a horned silhouette with red eyes on a throne of
+      skulls; Bell Tower: the great bell; Witch's Hut: the crooked hut and cauldron;
+      Observatory: the telescope under the starry slit).
+- [ ] **Subtle life:** torches and candles flicker, gold, water and stars glint, fog
+      drifts in the forest, swamp and graveyard. It is gentle, never distracting.
+- [ ] No flicker, no half-drawn frames, no freeze while clicking around quickly; the
+      MacBook Air stays cool with the window open (Activity Monitor: GarageBand's CPU
+      should not rise noticeably because of the window).
+- [ ] The ▾ button (above the controls, right) hides the controls strip to show the
+      whole picture; ▴ brings it back.
+- [ ] Automating Location/Sub-location while the window is open: on the map the ring
+      and path follow; inside a location the picture follows.
+- [ ] Optional: put your own PNG in `~/Library/Application Support/DungeonCrawler/scenes/`
+      (see [ART_SOURCES.md](ART_SOURCES.md)), reopen the window: it replaces that scene.
