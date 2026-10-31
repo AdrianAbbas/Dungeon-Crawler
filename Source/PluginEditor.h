@@ -1,14 +1,21 @@
 #pragma once
-// Milestone 1 editor (simple, before the map of Milestone 3): the ten locations as a
-// list, the current location's sub-locations, its themed macros, the main faders,
-// Travel Time and Sync, Bypass, and the Advanced drawer (every module parameter as an
-// offset or override, hidden by default). The background is drawn once per size into
-// a cached image; there is no timer, so nothing repaints unless a control changes.
+// The editor (Milestones 7 and 8): a full-window engraved map as the home screen and a
+// full-window illustration for every place. Clicking a landmark travels there (the
+// path is drawn in red) and zooms into the place; inside, the sub-locations are doors
+// and points of interest (hotspots) and a compact list; a breadcrumb leads back.
+// The controls float over the art in a strip that can be hidden; the Advanced drawer
+// covers the art when open.
+//
+// Drawing rules (brief, Direction Update 1): every scene is rendered off the message
+// thread (art::SceneCache) and only blitted here; transitions start when the target
+// image is ready (no stale frames) and run on a 30 fps timer that stops when nothing
+// moves; the subtle life (torches, candles, fog, glints) repaints only small regions.
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
 #include "UI/EngravedLookAndFeel.h"
+#include "UI/SceneCache.h"
 
-class DungeonCrawlerEditor final : public juce::AudioProcessorEditor {
+class DungeonCrawlerEditor final : public juce::AudioProcessorEditor, private juce::Timer {
 public:
     static constexpr int defaultWidth = 960, defaultHeight = 560;
     explicit DungeonCrawlerEditor(DungeonCrawlerProcessor&);
@@ -17,18 +24,42 @@ public:
     void resized() override;
     int shownLocation() const noexcept { return shown; }
     int shownSubLocation() const noexcept { return shownSub; }
-    juce::Button& locationButton(int index) { return *places[static_cast<std::size_t>(index)]; }
+    juce::Button& locationButton(int index) { return *landmarks[static_cast<std::size_t>(index)]; }
     juce::Button& subLocationButton(int index) { return *subs[static_cast<std::size_t>(index)]; }
+    juce::Button& hotspotButton(int index) { return *hotspots[static_cast<std::size_t>(index)]; }
     juce::Button& advancedButton() { return advancedToggle; }
+    juce::Button& mapButton() { return mapCrumb; }
     juce::String macroLabel(int index) const { return macros[static_cast<std::size_t>(index)].label.getText(); }
     bool macroVisible(int index) const { return macros[static_cast<std::size_t>(index)].slider.isVisible(); }
     bool advancedOpen() const { return drawer.isVisible(); }
+    // The view: the map, or a place's scene.
+    bool showingMap() const noexcept { return view == View::Map && !transition.active; }
+    dc::art::SceneId shownScene() const noexcept { return scene; }
+    bool animating() const noexcept { return isTimerRunning(); }
+    // Tests and snapshots: render the pending scenes on this thread and finish any
+    // transition at once.
+    void settleForTest();
 
 private:
+    enum class View { Map, Place };
     struct Fader {
         juce::Slider slider { juce::Slider::LinearVertical, juce::Slider::TextBoxBelow };
         juce::Label label;
         std::unique_ptr<juce::SliderParameterAttachment> attachment;
+    };
+    // A landmark on the map: an invisible button over the engraved landmark that rings
+    // when hovered.
+    class LandmarkButton final : public juce::Button {
+    public:
+        LandmarkButton(const juce::String& name) : juce::Button(name) {}
+        void paintButton(juce::Graphics&, bool highlighted, bool down) override;
+    };
+    // A point of interest inside a scene: a small engraved ring, red for the place you
+    // are in, its name on hover.
+    class HotspotButton final : public juce::Button {
+    public:
+        HotspotButton() : juce::Button({}) {}
+        void paintButton(juce::Graphics&, bool highlighted, bool down) override;
     };
     // The Advanced drawer: one row per module parameter, grouped by module.
     class Drawer final : public juce::Component {
@@ -51,27 +82,62 @@ private:
         std::vector<std::unique_ptr<juce::Label>> headings;
         juce::Label hint;
     };
+    struct Transition {
+        bool active = false;
+        int kind = 0;                  // 0 crossfade, 1 zoom into a landmark, 2 zoom out to the map
+        juce::Image from, to;
+        double start = 0, length = 0.45;
+        juce::Point<float> focus;      // virtual coordinates of the landmark
+    };
+
     void setUpFader(Fader&, const juce::String& id, const juce::String& name);
     void showLocation(int index);
     void showSubLocation(int index);
-    void renderBackground();
+    void goTo(View, dc::art::SceneId, int kind);
+    void layoutOverlays();
+    void updateCrumbs();
+    void timerCallback() override;
+    void sceneReady();
+    void wakeTimer();
+    juce::Point<int> pixelSize() const;
+    juce::Point<float> toLocal(juce::Point<float> virtualPoint) const;
+    juce::Rectangle<float> controlsArea() const;
+    void paintMapOverlay(juce::Graphics&);
+    void paintTransition(juce::Graphics&, double now);
 
     DungeonCrawlerProcessor& processor;
     dc::ui::EngravedLookAndFeel look;
-    juce::Image background;
-    std::array<std::unique_ptr<juce::TextButton>, dc::LocationCount> places;
+    dc::art::SceneCache cache;
+    View view = View::Map;
+    dc::art::SceneId scene { -1, 0 };
+    // A requested change of view that waits for its image.
+    bool pending = false;
+    View pendingView = View::Map;
+    dc::art::SceneId pendingScene;
+    int pendingKind = 0;
+    double zoomAt = 0;                 // after clicking a landmark: when to zoom in
+    Transition transition;
+    // The travel path on the map.
+    int pathFrom = -1, pathTo = -1;
+    double pathEnded = 0;
+    int hovered = -1;
+
+    std::array<std::unique_ptr<LandmarkButton>, dc::LocationCount> landmarks;
+    std::array<std::unique_ptr<HotspotButton>, dc::placesPerLocation> hotspots;
     std::array<std::unique_ptr<juce::TextButton>, dc::placesPerLocation> subs;
+    juce::TextButton mapCrumb { juce::String::fromUTF8("\xe2\x80\xb9  Map") }, locationCrumb;
+    juce::Label placeCrumb;
     std::unique_ptr<juce::ParameterAttachment> locationAttachment, subLocationAttachment;
     std::array<Fader, dc::macroCount> macros;
     Fader input, intensity, mix, output;
     juce::Slider travelTime { juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight };
-    juce::Label travelLabel;
+    juce::Label travelLabel, macroHeading;
     juce::ComboBox travelSync;
     std::unique_ptr<juce::SliderParameterAttachment> travelTimeAttachment;
     std::unique_ptr<juce::ComboBoxParameterAttachment> travelSyncAttachment;
-    juce::TextButton bypass { "Bypass" }, advancedToggle { "Advanced" };
+    juce::TextButton bypass { "Bypass" }, advancedToggle { "Advanced" }, controlsToggle;
     std::unique_ptr<juce::ButtonParameterAttachment> bypassAttachment;
-    juce::Label placeName, macroHeading;
+    bool controlsShown = true;
     Drawer drawer;
     int shown = -1, shownSub = -1;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DungeonCrawlerEditor)

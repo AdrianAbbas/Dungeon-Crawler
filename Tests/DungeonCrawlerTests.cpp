@@ -7,6 +7,7 @@
 //   DungeonCrawlerTests --listen dir         listening renders: guitar + synth phrase through every place
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
+#include "UI/Scenes.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_dsp/juce_dsp.h>
 #include <chrono>
@@ -1178,6 +1179,42 @@ void testEditor(Suite& s, const juce::String& snapshot) {
     if (!s.check(editor != nullptr, "editor is created")) return;
     s.check(editor->getWidth() == DungeonCrawlerEditor::defaultWidth && editor->getHeight() == DungeonCrawlerEditor::defaultHeight, "editor has its size");
     s.check(editor->shownLocation() == dc::Dungeon && editor->locationButton(dc::Dungeon).getToggleState(), "the Dungeon is marked at start");
+    // Milestone 7: the map is the home screen; a landmark zooms into its place.
+    editor->settleForTest();
+    s.check(editor->showingMap() && editor->locationButton(dc::Castle).isVisible(), "the editor opens on the map, landmarks clickable");
+    s.check(!editor->animating(), "nothing animates (no timer) while the map is still");
+    const auto snap = [&](const char* suffix) {
+        if (snapshot.isEmpty()) return;
+        auto image = editor->createComponentSnapshot(editor->getLocalBounds(), true, 1.0f);
+        juce::File file(juce::File(snapshot).getSiblingFile(juce::File(snapshot).getFileNameWithoutExtension() + suffix + ".png"));
+        file.deleteFile();
+        juce::FileOutputStream stream(file);
+        juce::PNGImageFormat().writeImageToStream(image, stream);
+    };
+    snap("-map");
+    {
+        const auto begin = std::chrono::steady_clock::now();
+        for (int k = 0; k < 10; ++k) auto image = editor->createComponentSnapshot(editor->getLocalBounds(), true, 1.0f);
+        const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - begin).count() / 10.0;
+        s.metric("full repaint of the map (software)", ms, " ms");
+        s.check(ms < 33.0, "a full repaint of the map fits in a 30 fps frame", fmt(ms) + " ms");
+    }
+    editor->locationButton(dc::Castle).onClick();
+    s.check(!editor->showingMap() || editor->animating(), "clicking a landmark starts the journey (path, then zoom)");
+    editor->settleForTest();
+    s.check(!editor->showingMap() && editor->shownScene().location == dc::Castle && editor->shownScene().sub == 0, "then shows the Castle's own scene");
+    s.check(editor->hotspotButton(1).isVisible() && editor->subLocationButton(1).isVisible(), "the scene shows its sub-locations (hotspots and list)");
+    editor->hotspotButton(2).onClick();
+    editor->settleForTest();
+    s.check(juce::roundToInt(p.parameters.getRawParameterValue(dc::ids::subLocation)->load()) == 2 && editor->shownScene().sub == 2,
+            "a hotspot travels to its sub-location and the scene follows");
+    snap("-place");
+    editor->mapButton().onClick();
+    editor->settleForTest();
+    s.check(editor->showingMap() && juce::roundToInt(p.parameters.getRawParameterValue(dc::ids::location)->load()) == dc::Castle,
+            "the breadcrumb returns to the map without moving the sound");
+    editor->locationButton(dc::Dungeon).onClick();
+    editor->settleForTest();
     editor->locationButton(dc::Mountains).onClick();   // what a click runs (triggerClick is asynchronous)
     s.check(juce::roundToInt(p.parameters.getRawParameterValue(dc::ids::location)->load()) == dc::Mountains, "clicking a place sets Location");
     p.parameters.getParameter(dc::ids::location)->setValueNotifyingHost(p.parameters.getParameter(dc::ids::location)->convertTo0to1(dc::Necropolis));
@@ -1290,6 +1327,27 @@ int tailDebug() {
     return 0;
 }
 
+// Renders the map and every place's scene to PNG files (art review, docs/snapshots).
+int renderArt(const juce::String& directory, int width) {
+    juce::File dir(directory);
+    dir.createDirectory();
+    std::vector<dc::art::SceneId> ids { { -1, 0 } };
+    for (const auto& [l, k] : allPlaces()) ids.push_back({ l, k });
+    int failures = 0;
+    for (const auto& id : ids) {
+        const auto start = juce::Time::getMillisecondCounterHiRes();
+        const auto image = dc::art::renderScene(id, width, width * 560 / 960);
+        const auto ms = juce::Time::getMillisecondCounterHiRes() - start;
+        const auto file = dir.getChildFile(dc::art::sceneSlug(id).replaceCharacter('/', '-') + ".png");
+        file.deleteFile();
+        juce::FileOutputStream stream(file);
+        juce::PNGImageFormat png;
+        if (!stream.openedOk() || !png.writeImageToStream(image, stream)) ++failures;
+        std::cout << file.getFileName() << ": " << juce::String(ms, 0) << " ms\n";
+    }
+    return failures == 0 ? 0 : 1;
+}
+
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
     juce::String snapshot;
@@ -1301,6 +1359,7 @@ int main(int argc, char** argv) {
         else if (arg == "--calibrate" && i + 1 < argc) return calibrate(argv[i + 1]);
         else if (arg == "--listen" && i + 1 < argc) return listen(argv[i + 1]);
         else if (arg == "--signatures") return signatureCheck();
+        else if (arg == "--art" && i + 1 < argc) return renderArt(argv[i + 1], i + 2 < argc ? juce::String(argv[i + 2]).getIntValue() : 960);
         else if (arg == "--tail-debug") return tailDebug();
         else if (arg == "--render" && i + 2 < argc)
             return renderToFile(argv[i + 1], juce::String(argv[i + 2]).getIntValue(), i + 3 < argc ? juce::String(argv[i + 3]).getDoubleValue() : 8.0);

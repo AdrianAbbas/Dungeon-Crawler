@@ -53,7 +53,7 @@ target_sources(DungeonCrawler PRIVATE
     Source/DSP/Abyss.cpp Source/DSP/AncientBlood.cpp Source/DSP/Choir.cpp
     Source/DSP/Wraith.cpp Source/DSP/Echoes.cpp Source/DSP/Crypt.cpp
     Source/DSP/Relics.cpp Source/DSP/Signature.cpp Source/World/Locations.cpp
-    Source/UI/EngravedLookAndFeel.cpp)
+    Source/UI/EngravedLookAndFeel.cpp Source/UI/Engraving.cpp Source/UI/Scenes.cpp Source/UI/ScenePlaces.cpp Source/UI/SceneCache.cpp)
 target_include_directories(DungeonCrawler PUBLIC Source)
 target_compile_definitions(DungeonCrawler PUBLIC
     JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0

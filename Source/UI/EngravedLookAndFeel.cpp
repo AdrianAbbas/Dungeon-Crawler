@@ -44,7 +44,7 @@ void EngravedLookAndFeel::drawLinearSlider(juce::Graphics& g, int x, int y, int 
         return;
     }
     const auto area = juce::Rectangle<int>(x, y, width, height).toFloat();
-    const float trackWidth = 6.0f, capWidth = juce::jmin(46.0f, area.getWidth() - 4.0f), capHeight = 16.0f;
+    const float trackWidth = 4.0f, capWidth = juce::jmin(30.0f, area.getWidth() - 4.0f), capHeight = 13.0f;
     const float cx = area.getCentreX();
     const auto track = juce::Rectangle<float>(cx - trackWidth * 0.5f, area.getY() + capHeight * 0.5f, trackWidth,
                                               area.getHeight() - capHeight);
