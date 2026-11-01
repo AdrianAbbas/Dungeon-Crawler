@@ -1,10 +1,22 @@
 # DUNGEON CRAWLER
 
-A dark-fantasy **audio effect** for macOS (AU and VST3; GarageBand and Logic Pro). A
-painted map of a dark realm under a red moon is its interface: choose a place and
-whatever runs through the plug-in (guitar, synth, piano, voice) sounds as if it were
-played *there*. Travelling between places morphs the sound smoothly, and the window
-zooms into an illustration of where you are.
+Two dark-fantasy plug-ins for macOS (AU and VST3; GarageBand and Logic Pro), built from
+this one repository. A painted map of a dark realm under a red moon is their interface.
+
+- **DUNGEON CRAWLER** (the instrument, `aumu`/`Dgci`): a software instrument played from
+  MIDI (a keyboard or the piano roll). **Every place has its own instrument**, played
+  inside that place's space and effects: a contrabass pizzicato in the Dungeon's
+  corridors, a lute in the Castle courtyard, church bells in the bell tower, a water
+  kalimba by the underground lake, a ghost violin in the graveyard, a celestial pad in
+  the observatory… Choosing a place chooses its instrument and its space together;
+  **Lock instrument** keeps the instrument while you travel (the Tavern's guitar in the
+  Final Boss Lair).
+- **DUNGEON CRAWLER FX** (the effect, `aufx`/`Dgcr`): the location effect, exactly as
+  before: whatever runs through it (guitar, synth, piano, voice) sounds as if it were
+  played *there*. Its Audio Unit codes and parameters are unchanged, so projects that
+  used the effect (when it was called DUNGEON CRAWLER) keep working.
+
+Both share:
 
 - **10 locations, 40 places:** Dungeon, Castle, Cathedral, Haunted Forest, Caverns,
   Village, Swamp, Mountains, Necropolis, Wizard's Tower, each with its own scene and
@@ -25,9 +37,10 @@ zooms into an illustration of where you are.
   rise, windows flicker, the moon's glow breathes. Your own art can replace any scene
   ([docs/ART_SOURCES.md](docs/ART_SOURCES.md)).
 
-Status: Milestones 0–12 of [docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md) and
-[docs/DIRECTION_UPDATE_1.md](docs/DIRECTION_UPDATE_1.md); development log and decisions
-in [docs/DEVLOG.md](docs/DEVLOG.md).
+Status: the brief ([docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md)) and Direction Updates
+[1](docs/DIRECTION_UPDATE_1.md), [2](docs/DIRECTION_UPDATE_2.md) and
+[3](docs/DIRECTION_UPDATE_3.md) (the instrument edition); development log and decisions in
+[docs/DEVLOG.md](docs/DEVLOG.md).
 
 ## Install (macOS 10.15+, Apple Silicon and Intel)
 
@@ -35,7 +48,12 @@ in [docs/DEVLOG.md](docs/DEVLOG.md).
    [CI run](../../actions/workflows/build.yml) (Artifacts) and unzip it.
 2. Quit GarageBand and Logic. In Terminal type `bash ` (with a space), drag
    `install-mac.sh` from the unzipped folder into the window and press Return.
-3. Wait for "DUNGEON CRAWLER is installed and validated."
+3. Wait for "DUNGEON CRAWLER and DUNGEON CRAWLER FX are installed and validated."
+
+The package holds both plug-ins (`DungeonCrawler.component` / `.vst3`, the instrument;
+`DungeonCrawlerFX.component` / `.vst3`, the effect); the script installs and validates
+both. An older install's `DungeonCrawler.component` was the effect: it is replaced by the
+instrument, and the effect comes back as `DungeonCrawlerFX.component` with the same codes.
 
 The script is needed because the build is not signed with an Apple Developer ID: it
 removes the browser's quarantine flag, re-signs for your Mac, refreshes the Audio Unit
@@ -52,12 +70,38 @@ reversed swells, caverns with far echoes and coin glints, small warm rooms). Lev
 matched between places. The places the developer liked are unchanged or changed only as
 noted ([docs/DEVLOG.md](docs/DEVLOG.md), Session 6).
 
-## Using it
+## The instrument (DUNGEON CRAWLER)
+
+**GarageBand:** make a Software Instrument track; in its instrument slot (Smart Controls
+(B) → Plug-ins, or the Library) choose Audio Units → Veil Audio → DUNGEON CRAWLER.
+**Logic Pro:** a Software Instrument track's Instrument slot → AU Instruments → Veil
+Audio → DUNGEON CRAWLER. Play your MIDI keyboard or the piano roll.
+
+- The map and the places work as in the effect: **choosing a place chooses its
+  instrument and its space**. A note held while you travel keeps sounding (the space
+  morphs around it; the next note plays the new place's instrument).
+- **Instrument** (in the controls, where the effect has Input) slides up the instrument
+  panel: the instrument's name and place, **Lock instrument**, a chooser for any of the
+  forty (choosing one locks it), its five macros (Tone, Attack, Release, Body and its own
+  signature control; their names follow the instrument: Pluck, Strike, Ring, Glint,
+  Course…), **Intensity** (how strongly the place's effects apply) and **Space** (the
+  place against the dry instrument), the pitch-bend range, the wheels and the pedal as
+  they arrive, and an on-screen keyboard that lights up with the notes (click it to
+  play).
+- Playing: velocity (level and tone), sustain pedal, pitch bend (±2 semitones by
+  default), the mod wheel (vibrato, brightness, tremulant, swell or growl, as fits the
+  instrument; the panel says which), up to 4–12 notes at once depending on the
+  instrument, click-free voice stealing.
+- Intensity 0 % plays the instrument dry; Bypass too.
+- Without MIDI the instrument is silent. MIDI travel (an effect feature) is off in the
+  instrument: its notes are the music.
+
+## The effect (DUNGEON CRAWLER FX)
 
 **GarageBand:** select a track → Smart Controls (B) → Plug-ins → an empty Audio Effect
-slot → Audio Units → Veil Audio → DUNGEON CRAWLER. Double-click the slot to open the
+slot → Audio Units → Veil Audio → DUNGEON CRAWLER FX. Double-click the slot to open the
 window (if you see plain sliders, switch the window's view menu from "Controls" to
-"Editor"). **Logic Pro:** an Audio FX slot → Audio Units → Veil Audio → DUNGEON CRAWLER.
+"Editor"). **Logic Pro:** an Audio FX slot → Audio Units → Veil Audio → DUNGEON CRAWLER FX.
 
 1. The window opens on the **map**. Hover a landmark to see its name; click it: a red
    path shows the journey and the view zooms into the place.
@@ -134,18 +178,28 @@ Manual test checklist: [docs/MANUAL_TEST.md](docs/MANUAL_TEST.md).
 
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release   # fetches JUCE 8.0.16, or pass -DJUCE_PATH=...
-cmake --build build --parallel
+#   add -DDC_SAMPLES_DIR=build/samples after preparing the developer's recordings:
+#   python3 tools/sample-prep/prepare.py --source ../Samples --out build/samples
+cmake --build build --parallel                   # both plug-ins: DungeonCrawler (instrument), DungeonCrawlerFX (effect)
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests            # the test suite
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --calibrate Source/World/LevelTrims.h   # after sound changes
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen build/listening               # WAV renders of every place
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --art build/art 960                   # PNG of the map and every scene
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --signatures                          # how much each signature changes its place
+build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --calibrate-instruments Source/Instrument/Trims.h   # the instruments' level trims
+build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-instruments build/instruments   # one melody on every instrument
 ```
 
-On macOS this builds a universal (arm64 + x86_64) AU, VST3 and Standalone. CI
-(`.github/workflows/build.yml`) builds, runs the full test suite, validates with
-`auval` and an AU host harness (in- and out-of-process, arm64 and x86_64), packages,
-and renders the listening WAVs.
+The instrument's sampled instruments use the developer's recordings (the private
+`AdrianAbbas/Samples` repository, prepared by `tools/sample-prep`); CI fetches them with the
+`SAMPLES_TOKEN` secret. They are never committed here; without them those instruments
+play synthesised stand-ins.
+
+On macOS this builds a universal (arm64 + x86_64) AU, VST3 and Standalone of each
+plug-in. CI (`.github/workflows/build.yml`) builds both, runs the full test suite,
+validates both with `auval` and an AU host harness each (the effect's and the
+instrument's; in- and out-of-process, arm64 and x86_64), packages both together, and
+renders the listening WAVs.
 
 ## Layout
 
@@ -157,6 +211,8 @@ and renders the listening WAVs.
 | `Source/UI/` | The painted scenes (layers, manifest), the engraving renderer for the rest, the background scene cache, the look |
 | `tools/painted/` | The Blender + painting pipeline that makes the painted art ([README](tools/painted/README.md)) |
 | `assets/` | The painted layers (`painted/`, shipped in the bundles) and the fonts (OFL) |
-| `Source/PluginProcessor.*`, `Source/PluginEditor.*` | Plug-in (journeys, MIDI, presets, A/B, undo) and window |
+| `Source/Instrument/` | The instrument engine: WORLDBUILDER's voice models (`wb/`) and sample bank, the voice pool and MIDI (`Synth.*`), the forty instruments (`Designs.cpp`), level trims |
+| `Source/PluginProcessor.*`, `Source/PluginEditor.*` | One processor for both plug-ins (effect or instrument; journeys, MIDI, presets, A/B, undo) and window; `Source/UI/InstrumentPanel.*` the instrument's panel |
+| `tools/sample-prep/` | Prepares the developer's recordings for the sampler (from WORLDBUILDER) |
 | `Tests/` | Offline tests through `processBlock` and the editor |
-| `tools/au-harness/`, `scripts/`, `packaging/` | CI host harness, install/uninstall/diagnostics, install notes |
+| `tools/au-harness/`, `scripts/`, `packaging/` | CI host harnesses (effect, instrument), install/uninstall/diagnostics, install notes |

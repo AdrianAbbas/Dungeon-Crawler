@@ -4,10 +4,18 @@
 #include "Parameters.h"
 #include "World/Journey.h"
 #include "DSP/Atmosphere.h"
+#include "Instrument/Synth.h"
+
+// Direction Update 3: one processor, two plug-ins. DUNGEON CRAWLER (the instrument: no
+// input, MIDI plays the place's instrument, which then sounds in the place) and DUNGEON
+// CRAWLER FX (the effect, exactly as before).
+enum class PluginKind { Effect, Instrument };
 
 class DungeonCrawlerProcessor final : public juce::AudioProcessor {
 public:
-    DungeonCrawlerProcessor();
+    explicit DungeonCrawlerProcessor(PluginKind kind = PluginKind::Effect);
+    PluginKind kind() const noexcept { return pluginKind; }
+    bool isInstrument() const noexcept { return pluginKind == PluginKind::Instrument; }
     void prepareToPlay(double sampleRate, int maximumBlockSize) override;
     void releaseResources() override {}
     // Hosts call reset() on transport stops and locates; clearing the reverb then would
@@ -18,8 +26,9 @@ public:
     void processBlockBypassed(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
-    const juce::String getName() const override { return "DUNGEON CRAWLER"; }
-    // MIDI travel (Milestone 9): notes choose places where the host sends MIDI to effects.
+    const juce::String getName() const override { return isInstrument() ? "DUNGEON CRAWLER" : "DUNGEON CRAWLER FX"; }
+    // The instrument plays MIDI; the effect's MIDI travel (Milestone 9): notes choose
+    // places where the host sends MIDI to effects.
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
     double getTailLengthSeconds() const override { return 20.0; }
@@ -35,6 +44,8 @@ public:
     void setStateInformation(const void*, int) override;
 
 private:
+    static BusesProperties busesFor(PluginKind);
+    PluginKind pluginKind;
     // Raw parameter values (declared before `parameters`: the Sub-location display
     // function reads `location`).
     std::atomic<float>* location = nullptr;
@@ -61,6 +72,11 @@ private:
     std::atomic<float>* atmosDensity = nullptr;
     std::atomic<float>* atmosSeed = nullptr;
     std::atomic<float>* quality = nullptr;
+    // The instrument's (null in the FX).
+    std::atomic<float>* instrumentChoice = nullptr;
+    std::atomic<float>* instLock = nullptr;
+    std::array<std::atomic<float>*, dc::inst::macroCount> instMacros {};
+    std::atomic<float>* bendRange = nullptr;
 
 public:
     juce::AudioProcessorValueTreeState parameters;
@@ -124,8 +140,28 @@ public:
     // Calibration only (tests): the chain's raw level, without trims or level matcher.
     void setLevelMatching(bool on) noexcept { world.setLevelMatching(on); }
 
+    // The instrument (DUNGEON CRAWLER). Which one plays: the place's, or with Lock
+    // Instrument the one chosen. Read anywhere; written on the audio thread.
+    std::atomic<int> playingInstrument { 0 };
+    int instrumentIndex() const noexcept;   // as the parameters say (the place's unless locked)
+    bool instrumentLocked() const noexcept { return instLock != nullptr && instLock->load() >= 0.5f; }
+    // Lock Instrument (message thread): on, the instrument now playing is kept.
+    void setInstrumentLock(bool on);
+    void chooseInstrument(int index);   // locks to this instrument
+    const dc::inst::Synth& instrumentEngine() const noexcept { return synth; }
+    // The panel's keyboard (message thread): notes into the next audio block, lock-free.
+    void keyboardNote(int key, float velocity);   // velocity 0: note off
+    // The wheels and pedal as the audio thread last saw them (for the panel).
+    std::atomic<float> shownBend { 0 }, shownMod { 0 };
+    std::atomic<bool> shownSustain { false };
+
 private:
-    void process(juce::AudioBuffer<float>&, bool forcedBypass);
+    void process(juce::AudioBuffer<float>&, bool forcedBypass, juce::MidiBuffer* midi);
+    void renderInstrument(juce::AudioBuffer<float>&, int outputs, juce::MidiBuffer* midi);
+    void handleMidi(const juce::MidiMessage&) noexcept;
+    dc::inst::Synth synth;
+    juce::AbstractFifo keyFifo { 256 };
+    std::array<int, 256> keyQueue {};
     static constexpr float neutralIntensity = 1.0e-4f;   // at or below: the dry path
     dc::Controls controls;
     struct Snapshot { std::vector<float> values; std::vector<dc::Stop> route; bool operator==(const Snapshot& o) const; };

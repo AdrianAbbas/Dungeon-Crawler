@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Read-only diagnostics for "DUNGEON CRAWLER is silent / shows generic sliders in GarageBand".
+# Read-only diagnostics for "DUNGEON CRAWLER (or DUNGEON CRAWLER FX) is silent / shows
+# generic sliders in GarageBand".
 #
 # It changes nothing on your Mac. It only reads files, asks Apple's tools
 # questions and writes one report file, by default ~/Desktop/DungeonCrawler-diagnostics.txt.
 #
 # For the most useful report:
-#   1. Open GarageBand, insert DUNGEON CRAWLER as an Audio Effect on a track and play it,
-#      so the failing state is live.
+#   1. Open GarageBand, insert DUNGEON CRAWLER (instrument) or DUNGEON CRAWLER FX (audio
+#      effect) on a track and play it, so the failing state is live.
 #   2. Leave GarageBand open and run in Terminal:
 #        bash ~/Downloads/diagnose-mac.sh
 #   3. Send the report file back.
@@ -45,7 +46,7 @@ section "Where is DUNGEON CRAWLER loaded right now?"
 found_loaded=0
 for pid in $(/usr/bin/pgrep -i -f 'GarageBand|Logic Pro|AUHostingService' 2>/dev/null); do
     name=$(/bin/ps -o comm= -p "$pid" 2>/dev/null)
-    hits=$(/usr/sbin/lsof -p "$pid" 2>/dev/null | /usr/bin/grep -i 'DungeonCrawler.component' | /usr/bin/awk '{print $NF}' | /usr/bin/sort -u)
+    hits=$(/usr/sbin/lsof -p "$pid" 2>/dev/null | /usr/bin/grep -i -E 'DungeonCrawler(FX)?\.component' | /usr/bin/awk '{print $NF}' | /usr/bin/sort -u)
     if [[ -n "$hits" ]]; then
         found_loaded=1
         printf 'pid %s (%s) has DUNGEON CRAWLER loaded from:\n%s\n' "$pid" "$name" "$hits"
@@ -65,11 +66,11 @@ for dir in "$HOME/Library/Audio/Plug-Ins/Components" "/Library/Audio/Plug-Ins/Co
 done
 [[ ${#components[@]} -gt 0 ]] || echo "No DungeonCrawler.component found in either Components folder."
 echo "Other copies Spotlight knows about (e.g. in Downloads):"
-/usr/bin/mdfind "kMDItemFSName == 'DungeonCrawler.component'" 2>/dev/null | /usr/bin/head -20
+/usr/bin/mdfind "kMDItemFSName == 'DungeonCrawler*.component'" 2>/dev/null | /usr/bin/head -20
 
 for bundle in "${components[@]}"; do
     section "Bundle: $bundle"
-    binary="$bundle/Contents/MacOS/DungeonCrawler"
+    binary="$bundle/Contents/MacOS/$(basename "${bundle%.*}")"
     run /usr/bin/file "$binary"
     run /usr/bin/shasum -a 256 "$binary"
     run /usr/libexec/PlistBuddy -c 'Print :AudioComponents' "$bundle/Contents/Info.plist"
@@ -82,22 +83,27 @@ done
 
 section "Audio Unit registry"
 echo "Native ($(uname -m)) registry entries for DUNGEON CRAWLER:"
-/usr/bin/auval -a 2>&1 | /usr/bin/grep -i -E 'dungeon|dgcr' || echo "  not listed"
+/usr/bin/auval -a 2>&1 | /usr/bin/grep -i -E 'dungeon|dgcr|dgci' || echo "  not listed"
 if /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null; then
     echo "x86_64 (Rosetta) registry entries for DUNGEON CRAWLER:"
-    /usr/bin/arch -x86_64 /usr/bin/auval -a 2>&1 | /usr/bin/grep -i -E 'dungeon|dgcr' || echo "  not listed"
+    /usr/bin/arch -x86_64 /usr/bin/auval -a 2>&1 | /usr/bin/grep -i -E 'dungeon|dgcr|dgci' || echo "  not listed"
 fi
 
-section "auval (native)"
-/usr/bin/auval -v aufx Dgcr Veil > /tmp/dungeoncrawler-auval-native.txt 2>&1
-echo "exit $?"
-/usr/bin/grep -E 'Cocoa|FATAL|ERROR|WARNING|Channel Capabilities|\[[0-9-]+, [0-9-]+\]|VALIDATION|Time to open' /tmp/dungeoncrawler-auval-native.txt | /usr/bin/head -40
-if /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null; then
-    section "auval (x86_64 under Rosetta)"
-    /usr/bin/arch -x86_64 /usr/bin/auval -v aufx Dgcr Veil > /tmp/dungeoncrawler-auval-x86.txt 2>&1
+for code in "aufx Dgcr" "aumu Dgci"; do
+    tag="${code// /-}"
+    section "auval $code (native)"
+    # shellcheck disable=SC2086
+    /usr/bin/auval -v $code Veil > "/tmp/dungeoncrawler-auval-$tag-native.txt" 2>&1
     echo "exit $?"
-    /usr/bin/grep -E 'FATAL|ERROR|VALIDATION|architecture|Time to open' /tmp/dungeoncrawler-auval-x86.txt | /usr/bin/head -15
-fi
+    /usr/bin/grep -E 'Cocoa|FATAL|ERROR|WARNING|Channel Capabilities|\[[0-9-]+, [0-9-]+\]|VALIDATION|Time to open' "/tmp/dungeoncrawler-auval-$tag-native.txt" | /usr/bin/head -40
+    if /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null; then
+        section "auval $code (x86_64 under Rosetta)"
+        # shellcheck disable=SC2086
+        /usr/bin/arch -x86_64 /usr/bin/auval -v $code Veil > "/tmp/dungeoncrawler-auval-$tag-x86.txt" 2>&1
+        echo "exit $?"
+        /usr/bin/grep -E 'FATAL|ERROR|VALIDATION|architecture|Time to open' "/tmp/dungeoncrawler-auval-$tag-x86.txt" | /usr/bin/head -15
+    fi
+done
 
 section "Audio Unit caches"
 /bin/ls -la "$HOME/Library/Caches/AudioUnitCache" 2>&1 | /usr/bin/head -20

@@ -152,6 +152,68 @@ without. Resume from the first unticked line. Details in "Session 6" below.
 - [x] F1. Trims recalibrated, full suite green, distinctness/musicality/levels, ten weakest places listed
 - [x] F2. README, MANUAL_TEST, DEVLOG handoff; final push without `[skip ci]`
 
+**Session 7: the instrument edition, Direction Update 3** (2026-11-01, unattended).
+[DIRECTION_UPDATE_3.md](DIRECTION_UPDATE_3.md) (version 3.1: a normal single-instrument
+plug-in) overrides the brief and Updates 1-2. Push with `[skip ci]` after each part,
+without after each whole milestone. Resume from the first unticked line. Details in
+"Session 7" at the end of this file.
+
+- Milestone 1: two plug-ins from one repository
+  - [x] 1a. Two targets from one source: DUNGEON CRAWLER (instrument, `aumu`/`Dgci`, VST3 instrument) and DUNGEON CRAWLER FX (`aufx`/`Dgcr`, codes and parameter IDs unchanged)
+  - [x] 1b. CI: both built and gated (bundles, auval, host harness for the effect and the instrument), packaged together; samples fetched with `SAMPLES_TOKEN`
+  - [x] 1c. Install / uninstall scripts for both, INSTALL.txt, README
+- Milestone 2: the instrument engine
+  - [x] 2a. WORLDBUILDER's engine copied (voice models, sample bank, sample preparation); voice pool, MIDI (velocity, sustain, bend, mod wheel), click-free stealing
+  - [x] 2b. Place = instrument + space, Lock instrument, travel with held notes
+  - [x] 2c. Instrument panel (slide-up drawer: name, macros, Intensity, keyboard, bend/mod/sustain); tests
+- Milestone 3: instruments, first half
+  - [ ] Dungeon: Corridors (contrabass pizzicato)
+  - [ ] Dungeon: Entrance Hall (cello drone-lead)
+  - [ ] Dungeon: Prison Cells (iron chains)
+  - [ ] Dungeon: Treasure Room (golden celesta)
+  - [ ] Dungeon: Final Boss Lair (doom brass + choir stabs)
+  - [ ] Castle: Courtyard (lute)
+  - [ ] Castle: Great Hall (brass fanfare)
+  - [ ] Castle: Throne Room (string ensemble)
+  - [ ] Castle: Chapel (chamber organ)
+  - [ ] Castle: Tower Top (horn calls)
+  - [ ] Cathedral: Cloister (soft choir)
+  - [ ] Cathedral: Nave (pipe organ)
+  - [ ] Cathedral: Crypt (monk chant)
+  - [ ] Cathedral: Bell Tower (church bells)
+  - [ ] Caverns: Cave Mouth (stone marimba)
+  - [ ] Caverns: Crystal Cavern (crystal bells)
+  - [ ] Caverns: Underground Lake (water kalimba)
+  - [ ] Caverns: Dragon's Hoard (gong + growling low brass)
+  - [ ] Village: Village Green (tin whistle)
+  - [ ] Village: Tavern (weary guitar)
+  - [ ] Village: Market Square (fiddle)
+  - [ ] Village: Blacksmith (tuned anvil)
+- Milestone 4: instruments, second half
+  - [ ] Haunted Forest: Forest Edge (detuned wooden flute)
+  - [ ] Haunted Forest: Old Path (cello harmonics)
+  - [ ] Haunted Forest: Witch's Hut (music box)
+  - [ ] Haunted Forest: Ancient Grove (harp + whispers)
+  - [ ] Swamp: Mire (detuned banjo)
+  - [ ] Swamp: Bog (murky low reed)
+  - [ ] Swamp: Sunken Ruins (underwater bells)
+  - [ ] Mountains: Foothills (shepherd's flute)
+  - [ ] Mountains: Mountain Pass (war drums)
+  - [ ] Mountains: Frozen Peak (ice glockenspiel)
+  - [ ] Mountains: Dwarven Hall (dwarven chant + low brass)
+  - [ ] Necropolis: Gates (dark choir pad)
+  - [ ] Necropolis: Graveyard (ghost violin)
+  - [ ] Necropolis: Mausoleum (tolling bell + organ)
+  - [ ] Wizard's Tower: Stairwell (harpsichord arpeggio)
+  - [ ] Wizard's Tower: Library (clavichord)
+  - [ ] Wizard's Tower: Alchemy Lab (glass marimba)
+  - [ ] Wizard's Tower: Observatory (celestial pad)
+- Milestone 5: presets and polish
+  - [ ] 5a. 30+ instrument presets (instrument + place + macros), journeys kept
+  - [ ] 5b. Tests: every instrument plays from MIDI, in tune, distinct from its siblings, level-matched; no hung notes in travel; both plug-ins validate
+  - [ ] 5c. Listening render: one melody on every instrument, dry and in its place
+  - [ ] 5d. DEVLOG handoff (what to listen for), README, MANUAL_TEST; final push without `[skip ci]`
+
 ---
 
 ## Lessons carried over (from Worldbuilder's DEVLOG, read first)
@@ -1748,3 +1810,106 @@ place (dry first, then the place) and `strength.csv`.
   Courtyard, Observatory (15.1-17.5): modulation-, chorus- and brightness-based places
   that the band measure reads modestly. Listen to them first.
 - The macOS AU harness and auval were not run here (CI's first run of this build).
+
+---
+
+## Session 7: the instrument edition, Direction Update 3 (2026-11-01, unattended)
+
+[DIRECTION_UPDATE_3.md](DIRECTION_UPDATE_3.md) (version 3.1) turns DUNGEON CRAWLER into
+two plug-ins from this repository: **DUNGEON CRAWLER**, a normal single-instrument
+software instrument whose every place has its own instrument played inside that place,
+and **DUNGEON CRAWLER FX**, the effect as it was. From WORLDBUILDER only the sound engine
+(its voice models and sampler) and its Instrument-mode playing and keyboard are reused:
+no patterns, arrangement or several instruments at once.
+
+### Milestone 1: two plug-ins from one source
+
+| | DUNGEON CRAWLER (instrument) | DUNGEON CRAWLER FX (effect) |
+|---|---|---|
+| CMake target / bundle | `DungeonCrawler` / `DungeonCrawler.component`, `.vst3` | `DungeonCrawlerFX` / `DungeonCrawlerFX.component`, `.vst3` |
+| AU | `aumu` `Dgci` `Veil`, factory `DungeonCrawlerInstAUFactory` | `aufx` `Dgcr` `Veil`, factory `DungeonCrawlerAUFactory` (unchanged) |
+| Bundle ID | `audio.veil.dungeoncrawler.instrument` | `audio.veil.dungeoncrawler` (unchanged) |
+| VST3 | Instrument, Synth | Fx, Reverb (class ID from the unchanged codes) |
+| Buses | stereo (or mono) out, MIDI in | stereo/mono in and out, MIDI in (MIDI travel) |
+
+Decisions:
+- **One processor, two kinds** (`PluginKind`): every source file is compiled into both
+  plug-ins and `createPluginFilter()` reads `JucePlugin_IsSynth`. The instrument's
+  synthesised sound is the place chain's input: the place engine, travel, level matching,
+  Atmosphere, Mix, Intensity, Bypass and the safety limiter run unchanged, so the effect
+  keeps its behaviour bit for bit and the instrument gets everything the effect does.
+- **The effect's parameters are untouched**; the instrument adds eight after them:
+  `instLock`, `instrument` (40 choices), `instMacro1..5`, `bendRange` (not automatable).
+  JUCE hashes string IDs into AU parameter IDs, so the effect's saved automation and
+  projects stay valid (tested: the FX has none of the eight; an FX state loads into the
+  instrument).
+- **The bundle names**: the instrument takes `DungeonCrawler.component` (it is the main
+  product). An earlier install's `DungeonCrawler.component` was the effect: installing
+  replaces it, and the effect returns as `DungeonCrawlerFX.component` with the same AU
+  codes, so hosts find it again under its new name "DUNGEON CRAWLER FX".
+- **CI** builds both universal bundles, gates both (slices, Info.plist identity,
+  sandboxSafe, painted art; samples in the instrument), packages both into one zip, and
+  after installing a quarantined download with `install-mac.sh` runs `auval` and a host
+  harness for each (arm64 and x86_64; AUv2 out-of-process and in-process, AUAudioUnit
+  out-of-process). The instrument's harness (`DungeonCrawlerInstrumentAUHarness.mm`) is
+  adapted from WORLDBUILDER's instrument harness: silent without MIDI, a MIDI note
+  audible, the note ending after its note off, Output by AudioUnitSetParameter, Lock +
+  Instrument by parameter, the samples loaded from the bundle (`samples=` in the state),
+  presets with a note, state round trip, rates, mono, the editor; on the AUAudioUnit route
+  notes go through `scheduleMIDIEventBlock`. The effect's harness is unchanged (its image
+  path follows the new bundle name).
+- **Samples in CI** with the `SAMPLES_TOKEN` secret (`scripts/ci-fetch-samples.sh` and
+  `tools/sample-prep/`, copied from WORLDBUILDER), on both jobs; they go into the
+  instrument's bundles at `Contents/Resources/Samples` and are never committed. The
+  manifest's names were made brand-free ("Analog polysynth" for the hardware synth).
+- **Install / uninstall / diagnose** handle both; the Linux suite gained three groups
+  (`instrument`, `instruments`, `instrumenteditor`) in the shards.
+
+Not verified here (Linux container): the macOS build, `auval`, both harnesses and the
+install script. Both plug-ins build and link here (VST3 + Standalone each; the VST3
+helper loads both).
+
+### Milestone 2: the instrument engine
+
+`Source/Instrument/`:
+- `wb/` WORLDBUILDER's voice models, copied (Worldbuilder @ `ccce3e3`, never modified):
+  the synth voice (analog, brass, free reed), the plucked waveguide string with bodies
+  and courses, the struck modal object (bells, bars, gongs; doublets, bloom, glide),
+  membranes and timpani, FM, the tine, the formant choir, the wind voice, the bowed
+  resonator, the bowed string / section, and the measured acoustic data. Only its
+  Shimmer (built on WORLDBUILDER's room code) is left out.
+- `SampleBank.*` WORLDBUILDER's sample bank (key mapping, velocity layers, round
+  robins, loops, release tails), loading on a background thread once per process;
+  `SampleVoice` (in `Synth.*`) its sample player without patterns.
+- `Synth.*` the playing layer of a normal instrument: 24 voice slots, each up to three
+  layers of any model plus a pipe-organ voice written here (additive ranks, chiff, wind,
+  reeds); per voice a post (high-pass, three body resonances, tone, drive); velocity
+  (level, tone; the struck and plucked models in their own way), sustain pedal, pitch
+  bend (±2 st default, 1-24), mod wheel per instrument (vibrato, brightness, tremulant,
+  swell, growl), all-notes-off / all-sound-off, the polyphony of the instrument, the
+  oldest note stolen with a 6 ms fade, a re-struck key letting go of itself.
+- **Travel with held notes**: every voice keeps the instrument it was started on. A new
+  place (or preset, or automation) changes what the *next* note plays; held notes ring
+  on, are released by their keys or the pedal, and the space morphs around them. No
+  voice is ever retuned or cut by a change of instrument (tested: no step larger than 2.5
+  times the note's own, no hung note after 24 journeys with chords).
+- **Lock instrument** (parameter): the instrument now playing is kept while travelling.
+  The panel's chooser (or the Instrument parameter) picks any of the forty and locks it.
+- **The panel** (`Source/UI/InstrumentPanel.*`, instrument only): the Instrument button
+  (where the effect has Input) slides it up over the place (180 ms). Name, place
+  ("played in …" when locked elsewhere), Lock, chooser, the five macros named for the
+  instrument, Intensity, Space (= Mix), bend range, bend / mod / pedal, the keyboard
+  (C1-C6, DAW octave names) lit by every note and playable (a lock-free queue into the
+  next block; lower on a key is louder). It stays open while places are chosen on the
+  map (it is played from); its button, ✕ and Esc close it. Drawing: a 15 Hz check while
+  it is shown, repainting only the keyboard or the wheel strip when what they show
+  changed (tested: no repaint request when nothing changes, one per change). The crumb
+  names the instrument that plays in the shown place.
+
+Tests (`--only instrument`, 39 checks; `--only instrumenteditor`, 20): identity of both
+plug-ins, forty places = forty instruments both ways, silence without notes, mono,
+velocity, pedal (17 dB more after the key with the pedal), pitch bend (+200 cents within
+25, the tin whistle at 440 Hz), the mod wheel, travel with a held cello (no gap, no click,
+the next note the lute), 24 quick journeys with chords, Lock, the chooser, stealing (60
+fast notes on a 12-voice celesta: no click), the panel keyboard, state, and no allocation
+in `processBlock` with notes, bends, pedal, macros and travel.

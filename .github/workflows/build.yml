@@ -24,6 +24,16 @@ jobs:
           xcodebuild -version
           cmake --version
           /usr/sbin/softwareupdate --install-rosetta --agree-to-license || true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # The developer's recordings live in the private AdrianAbbas/Samples repository,
+      # read with the SAMPLES_TOKEN secret, and are prepared for the instrument's sampler
+      # here (tools/sample-prep, from WORLDBUILDER). They are never committed to this repository.
+      - name: Fetch and prepare the samples (private repository)
+        env:
+          SAMPLES_TOKEN: ${{ secrets.SAMPLES_TOKEN }}
+        run: bash scripts/ci-fetch-samples.sh "${{ runner.temp }}/samples-src" "${{ runner.temp }}/samples"
       # JUCE is fetched once and kept (the configure step otherwise clones its whole history).
       - name: JUCE source cache
         id: juce
@@ -43,7 +53,7 @@ jobs:
         run: >
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
           -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15
-          -DJUCE_PATH="${{ runner.temp }}/juce"
+          -DJUCE_PATH="${{ runner.temp }}/juce" -DDC_SAMPLES_DIR="${{ runner.temp }}/samples"
           -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build
         run: |
@@ -53,11 +63,11 @@ jobs:
       # each slice of the universal binary, and the cpu group reports (never fails on)
       # the cost of every location on this runner.
       - name: Smoke test and CPU report (arm64)
-        run: /usr/bin/arch -arm64 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --only smoke,cpu
+        run: /usr/bin/arch -arm64 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --only smoke,instrument,cpu
       - name: Smoke test and CPU report (x86_64 under Rosetta)
-        run: /usr/bin/arch -x86_64 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --only smoke,cpu
-      - name: Universal binary and Info.plist gate
-        run: bash scripts/ci-check-bundles.sh build/DungeonCrawler_artefacts/Release
+        run: /usr/bin/arch -x86_64 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --only smoke,instrument,cpu
+      - name: Universal binary and Info.plist gate (instrument and effect)
+        run: bash scripts/ci-check-bundles.sh build
       - name: Developer ID signing and notarisation (optional, untested)
         if: env.HAS_DEVELOPER_ID == 'true'
         env:
@@ -67,24 +77,24 @@ jobs:
           NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
           NOTARY_TEAM_ID: ${{ secrets.NOTARY_TEAM_ID }}
           NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
-        run: bash scripts/ci-developer-id.sh build/DungeonCrawler_artefacts/Release
-      - name: Sign, verify and package
-        run: bash scripts/package-mac.sh build/DungeonCrawler_artefacts/Release dist
-      - name: Build AU host harness
+        run: bash scripts/ci-developer-id.sh build
+      - name: Sign, verify and package (both plug-ins)
+        run: bash scripts/package-mac.sh build dist
+      - name: Build AU host harnesses (effect and instrument)
         run: bash scripts/build-au-harness.sh build/DungeonCrawlerAUHarness
-      - name: Install a quarantined download with install-mac.sh, then auval and harness (arm64 + x86_64)
+      - name: Install a quarantined download with install-mac.sh, then auval and harnesses for both plug-ins (arm64 + x86_64)
         run: bash scripts/ci-user-install-test.sh dist/DungeonCrawler-macOS-Universal.zip build/DungeonCrawlerAUHarness build/ci-logs
       # Annotations are readable through the REST API; GitHub keeps at most 10 per step.
       - name: Publish install and arm64 harness logs as annotations
         if: always()
-        run: bash scripts/ci-annotate.sh --condense build/ci-logs/quarantine.txt build/ci-logs/install-mac.txt build/ci-logs/harness-arm64-*.txt
+        run: bash scripts/ci-annotate.sh --condense build/ci-logs/quarantine.txt build/ci-logs/install-mac.txt build/ci-logs/harness-*-arm64-*.txt
       - name: Publish x86_64 harness and auval logs as annotations
         if: always()
         run: |
           for f in build/ci-logs/auval-*.txt; do
             if [[ -f "$f" ]]; then tail -25 "$f" > "$f.tail"; fi
           done
-          bash scripts/ci-annotate.sh --condense build/ci-logs/harness-x86_64-*.txt build/ci-logs/control-*.txt build/ci-logs/crashes.txt build/ci-logs/auval-*.txt.tail
+          bash scripts/ci-annotate.sh --condense build/ci-logs/harness-*-x86_64-*.txt build/ci-logs/control-*.txt build/ci-logs/crashes.txt build/ci-logs/auval-*.txt.tail
       - name: Upload installable package (only when every check passed)
         uses: actions/upload-artifact@v4
         with:
@@ -107,6 +117,16 @@ jobs:
       CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # The developer's recordings live in the private AdrianAbbas/Samples repository,
+      # read with the SAMPLES_TOKEN secret, and are prepared for the instrument's sampler
+      # here (tools/sample-prep, from WORLDBUILDER). They are never committed to this repository.
+      - name: Fetch and prepare the samples (private repository)
+        env:
+          SAMPLES_TOKEN: ${{ secrets.SAMPLES_TOKEN }}
+        run: bash scripts/ci-fetch-samples.sh "${{ runner.temp }}/samples-src" "${{ runner.temp }}/samples"
       - name: Dependencies
         run: sudo apt-get update && sudo apt-get install -y ninja-build libasound2-dev libfreetype6-dev libfontconfig1-dev libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev libgl1-mesa-dev
       - name: JUCE source cache
@@ -125,7 +145,7 @@ jobs:
           max-size: 1G
       - name: Configure
         run: >
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DJUCE_PATH="${{ runner.temp }}/juce"
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DJUCE_PATH="${{ runner.temp }}/juce" -DDC_SAMPLES_DIR="${{ runner.temp }}/samples"
           -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
       - name: Build
         run: |
@@ -140,6 +160,10 @@ jobs:
       - name: Listening renders (dry vs processed per place, WAV)
         if: always()
         run: build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen build/test-logs/listening
+      # The same melody on every instrument, dry and then in its place (Direction Update 3).
+      - name: Listening renders (one melody on every instrument, WAV)
+        if: always()
+        run: build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-instruments build/test-logs/instruments
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4

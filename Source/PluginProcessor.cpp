@@ -4,10 +4,25 @@
 #include <cmath>
 #include <optional>
 
-DungeonCrawlerProcessor::DungeonCrawlerProcessor()
-    : AudioProcessor(BusesProperties().withInput("Input", juce::AudioChannelSet::stereo(), true)
-                                      .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      parameters(*this, nullptr, "DUNGEON_CRAWLER", dc::createParameterLayout([this] { return locationIndex(); })) {
+juce::AudioProcessor::BusesProperties DungeonCrawlerProcessor::busesFor(PluginKind kind) {
+    if (kind == PluginKind::Instrument) return BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true);
+    return BusesProperties().withInput("Input", juce::AudioChannelSet::stereo(), true)
+                            .withOutput("Output", juce::AudioChannelSet::stereo(), true);
+}
+
+namespace {
+juce::StringArray instrumentNames(PluginKind kind) {
+    juce::StringArray names;
+    if (kind == PluginKind::Instrument)
+        for (int k = 0; k < dc::inst::instrumentCount; ++k) names.add(dc::inst::design(k).name);
+    return names;
+}
+}
+
+DungeonCrawlerProcessor::DungeonCrawlerProcessor(PluginKind k)
+    : AudioProcessor(busesFor(k)),
+      pluginKind(k),
+      parameters(*this, nullptr, "DUNGEON_CRAWLER", dc::createParameterLayout([this] { return locationIndex(); }, instrumentNames(k))) {
     location = parameters.getRawParameterValue(dc::ids::location);
     subLocation = parameters.getRawParameterValue(dc::ids::subLocation);
     intensity = parameters.getRawParameterValue(dc::ids::intensity);
@@ -32,7 +47,49 @@ DungeonCrawlerProcessor::DungeonCrawlerProcessor()
     atmosDensity = parameters.getRawParameterValue(dc::ids::atmosDensity);
     atmosSeed = parameters.getRawParameterValue(dc::ids::atmosSeed);
     quality = parameters.getRawParameterValue(dc::ids::quality);
+    if (isInstrument()) {
+        instrumentChoice = parameters.getRawParameterValue(dc::ids::instrument);
+        instLock = parameters.getRawParameterValue(dc::ids::instLock);
+        for (std::size_t m = 0; m < instMacros.size(); ++m) instMacros[m] = parameters.getRawParameterValue(dc::ids::instMacros[m]);
+        bendRange = parameters.getRawParameterValue(dc::ids::bendRange);
+        // The developer's recordings load on a background thread (once per process).
+        wb::samples::Bank::get().load();
+    }
     markPresetBaseline();   // a new instance is "Init", unmodified
+}
+
+int DungeonCrawlerProcessor::instrumentIndex() const noexcept {
+    if (!isInstrument()) return 0;
+    if (instrumentLocked()) {
+        const float v = instrumentChoice->load();
+        return std::isfinite(v) ? juce::jlimit(0, dc::inst::instrumentCount - 1, static_cast<int>(std::lround(v))) : 0;
+    }
+    return dc::inst::designFor(currentDestination.load(), currentSubLocation.load());
+}
+
+void DungeonCrawlerProcessor::setInstrumentLock(bool on) {
+    if (!isInstrument() || on == instrumentLocked()) return;
+    pushUndo();
+    const juce::ScopedValueSetter<bool> guard(applying, true);
+    // Locking keeps what plays now.
+    if (on) setPlain(dc::ids::instrument, static_cast<float>(playingInstrument.load()));
+    setPlain(dc::ids::instLock, on ? 1.0f : 0.0f);
+}
+
+void DungeonCrawlerProcessor::chooseInstrument(int index) {
+    if (!isInstrument()) return;
+    pushUndo();
+    const juce::ScopedValueSetter<bool> guard(applying, true);
+    setPlain(dc::ids::instrument, static_cast<float>(juce::jlimit(0, dc::inst::instrumentCount - 1, index)));
+    setPlain(dc::ids::instLock, 1.0f);
+}
+
+void DungeonCrawlerProcessor::keyboardNote(int key, float velocity) {
+    if (!isInstrument() || key < 0 || key > 127) return;
+    const auto scope = keyFifo.write(1);
+    if (scope.blockSize1 + scope.blockSize2 < 1) return;   // full: dropped
+    const int packed = key | (juce::jlimit(0, 127, juce::roundToInt(velocity * 127.0f)) << 8);
+    keyQueue[static_cast<std::size_t>(scope.blockSize1 > 0 ? scope.startIndex1 : scope.startIndex2)] = packed;
 }
 
 bool DungeonCrawlerProcessor::journeyRunning() const noexcept {
@@ -298,6 +355,11 @@ void DungeonCrawlerProcessor::prepareToPlay(double sampleRate, int) {
     rate = std::isfinite(sampleRate) ? juce::jlimit(8000.0, 384000.0, sampleRate) : 48000.0;
     world.prepare(rate);
     atmosphere.prepare(rate);
+    if (isInstrument()) {
+        // The first notes should already be sampled: wait briefly for the recordings.
+        wb::samples::Bank::get().waitUntilLoaded(3000);
+        synth.prepare(rate);
+    }
     limiter.prepare(rate);
     latency = world.latencySamples();
     for (auto& d : dryDelay) d.prepare(static_cast<std::size_t>(latency + 8));
@@ -320,12 +382,19 @@ bool DungeonCrawlerProcessor::isBusesLayoutSupported(const BusesLayout& layout) 
     const auto monoOrStereo = [](const juce::AudioChannelSet& set) {
         return set == juce::AudioChannelSet::mono() || set == juce::AudioChannelSet::stereo();
     };
+    if (isInstrument()) return layout.inputBuses.isEmpty() && monoOrStereo(out);
     return monoOrStereo(in) && monoOrStereo(out) && in.size() <= out.size();
 }
 
 void DungeonCrawlerProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) {
     // A manual choice of place cancels the place MIDI chose.
     if (midiCancel.exchange(false)) midiLocation = -1;
+    // The instrument plays its MIDI (no MIDI travel: the notes are the music).
+    if (isInstrument()) {
+        midiLocation = -1;
+        process(buffer, false, &midi);
+        return;
+    }
     // MIDI travel: the last note-on in the travel octave chooses the place.
     if (midiTravel->load() >= 0.5f) {
         const int base = juce::jlimit(0, 8, static_cast<int>(std::lround(midiOctave->load()))) * 12;
@@ -339,11 +408,74 @@ void DungeonCrawlerProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
             }
         }
     } else midiLocation = -1;
-    process(buffer, false);
+    process(buffer, false, nullptr);
 }
-void DungeonCrawlerProcessor::processBlockBypassed(juce::AudioBuffer<float>& buffer, juce::MidiBuffer&) { process(buffer, true); }
+// Bypassed, the instrument still plays (dry, outside its place).
+void DungeonCrawlerProcessor::processBlockBypassed(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) {
+    process(buffer, true, isInstrument() ? &midi : nullptr);
+}
 
-void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool forcedBypass) {
+void DungeonCrawlerProcessor::handleMidi(const juce::MidiMessage& m) noexcept {
+    if (m.isNoteOn()) synth.noteOn(m.getNoteNumber(), m.getFloatVelocity());
+    else if (m.isNoteOff()) synth.noteOff(m.getNoteNumber());
+    else if (m.isSustainPedalOn()) synth.setSustain(true);
+    else if (m.isSustainPedalOff()) synth.setSustain(false);
+    else if (m.isPitchWheel()) synth.setPitchBend(static_cast<float>(m.getPitchWheelValue() - 8192) / 8192.0f);
+    else if (m.isController() && m.getControllerNumber() == 1) synth.setModWheel(static_cast<float>(m.getControllerValue()) / 127.0f);
+    else if (m.isAllNotesOff()) synth.allNotesOff();
+    else if (m.isAllSoundOff()) synth.allSoundOff();
+    else if (m.isResetAllControllers()) {
+        synth.setPitchBend(0);
+        synth.setModWheel(0);
+        synth.setSustain(false);
+    }
+}
+
+void DungeonCrawlerProcessor::renderInstrument(juce::AudioBuffer<float>& buffer, int outputs, juce::MidiBuffer* midi) {
+    const int numSamples = buffer.getNumSamples();
+    for (int ch = 0; ch < buffer.getNumChannels(); ++ch) buffer.clear(ch, 0, numSamples);
+    // The panel's keyboard first (at the block's start).
+    {
+        const auto scope = keyFifo.read(keyFifo.getNumReady());
+        const auto play = [this](int packed) {
+            const int key = packed & 0xff, velocity = (packed >> 8) & 0x7f;
+            if (velocity > 0) synth.noteOn(key, static_cast<float>(velocity) / 127.0f);
+            else synth.noteOff(key);
+        };
+        for (int k = 0; k < scope.blockSize1; ++k) play(keyQueue[static_cast<std::size_t>(scope.startIndex1 + k)]);
+        for (int k = 0; k < scope.blockSize2; ++k) play(keyQueue[static_cast<std::size_t>(scope.startIndex2 + k)]);
+    }
+    auto* l = buffer.getWritePointer(0);
+    // A mono output: render both sides into the one channel (halved later by the mix).
+    std::array<float, dc::maxChunk> scratch {};
+    float* r = outputs > 1 ? buffer.getWritePointer(1) : nullptr;
+    int at = 0;
+    const auto renderTo = [&](int end) {
+        while (at < end) {
+            const int n = juce::jmin(end - at, dc::maxChunk);
+            if (r != nullptr) synth.render(l + at, r + at, n);
+            else {
+                std::fill(scratch.begin(), scratch.begin() + n, 0.0f);
+                synth.render(l + at, scratch.data(), n);
+                for (int i = 0; i < n; ++i) l[at + i] = 0.5f * (l[at + i] + scratch[static_cast<std::size_t>(i)]);
+            }
+            at += n;
+        }
+    };
+    if (midi != nullptr)
+        for (const auto meta : *midi) {
+            renderTo(juce::jlimit(0, numSamples, meta.samplePosition));
+            handleMidi(meta.getMessage());
+        }
+    renderTo(numSamples);
+    if (midi != nullptr) midi->clear();
+    const auto& perf = synth.performance();
+    shownBend.store(perf.bend, std::memory_order_relaxed);
+    shownMod.store(perf.mod, std::memory_order_relaxed);
+    shownSustain.store(perf.sustain, std::memory_order_relaxed);
+}
+
+void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool forcedBypass, juce::MidiBuffer* midi) {
     juce::ScopedNoDenormals noDenormals;
     const auto begin = juce::Time::getHighResolutionTicks();
     // Read before the parameters (they are written before the epoch moves on).
@@ -365,8 +497,9 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
     // carries no input and must still be written.
     const int numSamples = buffer.getNumSamples();
     const int bufferChannels = buffer.getNumChannels();
-    const int inputs = juce::jmin(bufferChannels, getTotalNumInputChannels());
     const int outputs = juce::jmin(bufferChannels, getTotalNumOutputChannels());
+    // The instrument's own sound is the place's input.
+    const int inputs = isInstrument() ? outputs : juce::jmin(bufferChannels, getTotalNumInputChannels());
     for (int ch = inputs; ch < bufferChannels; ++ch) buffer.clear(ch, 0, numSamples);
     if (inputs < 1 || outputs < 1 || numSamples <= 0) return;
     auto* left = buffer.getWritePointer(0);
@@ -416,6 +549,23 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
     controls.bpm = bpm;
     world.setQuality(qualityMode());
     world.setControls(controls);
+    if (isInstrument()) {
+        // The place's instrument (as the journey, roam or the parameters choose it), or the
+        // locked one; notes already sounding keep theirs.
+        int index = dc::inst::designFor(controls.location, controls.sub);
+        if (instrumentLocked()) {
+            const float v = finiteOr(instrumentChoice->load(), 0);
+            index = juce::jlimit(0, dc::inst::instrumentCount - 1, static_cast<int>(std::lround(v)));
+        }
+        synth.setDesign(index);
+        playingInstrument.store(index, std::memory_order_relaxed);
+        std::array<float, dc::inst::macroCount> m {};
+        for (std::size_t k = 0; k < m.size(); ++k) m[k] = juce::jlimit(0.0f, 1.0f, finiteOr(instMacros[k]->load(), 0.5f));
+        synth.setMacros(m);
+        synth.setBendRange(static_cast<float>(juce::jlimit(1, 24, static_cast<int>(std::lround(finiteOr(bendRange->load(), 2))))));
+        synth.setTempo(bpm);
+        renderInstrument(buffer, outputs, midi);
+    }
     inputGain.set(dc::dsp::dbToGain(juce::jlimit(-24.0f, 24.0f, finiteOr(input->load(), 0))));
     outputGain.set(dc::dsp::dbToGain(juce::jlimit(-24.0f, 12.0f, finiteOr(output->load(), 0))));
     wetMix.set(juce::jlimit(0.0f, 1.0f, finiteOr(mix->load(), 1)));
@@ -490,6 +640,9 @@ void DungeonCrawlerProcessor::getStateInformation(juce::MemoryBlock& data) {
     juce::StringArray stops;
     for (const auto& st : route()) stops.add(juce::String(st.location) + ":" + juce::String(st.sub));
     state.setProperty("route", stops.joinIntoString(","), nullptr);
+    // How many recorded notes the instrument has loaded (information only: the AU harness
+    // reads it to see that the samples ship in the bundle).
+    if (isInstrument()) state.setProperty("samples", wb::samples::Bank::get().zoneCount(), nullptr);
     if (auto xml = state.createXml()) copyXmlToBinary(*xml, data);
 }
 
@@ -535,4 +688,7 @@ void DungeonCrawlerProcessor::setStateInformation(const void* data, int size) {
     }
 }
 
-juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() { return new DungeonCrawlerProcessor(); }
+// One source, two plug-ins: the build's own identity says which (CMakeLists.txt).
+juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() {
+    return new DungeonCrawlerProcessor(JucePlugin_IsSynth ? PluginKind::Instrument : PluginKind::Effect);
+}

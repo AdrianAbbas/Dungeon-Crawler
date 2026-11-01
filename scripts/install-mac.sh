@@ -1,24 +1,28 @@
 #!/usr/bin/env bash
-# Install DUNGEON CRAWLER for the current user and make sure macOS will load it.
+# Install DUNGEON CRAWLER (the instrument) and DUNGEON CRAWLER FX (the effect) for the
+# current user and make sure macOS will load them.
 #
 # Run it from the unzipped DungeonCrawler-macOS-Universal folder:
 #     bash install-mac.sh
 # (Tip: type "bash " in Terminal, then drag install-mac.sh into the window.)
 #
 # What it does:
-#   1. copies DungeonCrawler.component to ~/Library/Audio/Plug-Ins/Components and
-#      DungeonCrawler.vst3 to ~/Library/Audio/Plug-Ins/VST3
+#   1. copies DungeonCrawler.component and DungeonCrawlerFX.component to
+#      ~/Library/Audio/Plug-Ins/Components, the .vst3 bundles to ~/Library/Audio/Plug-Ins/VST3
 #   2. removes the com.apple.quarantine flag your browser added. Without this,
-#      macOS refuses to load the plug-in and GarageBand shows a silent slot
-#   3. re-signs both bundles (ad hoc) and verifies the signatures
-#   4. restarts the Audio Unit registrar so hosts see the new copy
-#   5. runs Apple's Audio Unit validator (auval) and prints PASS or FAIL
+#      macOS refuses to load the plug-ins and GarageBand shows a silent slot
+#   3. re-signs every bundle (ad hoc) and verifies the signatures
+#   4. restarts the Audio Unit registrar so hosts see the new copies
+#   5. runs Apple's Audio Unit validator (auval) on both and prints PASS or FAIL
 #   6. prints the next steps for GarageBand and Logic
+# (Before this version DungeonCrawler.component was the effect. It is now the
+# instrument; the effect is DungeonCrawlerFX.component with the same Audio Unit codes,
+# so projects that used the effect find it again.)
 #
 # Options:
 #   --ci              non-interactive: no prompts, no check for running hosts
-#   --out-of-process  remove the sandboxSafe flag from the installed copy, so
-#                     GarageBand hosts DUNGEON CRAWLER in a separate process (fallback only)
+#   --out-of-process  remove the sandboxSafe flag from the installed copies, so
+#                     GarageBand hosts them in a separate process (fallback only)
 # (No `set -u`: macOS bash 3.2 treats an empty "$@" as unbound.)
 set -eo pipefail
 
@@ -44,13 +48,16 @@ if [[ "$(uname -s)" != Darwin ]]; then
     exit 1
 fi
 
-component_src="$here/DungeonCrawler.component"
-vst3_src="$here/DungeonCrawler.vst3"
-if [[ ! -d "$component_src" ]]; then
-    echo "DungeonCrawler.component was not found next to this script ($here)." >&2
-    echo "Unzip DungeonCrawler-macOS-Universal.zip first and run the script from that folder." >&2
-    exit 1
-fi
+# name, Audio Unit type, subtype
+plugins=("DungeonCrawler aumu Dgci" "DungeonCrawlerFX aufx Dgcr")
+for entry in "${plugins[@]}"; do
+    read -r name _ _ <<< "$entry"
+    if [[ ! -d "$here/$name.component" ]]; then
+        echo "$name.component was not found next to this script ($here)." >&2
+        echo "Unzip DungeonCrawler-macOS-Universal.zip first and run the script from that folder." >&2
+        exit 1
+    fi
+done
 
 components="$HOME/Library/Audio/Plug-Ins/Components"
 vst3="$HOME/Library/Audio/Plug-Ins/VST3"
@@ -69,7 +76,7 @@ if [[ $ci == 0 ]]; then
 fi
 
 # A second, system-wide copy would compete with this one.
-for system_copy in "/Library/Audio/Plug-Ins/Components/DungeonCrawler.component" "/Library/Audio/Plug-Ins/VST3/DungeonCrawler.vst3"; do
+for system_copy in /Library/Audio/Plug-Ins/Components/DungeonCrawler*.component /Library/Audio/Plug-Ins/VST3/DungeonCrawler*.vst3; do
     if [[ -e "$system_copy" ]]; then
         warn "An older system-wide copy exists: $system_copy"
         warn "Remove it so hosts load the new one:  sudo rm -rf \"$system_copy\""
@@ -80,7 +87,7 @@ install_bundle() {
     local src="$1" dest="$2" binary
     rm -rf "$dest"
     /usr/bin/ditto "$src" "$dest"
-    binary="$dest/Contents/MacOS/DungeonCrawler"
+    binary="$dest/Contents/MacOS/$(basename "${dest%.*}")"
     chmod +x "$binary"
     /usr/bin/xattr -dr com.apple.quarantine "$dest" 2>/dev/null || true
     if /usr/bin/xattr -lr "$dest" 2>/dev/null | /usr/bin/grep -q com.apple.quarantine; then
@@ -89,7 +96,7 @@ install_bundle() {
     fi
     if [[ "$dest" == *.component && $out_of_process == 1 ]]; then
         /usr/libexec/PlistBuddy -c "Delete :AudioComponents:0:sandboxSafe" "$dest/Contents/Info.plist" 2>/dev/null || true
-        warn "sandboxSafe removed: GarageBand will host DUNGEON CRAWLER out-of-process"
+        warn "sandboxSafe removed: GarageBand will host $(basename "$dest") out-of-process"
     fi
     # A Developer ID signed and notarised release keeps its signature; anything else
     # is re-signed ad hoc for this Mac.
@@ -108,67 +115,79 @@ install_bundle() {
 }
 
 bold "1-3. Copying, removing quarantine, signing"
-install_bundle "$component_src" "$components/DungeonCrawler.component"
-if [[ -d "$vst3_src" ]]; then
-    install_bundle "$vst3_src" "$vst3/DungeonCrawler.vst3"
-else
-    warn "DungeonCrawler.vst3 not in this folder; skipped"
-fi
+for entry in "${plugins[@]}"; do
+    read -r name _ _ <<< "$entry"
+    install_bundle "$here/$name.component" "$components/$name.component"
+    if [[ -d "$here/$name.vst3" ]]; then
+        install_bundle "$here/$name.vst3" "$vst3/$name.vst3"
+    else
+        warn "$name.vst3 not in this folder; skipped"
+    fi
+done
 
 bold "4. Resetting the Audio Unit registry"
 /usr/bin/killall -9 AudioComponentRegistrar 2>/dev/null || true
-registered=0
-for _ in $(seq 1 30); do
-    if /usr/bin/auval -a 2>/dev/null | /usr/bin/grep -Eq '^[[:space:]]*aufx[[:space:]]+Dgcr[[:space:]]+Veil'; then
-        registered=1
-        break
-    fi
-    sleep 1
+for entry in "${plugins[@]}"; do
+    read -r name type subtype <<< "$entry"
+    registered=0
+    for _ in $(seq 1 30); do
+        if /usr/bin/auval -a 2>/dev/null | /usr/bin/grep -Eq "^[[:space:]]*$type[[:space:]]+$subtype[[:space:]]+Veil"; then
+            registered=1
+            break
+        fi
+        sleep 1
+    done
+    if [[ $registered == 1 ]]; then ok "macOS lists $type $subtype Veil ($name)"; else fail "$name ($type $subtype Veil) is not listed by the Audio Unit registry after 30 s"; fi
 done
-if [[ $registered == 1 ]]; then ok "macOS lists aufx Dgcr Veil (Veil Audio: DUNGEON CRAWLER)"; else fail "DUNGEON CRAWLER is not listed by the Audio Unit registry after 30 s"; fi
 
 bold "5. Validating with Apple's auval"
-auval_log="$logs/install-auval.txt"
-set +e
-/usr/bin/auval -v aufx Dgcr Veil > "$auval_log" 2>&1
-auval_exit=$?
-set -e
-if [[ $auval_exit == 0 ]] && /usr/bin/grep -q "AU VALIDATION SUCCEEDED" "$auval_log"; then
-    ok "auval: PASS ($(uname -m))"
-    result=0
-else
-    fail "auval: FAIL ($(uname -m), exit $auval_exit). Full log: $auval_log"
-    /usr/bin/grep -E "FATAL|ERROR|Cannot open" "$auval_log" | /usr/bin/head -5 | /usr/bin/sed 's/^/       /'
-    result=1
-fi
-if [[ "$(uname -m)" == arm64 ]] && /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null; then
+result=0
+for entry in "${plugins[@]}"; do
+    read -r name type subtype <<< "$entry"
+    auval_log="$logs/install-auval-$name.txt"
     set +e
-    /usr/bin/arch -x86_64 /usr/bin/auval -v aufx Dgcr Veil > "$logs/install-auval-x86_64.txt" 2>&1
-    x86_exit=$?
+    /usr/bin/auval -v "$type" "$subtype" Veil > "$auval_log" 2>&1
+    auval_exit=$?
     set -e
-    if [[ $x86_exit == 0 ]]; then ok "auval: PASS (x86_64 under Rosetta)"; else warn "auval under Rosetta exited $x86_exit (only matters for Intel-mode hosts)"; fi
-fi
+    if [[ $auval_exit == 0 ]] && /usr/bin/grep -q "AU VALIDATION SUCCEEDED" "$auval_log"; then
+        ok "auval $name: PASS ($(uname -m))"
+    else
+        fail "auval $name: FAIL ($(uname -m), exit $auval_exit). Full log: $auval_log"
+        /usr/bin/grep -E "FATAL|ERROR|Cannot open" "$auval_log" | /usr/bin/head -5 | /usr/bin/sed 's/^/       /'
+        result=1
+    fi
+    if [[ "$(uname -m)" == arm64 ]] && /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null; then
+        set +e
+        /usr/bin/arch -x86_64 /usr/bin/auval -v "$type" "$subtype" Veil > "$logs/install-auval-$name-x86_64.txt" 2>&1
+        x86_exit=$?
+        set -e
+        if [[ $x86_exit == 0 ]]; then ok "auval $name: PASS (x86_64 under Rosetta)"; else warn "auval $name under Rosetta exited $x86_exit (only matters for Intel-mode hosts)"; fi
+    fi
+done
 
 bold "6. Next steps"
 cat <<'NEXT'
   GarageBand
     1. Open GarageBand > Settings > Audio/MIDI and make sure "Audio Units" is ticked.
     2. Quit and reopen GarageBand.
-    3. Select any track (an instrument or an audio track). Open Smart Controls (B),
-       click Plug-ins, click an empty Audio Effect slot:
-       Audio Units > Veil Audio > DUNGEON CRAWLER.
-    4. Play the track: it now sounds as if it were played in the chosen location.
-    5. If the window shows sliders instead of the DUNGEON CRAWLER interface, use the view menu
+    3. The instrument: make a Software Instrument track, open the Library (Y) or the
+       track's instrument slot in Smart Controls (B) > Plug-ins > Instrument:
+       Audio Units > Veil Audio > DUNGEON CRAWLER. Play your keyboard or the piano roll.
+    4. The effect: on any track, Smart Controls (B) > Plug-ins > an empty Audio Effect
+       slot: Audio Units > Veil Audio > DUNGEON CRAWLER FX.
+    5. If the window shows sliders instead of the painted interface, use the view menu
        at the top of the plug-in window to switch from "Controls" to "Editor".
   Logic Pro
-    1. Logic Pro > Settings > Plug-in Manager, find Veil Audio > DUNGEON CRAWLER.
-       If it shows as failed, select it and click "Reset & Rescan Selection".
-    2. On any track, click an empty Audio FX slot:
-       Audio Units > Veil Audio > DUNGEON CRAWLER.
+    1. Logic Pro > Settings > Plug-in Manager, find Veil Audio > DUNGEON CRAWLER and
+       DUNGEON CRAWLER FX. If one shows as failed, select it and click
+       "Reset & Rescan Selection".
+    2. The instrument: a Software Instrument track's Instrument slot:
+       AU Instruments > Veil Audio > DUNGEON CRAWLER.
+    3. The effect: any track's Audio FX slot: Audio Units > Veil Audio > DUNGEON CRAWLER FX.
 NEXT
 if [[ $result == 0 ]]; then
-    bold "DUNGEON CRAWLER is installed and validated."
+    bold "DUNGEON CRAWLER and DUNGEON CRAWLER FX are installed and validated."
 else
-    bold "DUNGEON CRAWLER is installed, but validation failed. Send $auval_log when reporting this."
+    bold "DUNGEON CRAWLER is installed, but validation failed. Send the auval logs in $logs when reporting this."
 fi
 exit $result

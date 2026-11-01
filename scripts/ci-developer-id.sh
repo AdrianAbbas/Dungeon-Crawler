@@ -9,9 +9,9 @@
 #   MACOS_CERTIFICATE_PASSWORD  password of that .p12
 #   MACOS_SIGNING_IDENTITY      e.g. "Developer ID Application: Your Name (TEAMID)"
 #   NOTARY_APPLE_ID, NOTARY_TEAM_ID, NOTARY_PASSWORD (app-specific password)
-# Usage: scripts/ci-developer-id.sh <artefacts dir>
+# Usage: scripts/ci-developer-id.sh <build dir> (both plug-ins: DungeonCrawler, DungeonCrawlerFX)
 set -euo pipefail
-artefacts="$1"
+build="$1"
 keychain="$RUNNER_TEMP/dungeoncrawler-signing.keychain-db"
 keychain_password="$(/usr/bin/uuidgen)"
 /usr/bin/security create-keychain -p "$keychain_password" "$keychain"
@@ -24,7 +24,8 @@ rm -f "$RUNNER_TEMP/dungeoncrawler-cert.p12"
 /usr/bin/security list-keychains -d user -s "$keychain" $(/usr/bin/security list-keychains -d user | tr -d '"')
 /usr/bin/security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain" > /dev/null
 
-for bundle in "$artefacts/AU/DungeonCrawler.component" "$artefacts/VST3/DungeonCrawler.vst3" "$artefacts/Standalone/DungeonCrawler.app"; do
+for bundle in "$build"/DungeonCrawler_artefacts/Release/{AU/DungeonCrawler.component,VST3/DungeonCrawler.vst3,Standalone/DungeonCrawler.app} \
+              "$build"/DungeonCrawlerFX_artefacts/Release/{AU/DungeonCrawlerFX.component,VST3/DungeonCrawlerFX.vst3,Standalone/DungeonCrawlerFX.app}; do
     /usr/bin/codesign --force --deep --options runtime --timestamp --sign "$MACOS_SIGNING_IDENTITY" "$bundle"
     /usr/bin/codesign --verify --strict --verbose=2 "$bundle"
     archive="$RUNNER_TEMP/$(basename "$bundle").zip"

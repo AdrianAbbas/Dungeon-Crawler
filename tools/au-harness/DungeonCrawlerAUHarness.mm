@@ -9,7 +9,7 @@
 //      and Logic use on Apple Silicon, where AUv2 plug-ins are bridged into
 //      AUHostingServiceXPC), rendered by AVAudioEngine in manual rendering mode
 //
-// DUNGEON CRAWLER is an effect (audio in, audio out). Each path renders a 440 Hz
+// DUNGEON CRAWLER FX is an effect (audio in, audio out). Each path renders a 440 Hz
 // sine and checks that the input is pulled and processed, host bypass, Mix 0 and
 // Intensity 0 transparency, Output and Location changes, presets (report only),
 // the state round trip and the editor view.
@@ -157,7 +157,7 @@ const char* harnessArchitecture() {
    #endif
 }
 
-constexpr const char* pluginImageNeedle = "DungeonCrawler.component/Contents/MacOS/";
+constexpr const char* pluginImageNeedle = "DungeonCrawlerFX.component/Contents/MacOS/";
 
 // Out-of-process rendering goes through Apple's render pipe, which expects a host's
 // timing: one block per block-duration with host time set, and playback stopped

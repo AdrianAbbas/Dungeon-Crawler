@@ -1,11 +1,17 @@
-DUNGEON CRAWLER - Dark-fantasy location effect (macOS, Apple Silicon and Intel, macOS 10.15+)
+DUNGEON CRAWLER - dark-fantasy instruments, each played in its place
+DUNGEON CRAWLER FX - the dark-fantasy location effect
+(macOS, Apple Silicon and Intel, macOS 10.15+)
 
 INSTALL
   1. Quit GarageBand and Logic.
   2. Open Terminal (Applications > Utilities > Terminal).
   3. Type "bash " (with a space), drag install-mac.sh from this folder into the
      Terminal window, and press Return.
-  4. Wait for "DUNGEON CRAWLER is installed and validated."
+  4. Wait for "DUNGEON CRAWLER and DUNGEON CRAWLER FX are installed and validated."
+  This folder holds both plug-ins; the script installs both:
+    DungeonCrawler.component / .vst3     the instrument (Audio Unit aumu Dgci Veil)
+    DungeonCrawlerFX.component / .vst3   the effect (aufx Dgcr Veil; projects that used
+                                         "DUNGEON CRAWLER" the effect find it again)
 
   Why a script? This build is not signed with an Apple Developer ID. When a browser
   downloads it, macOS marks every file as quarantined and then refuses to load the
@@ -15,8 +21,11 @@ INSTALL
 
 GARAGEBAND
   Settings > Audio/MIDI: tick "Audio Units". Restart GarageBand.
-  Select a track (software instrument or audio). Smart Controls (B) > Plug-ins >
-  an empty Audio Effect slot > Audio Units > Veil Audio > DUNGEON CRAWLER.
+  The instrument: a Software Instrument track, its instrument slot (Smart Controls (B)
+  > Plug-ins) > Audio Units > Veil Audio > DUNGEON CRAWLER. Play a keyboard or the
+  piano roll; click Instrument in the controls for its panel and keyboard.
+  The effect: select a track (software instrument or audio). Smart Controls (B) >
+  Plug-ins > an empty Audio Effect slot > Audio Units > Veil Audio > DUNGEON CRAWLER FX.
   Play the track: the plug-in window opens on the painted map. Click a landmark to
   travel there; inside, click the rings or the list to visit its places.
   If you see sliders instead of the DUNGEON CRAWLER interface, switch the plug-in
@@ -27,17 +36,22 @@ MIDI TRAVEL
   button) or automate Location / Sub-location instead. See README for other hosts.
 
 LOGIC PRO
-  Settings > Plug-in Manager > Veil Audio > DUNGEON CRAWLER. If it is marked failed,
-  select it and click "Reset & Rescan Selection". Insert it in an Audio FX slot of
-  any track: Audio Units > Veil Audio > DUNGEON CRAWLER.
+  Settings > Plug-in Manager > Veil Audio > DUNGEON CRAWLER and DUNGEON CRAWLER FX. If one
+  is marked failed, select it and click "Reset & Rescan Selection". The instrument: a
+  Software Instrument track's Instrument slot > AU Instruments > Veil Audio > DUNGEON
+  CRAWLER. The effect: an Audio FX slot of any track: Audio Units > Veil Audio >
+  DUNGEON CRAWLER FX.
 
 UNINSTALL
   bash uninstall-mac.sh            (add --purge to also delete your presets and
                                     drop-in scenes in ~/Library/Application Support/DungeonCrawler)
 
 MANUAL INSTALL (if you prefer not to run the script)
-  cp -R DungeonCrawler.component ~/Library/Audio/Plug-Ins/Components/
-  xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/DungeonCrawler.component
-  codesign --force --deep --sign - ~/Library/Audio/Plug-Ins/Components/DungeonCrawler.component
+  for p in DungeonCrawler DungeonCrawlerFX; do
+    cp -R $p.component ~/Library/Audio/Plug-Ins/Components/
+    xattr -dr com.apple.quarantine ~/Library/Audio/Plug-Ins/Components/$p.component
+    codesign --force --deep --sign - ~/Library/Audio/Plug-Ins/Components/$p.component
+  done
   killall -9 AudioComponentRegistrar
+  auval -v aumu Dgci Veil
   auval -v aufx Dgcr Veil

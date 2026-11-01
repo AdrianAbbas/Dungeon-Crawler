@@ -41,6 +41,11 @@ inline constexpr const char* atmosSeed = "atmosSeed";
 // Milestone 11: Eco / Standard / High (a setting, not automatable).
 inline constexpr const char* quality = "quality";
 inline juce::String advanced(std::size_t index) { return juce::String("adv_") + moduleSpecs[index].id; }
+// Direction Update 3: the instrument (DUNGEON CRAWLER only; the FX has none of these).
+inline constexpr const char* instrument = "instrument";
+inline constexpr const char* instLock = "instLock";
+inline constexpr std::array<const char*, 5> instMacros { "instMacro1", "instMacro2", "instMacro3", "instMacro4", "instMacro5" };
+inline constexpr const char* bendRange = "bendRange";
 }
 
 namespace dc {
@@ -65,7 +70,10 @@ inline juce::StringArray advancedChoices(const ModuleParamSpec& spec) {
 }
 
 // `currentLocation` names the sub-locations of the location in use (for host display).
-inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout(std::function<int()> currentLocation) {
+// `instrumentNames` (the instrument's, in place order) adds the instrument's parameters:
+// the plug-in is then DUNGEON CRAWLER, the instrument; empty, it is DUNGEON CRAWLER FX.
+inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout(std::function<int()> currentLocation,
+                                                                                const juce::StringArray& instrumentNames = {}) {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
     juce::StringArray places;
     for (const auto* name : locationNames) places.add(name);
@@ -150,6 +158,21 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
         const juce::String name = juce::String("Adv ") + spec.name;
         if (spec.glide == Glide::Step) layout.add(std::make_unique<juce::AudioParameterChoice>(id, name, advancedChoices(spec), 0));
         else layout.add(std::make_unique<juce::AudioParameterFloat>(id, name, juce::NormalisableRange<float>(-1.0f, 1.0f), 0.0f, offsetText));
+    }
+
+    if (!instrumentNames.isEmpty()) {
+        // The instrument the place gives (Lock Instrument off), or this one (on).
+        layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { ids::instLock, 1 }, "Lock Instrument", false));
+        layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids::instrument, 1 }, "Instrument", instrumentNames, 0));
+        // The instrument's five macros (their names change with the instrument: Tone,
+        // Attack, Release, Body and its own signature control).
+        for (std::size_t m = 0; m < ids::instMacros.size(); ++m)
+            layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::instMacros[m], 1 }, "Instrument Macro " + juce::String(int(m) + 1),
+                                                                   juce::NormalisableRange<float>(0.0f, 1.0f), 0.5f, macroText));
+        layout.add(std::make_unique<juce::AudioParameterInt>(juce::ParameterID { ids::bendRange, 1 }, "Pitch Bend Range", 1, 24, 2,
+            juce::AudioParameterIntAttributes().withLabel("st")
+                .withStringFromValueFunction([](int v, int) { return juce::String(v) + " st"; })
+                .withAutomatable(false)));
     }
     return layout;
 }

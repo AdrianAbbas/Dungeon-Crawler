@@ -8,6 +8,8 @@
 //   DungeonCrawlerTests --calibrate Source/World/LevelTrims.h  measure and write the per-place level trims
 //   DungeonCrawlerTests --listen dir         listening renders: guitar + synth phrase dry vs through every place
 //   DungeonCrawlerTests --strength [f.csv]   the strength table (Direction Update 2), report only
+//   DungeonCrawlerTests --calibrate-instruments Source/Instrument/Trims.h   the instruments' level trims
+//   DungeonCrawlerTests --listen-instruments dir   one melody on every instrument, dry then in its place
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 #include "UI/Scenes.h"
@@ -33,7 +35,12 @@ thread_local bool enabled = false;
 thread_local std::size_t calls = 0;
 }
 void* operator new(std::size_t n) {
-    if (allocationProbe::enabled) ++allocationProbe::calls;
+    if (allocationProbe::enabled) {
+        ++allocationProbe::calls;
+        // DC_ALLOC_TRAP=1: stop in a debugger at the first counted allocation.
+        static const bool trap = std::getenv("DC_ALLOC_TRAP") != nullptr;
+        if (trap) __builtin_trap();
+    }
     if (auto* p = std::malloc(n ? n : 1)) return p;
     throw std::bad_alloc();
 }
@@ -2609,6 +2616,8 @@ int qaDebug(int la, int ka, int lb, int kb) {
     return 0;
 }
 
+#include "InstrumentTests.inc"
+
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
     juce::String snapshot;
@@ -2619,6 +2628,8 @@ int main(int argc, char** argv) {
         else if (arg == "--only" && i + 1 < argc) only = juce::StringArray::fromTokens(argv[++i], ",", "");
         else if (arg == "--calibrate" && i + 1 < argc) return calibrate(argv[i + 1]);
         else if (arg == "--listen" && i + 1 < argc) return listen(argv[i + 1]);
+        else if (arg == "--calibrate-instruments" && i + 1 < argc) return calibrateInstruments(argv[i + 1]);
+        else if (arg == "--listen-instruments" && i + 1 < argc) return listenInstruments(argv[i + 1]);
         else if (arg == "--signatures") return signatureCheck();
         else if (arg == "--qa-debug" && i + 4 < argc)
             return qaDebug(juce::String(argv[i + 1]).getIntValue(), juce::String(argv[i + 2]).getIntValue(), juce::String(argv[i + 3]).getIntValue(), juce::String(argv[i + 4]).getIntValue());
@@ -2655,6 +2666,9 @@ int main(int argc, char** argv) {
     if (run("navigation")) testNavigation(s);
     if (run("atmosphere")) testAtmosphere(s);
     if (run("workflow")) testWorkflow(s);
+    if (run("instrument")) testInstrumentEngine(s);
+    if (run("instruments")) testInstruments(s);
+    if (run("instrumenteditor")) testInstrumentEditor(s, snapshot);
     if (only.contains("qa")) testQa(s);   // long (130 journeys): run explicitly
     if (only.contains("cpu")) testCpu(s);   // report only: run explicitly
     std::cout << "\n" << s.passed << " passed, " << s.failed << " failed" << std::endl;

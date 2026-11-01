@@ -17,6 +17,7 @@
 #include "PluginProcessor.h"
 #include "UI/EngravedLookAndFeel.h"
 #include "UI/SceneCache.h"
+#include "UI/InstrumentPanel.h"
 
 class DungeonCrawlerView final : public juce::Component, private juce::Timer, private juce::AudioProcessorParameter::Listener {
 public:
@@ -48,6 +49,12 @@ public:
     juce::Component& journeyPanelForTest() { return journeyPanel; }
     juce::Component& drawerForTest() { return drawer; }
     juce::Button& controlsButton() { return controlsToggle; }
+    // DUNGEON CRAWLER (the instrument): the Instrument button and its slide-up panel
+    // (null in the FX).
+    juce::Button& instrumentButton() { return instrumentToggle; }
+    dc::ui::InstrumentPanel* instrumentPanelForTest() { return instrumentPanel.get(); }
+    bool instrumentOpen() const { return instrumentPanel != nullptr && instrumentPanel->isVisible(); }
+    juce::String placeCrumbText() const { return placeCrumb.getText(); }
     // Tests: what a mouse-down on a component (anywhere in the window) does to the panels.
     void pointerDownForTest(juce::Component& c) { pointerDown(&c); }
     bool pressEscapeForTest() { return keyPressed(juce::KeyPress(juce::KeyPress::escapeKey)); }
@@ -193,6 +200,9 @@ private:
     // Hotfix 2: the panels and how they close.
     void closePanels();
     void pointerDown(juce::Component*);
+    void showInstrumentPanel(bool);
+    juce::Rectangle<int> instrumentPanelBounds() const;
+    int instrumentShownInCrumb = -1;
     // A small plate, top centre, while a Journey or Roam runs: what runs and Stop.
     struct SteerBadge final : juce::Component {
         juce::Label text;
@@ -287,7 +297,8 @@ private:
     juce::ComboBox travelSync;
     std::unique_ptr<juce::SliderParameterAttachment> travelTimeAttachment;
     std::unique_ptr<juce::ComboBoxParameterAttachment> travelSyncAttachment;
-    juce::TextButton bypass { "Bypass" }, advancedToggle { "Advanced" }, controlsToggle, journeyToggle { "Journey" };
+    juce::TextButton bypass { "Bypass" }, advancedToggle { "Advanced" }, controlsToggle, journeyToggle { "Journey" }, instrumentToggle { "Instrument" };
+    std::unique_ptr<dc::ui::InstrumentPanel> instrumentPanel;
     juce::TextButton presetButton, prevPreset, nextPreset, slotA { "A" }, slotB { "B" }, copySlot, undoButton, redoButton, settingsButton;
     std::unique_ptr<juce::ButtonParameterAttachment> bypassAttachment;
     bool controlsShown = true;
