@@ -43,6 +43,15 @@ list and runs Apple's validator. Details and a manual alternative:
 [packaging/INSTALL.txt](packaging/INSTALL.txt). Uninstall: `bash uninstall-mac.sh`
 (`--purge` also removes your presets).
 
+## The sound (Direction Update 2)
+
+Every place now transforms the instrument obviously at the defaults (Intensity 100 %,
+Mix 100 %); Intensity 50 % is still clearly audible, 0 % is the dry signal. Spaces are a
+main voice: most places use one of 33 generated spaces (huge halls with slow bloom,
+reversed swells, caverns with far echoes and coin glints, small warm rooms). Levels stay
+matched between places. The places the developer liked are unchanged or changed only as
+noted ([docs/DEVLOG.md](docs/DEVLOG.md), Session 6).
+
 ## Using it
 
 **GarageBand:** select a track → Smart Controls (B) → Plug-ins → an empty Audio Effect
@@ -71,7 +80,7 @@ window (if you see plain sliders, switch the window's view menu from "Controls" 
 | **Atmosphere** | Level of the place's sparse background sounds; 0 % = off (default). |
 | **Journey** (button) | The Journey panel: route, roaming, MIDI travel, atmosphere density/seed (below). Closes with ✕, a second click on Journey, Esc or a click outside it. |
 | **Bypass** | Bypass (crossfaded). |
-| **Advanced** | (Closes like the Journey panel.) Every module parameter as an offset from the place (0 % = as designed) or an override ("Place" = as designed), in nine groups: I Abyss (filters, Tomb resonator), II Ancient Blood (saturation, age), III Choir, IV Wraith (spectral), V Echoes, VI Crypt (reverb), VII Relics (torch flicker, metal, wind, drips), VIII Signature (the place's signature effect: kind, amount, tone, rate). Offsets travel with you. |
+| **Advanced** | (Closes like the Journey panel.) Every module parameter as an offset from the place (0 % = as designed) or an override ("Place" = as designed), in nine groups: I Abyss (filters, Tomb resonator), II Ancient Blood (saturation, age), III Choir, IV Wraith (spectral), V Echoes, VI Crypt (reverb), VII Relics (torch flicker, metal, wind, drips), VIII Signature (the place's signature effect: kind, amount, tone, rate), IX Vault (the place's space: one of 33 generated convolution spaces, mix, shimmer, tone, duck), X Ensemble (chorus, rising phaser, tape echo with pitch per repeat, water drops). Offsets travel with you. |
 | **Preset name ▾, ◀ ▶** | Init / No preset (everything at its default, no journey), factory presets (favourite spots, journeys), your presets, Save as your preset… After any change the name shows a star ("Grand Castle Tour *"). |
 | **Journey active · Stop** (top centre) | Shown while a Journey or Roam runs (journey presets start one). Stop ends it where it is. |
 | **A / B, A→B** | Compare two complete settings; copy the current one to the other slot. |
@@ -142,7 +151,7 @@ and renders the listening WAVs.
 
 | Path | What |
 |---|---|
-| `Source/DSP/` | The modules: from VEIL (Abyss, Ancient Blood, Choir, Wraith, Echoes, Crypt) and new (Relics, Signature, Atmosphere) |
+| `Source/DSP/` | The modules: from VEIL (Abyss, Ancient Blood, Choir, Wraith, Echoes, Crypt) and new (Relics, Signature, Atmosphere, Vault + Convolver, Ensemble) |
 | `Source/World/` | Locations, sub-locations, macros, signatures (`Locations.*`), level trims, journeys (`Journey.h`), factory presets (`Presets.h`) |
 | `Source/Engine.*` | The chain, travel, crossfades, the reverb rooms and signature pools, level matching |
 | `Source/UI/` | The painted scenes (layers, manifest), the engraving renderer for the rest, the background scene cache, the look |

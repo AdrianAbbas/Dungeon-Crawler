@@ -1,0 +1,41 @@
+place,wet_db,spectral_db,temporal_db,score,wet_db_at_50,score_at_50
+"Dungeon / Corridors",-3.68,8.44,4.35,20.96,-5.92,13.45
+"Dungeon / Entrance Hall",-2.58,9.21,6.39,24.31,-4.19,17.15
+"Dungeon / Prison Cells",-3.27,15.37,5.80,29.54,-5.63,17.32
+"Dungeon / Treasure Room",-4.69,2.70,4.73,15.09,-6.42,11.77
+"Dungeon / Final Boss Lair",-2.75,11.70,6.65,26.98,-3.70,21.51
+"Castle / Courtyard",-4.00,3.97,5.33,17.30,-5.00,14.31
+"Castle / Great Hall",-3.55,5.08,5.95,19.25,-4.45,15.49
+"Castle / Throne Room",-3.72,5.69,5.43,19.25,-4.30,15.59
+"Castle / Chapel",-3.28,9.72,6.22,24.30,-4.01,17.76
+"Castle / Tower Top",-3.51,5.35,5.45,19.04,-5.06,13.96
+"Cathedral / Cloister",-3.72,4.81,5.35,18.29,-4.66,14.42
+"Cathedral / Nave",-3.54,4.92,6.37,19.52,-4.58,15.10
+"Cathedral / Crypt",-1.57,17.78,8.02,35.01,-3.20,21.97
+"Cathedral / Bell Tower",-3.89,6.30,5.33,19.69,-5.70,13.65
+"Haunted Forest / Forest Edge",-3.31,8.10,6.18,22.63,-4.19,16.56
+"Haunted Forest / Old Path",-4.02,5.01,5.22,18.21,-5.75,13.85
+"Haunted Forest / Witch's Hut",-3.94,6.44,4.48,18.95,-5.46,13.51
+"Haunted Forest / Ancient Grove",-3.55,4.17,6.06,18.45,-4.43,15.12
+"Caverns / Cave Mouth",-3.77,8.41,5.04,21.56,-3.84,17.12
+"Caverns / Crystal Cavern",-3.69,6.06,4.35,18.57,-7.22,11.39
+"Caverns / Underground Lake",-4.17,11.31,7.09,26.32,-5.15,15.10
+"Caverns / Dragon's Hoard",-2.65,12.98,6.89,28.55,-3.96,21.27
+"Village / Village Green",-4.11,6.89,4.58,19.42,-5.10,14.54
+"Village / Tavern",-3.81,10.29,4.97,23.36,-4.55,17.41
+"Village / Market Square",-3.07,12.12,5.20,25.78,-4.07,18.58
+"Village / Blacksmith",-3.97,3.02,4.90,15.94,-5.69,12.49
+"Swamp / Mire",-2.81,11.37,5.65,25.61,-3.74,18.68
+"Swamp / Bog",-3.14,14.36,7.98,30.77,-4.60,17.03
+"Swamp / Sunken Ruins",-4.55,9.95,5.52,23.20,-5.84,14.25
+"Mountains / Foothills",-3.98,5.38,5.28,18.66,-5.13,14.17
+"Mountains / Mountain Pass",-3.52,4.00,6.17,18.41,-4.69,14.11
+"Mountains / Frozen Peak",-3.25,7.93,4.53,20.84,-6.54,12.36
+"Mountains / Dwarven Hall",-2.30,11.04,5.93,25.82,-3.77,18.22
+"Necropolis / Gates",-3.05,8.85,5.90,23.22,-3.99,17.47
+"Necropolis / Graveyard",-3.33,5.88,6.09,20.31,-4.82,14.90
+"Necropolis / Mausoleum",-3.85,11.16,4.29,23.52,-5.32,15.39
+"Wizard's Tower / Stairwell",-4.00,3.80,4.75,16.55,-5.65,12.27
+"Wizard's Tower / Library",-3.70,12.28,4.42,24.85,-4.34,17.17
+"Wizard's Tower / Alchemy Lab",-4.23,2.37,5.71,15.97,-6.60,12.22
+"Wizard's Tower / Observatory",-3.89,3.68,5.76,17.49,-6.11,12.46

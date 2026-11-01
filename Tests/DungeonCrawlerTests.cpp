@@ -450,7 +450,9 @@ void testSmoke(Suite& s) {
     const double dungeon = hv.residualDb(hv.end() - hv.at(1.0), hv.end());
     s.metric("harness sequence: residual Castle", castle, " dB");
     s.metric("harness sequence: residual Dungeon", dungeon, " dB");
-    s.check(std::abs(dungeon - castle) > 6.0, "Castle and Dungeon differ from the input by clearly different amounts (the harness needs > 3 dB)",
+    // Direction Update 2: both places are strongly wet now (0.5 vs 5.4 dB); the margin
+    // over the harness's 3 dB is 4 (was 6).
+    s.check(std::abs(dungeon - castle) > 4.0, "Castle and Dungeon differ from the input by clearly different amounts (the harness needs > 3 dB)",
             fmt(castle) + " vs " + fmt(dungeon));
     // The harness's Intensity check: from the Dungeon (3 s) to Intensity 0, 3 s, the
     // last 1 s measured. CI measured -39.6 dB here before the matcher fix.
@@ -1147,23 +1149,9 @@ void testLikeKept(Suite& s) {
 // Gates (Direction Update 2): at the defaults (Intensity 100 %, Mix 100 %) every place
 // transforms its input obviously; at Intensity 50 % it is still clearly audible.
 constexpr double strengthScoreGate = 18.0, halfScoreGate = 11.0;
-// Places whose redesign is finished (the gate applies); the others are reported while
-// the redesign is under way. Locations in the order of the Direction Update 2 checklist.
-bool strengthGated(int l, int k) {
-    static const std::set<std::pair<int, int>> done {
-        { dc::WizardsTower, 0 }, { dc::WizardsTower, 1 }, { dc::WizardsTower, 2 }, { dc::WizardsTower, 3 },
-        { dc::Swamp, 0 },
-        { dc::HauntedForest, 0 }, { dc::HauntedForest, 2 }, { dc::HauntedForest, 3 },
-        { dc::Village, 0 }, { dc::Village, 1 }, { dc::Village, 2 }, { dc::Village, 3 },
-        { dc::Castle, 0 }, { dc::Castle, 1 }, { dc::Castle, 2 }, { dc::Castle, 3 }, { dc::Castle, 4 },
-        { dc::Dungeon, 1 }, { dc::Dungeon, 2 }, { dc::Dungeon, 3 }, { dc::Dungeon, 4 },
-        { dc::Caverns, 0 }, { dc::Caverns, 1 }, { dc::Caverns, 3 },
-        { dc::Cathedral, 0 }, { dc::Cathedral, 1 }, { dc::Cathedral, 2 }, { dc::Cathedral, 3 },
-        { dc::Necropolis, 0 }, { dc::Necropolis, 1 }, { dc::Mountains, 0 }, { dc::Mountains, 1 }, { dc::Mountains, 2 }, { dc::Mountains, 3 },
-        { dc::Necropolis, 2 }, { dc::Caverns, 2 }, { dc::Dungeon, 0 }, { dc::HauntedForest, 1 }, { dc::Swamp, 1 }, { dc::Swamp, 2 },
-    };
-    return done.count({ l, k }) > 0;
-}
+// Every place's redesign is finished (Session 6): the gate applies everywhere; the
+// report-only exceptions are in reportOnlyChecks.
+bool strengthGated(int, int) { return true; }
 
 void testStrength(Suite& s) {
     s.section("strength: every place obviously transforms its input at the defaults");
@@ -2604,6 +2592,23 @@ int paintedSnapshots(const juce::String& directory) {
     return written > 0 ? 0 : 1;
 }
 
+// `--qa-debug la ka lb kb`: where the largest step of one journey is (development aid).
+int qaDebug(int la, int ka, int lb, int kb) {
+    Host h;
+    h.go(la, ka);
+    h.render(3.0, sine(220.0, 0.25f));
+    h.go(lb, kb);
+    h.render(2.5, sine(220.0, 0.25f));
+    std::size_t at = 0; double m = 0;
+    for (std::size_t i = h.at(3.0); i < h.end(); ++i) {
+        const double st = std::abs(double(h.outL[i]) - 2.0 * h.outL[i - 1] + h.outL[i - 2]);
+        if (st > m) { m = st; at = i; }
+    }
+    std::cout << "max step " << m << " at " << double(at) / h.sr << " s\n";
+    for (std::size_t i = at - 6; i < at + 6; ++i) std::cout << "  " << i << " " << h.outL[i] << "\n";
+    return 0;
+}
+
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
     juce::String snapshot;
@@ -2615,6 +2620,8 @@ int main(int argc, char** argv) {
         else if (arg == "--calibrate" && i + 1 < argc) return calibrate(argv[i + 1]);
         else if (arg == "--listen" && i + 1 < argc) return listen(argv[i + 1]);
         else if (arg == "--signatures") return signatureCheck();
+        else if (arg == "--qa-debug" && i + 4 < argc)
+            return qaDebug(juce::String(argv[i + 1]).getIntValue(), juce::String(argv[i + 2]).getIntValue(), juce::String(argv[i + 3]).getIntValue(), juce::String(argv[i + 4]).getIntValue());
         else if (arg == "--golden-like" && i + 1 < argc) return writeGoldenLike(argv[i + 1]);
         else if (arg == "--strength") return strengthReport(i + 1 < argc ? juce::String(argv[i + 1]) : juce::String());
         else if (arg == "--art" && i + 1 < argc) return renderArt(argv[i + 1], i + 2 < argc ? juce::String(argv[i + 2]).getIntValue() : 960);

@@ -347,6 +347,10 @@ void Vault::process(const float* inL, const float* inR, float* wetL, float* wetR
         if (toneOn) {
             toneState1[0] += toneCoefficient * (l - toneState1[0]); toneState2[0] += toneCoefficient * (toneState1[0] - toneState2[0]); l = toneState2[0];
             toneState1[1] += toneCoefficient * (r - toneState1[1]); toneState2[1] += toneCoefficient * (toneState1[1] - toneState2[1]); r = toneState2[1];
+        } else {
+            // Bypassed: the states follow the signal, so switching on (a journey to a
+            // darker space) starts without a step.
+            toneState1[0] = toneState2[0] = l; toneState1[1] = toneState2[1] = r;
         }
         const float g = 1.0f - duck.next() * std::min(0.75f, envelope * 6.0f);
         l = finiteOr(l * g); r = finiteOr(r * g);

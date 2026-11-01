@@ -65,6 +65,28 @@ Listening without GarageBand: the CI artifact `DungeonCrawler-linux-test-logs` h
 `listening/`: the same guitar and synth phrase dry (`00-dry.wav`) and through every
 place, plus a journey file (the guitar travelling through the places).
 
+## Direction Update 2: the sound redesign (session 6)
+
+Play the same guitar or synth phrase through each place at the defaults (Intensity
+100 %, Mix 100 %), then at Intensity 50 %. Reference renders: the CI artifact
+`DungeonCrawler-linux-test-logs`, folder `listening/`, one `NN-...-dry-vs-processed.wav`
+per place (dry first, then the place).
+
+- [ ] Every place sounds obviously somewhere else at 100 %; 50 % is still clearly audible.
+- [ ] Switching places never jumps in loudness and never clicks; tails ring on.
+- [ ] Kept exactly as before: Mausoleum, Underground Lake, Corridors, Old Path, Bog, Sunken Ruins.
+- [ ] Kept, with the note applied: Dwarven Hall (same filter, now a big deep stone hall), Cloister (boosted), Crypt (notes drawn in backwards), Prison Cells (old drips gone; rare quiet drops), Witch's Hut (sweeter shimmer and chorus on top), Alchemy Lab (slower wobble, bubbles, stranger resonance).
+- [ ] Necropolis: Gates wide, dark, deep with far dark echoes; Graveyard uneasy (reversed swells, a tritone shimmer below, wavering echoes).
+- [ ] Mountains: Foothills answers flutter from hill to hill; Pass massive with a tape echo bouncing left/right, darker each time; Frozen Peak sharp, thin, crystalline.
+- [ ] Cathedral: Nave the longest, most majestic space; Bell Tower: you strike a bell, it rings and swirls.
+- [ ] Caverns: Cave Mouth enclosed rock with flickering firelight; Crystal Cavern shimmering octave and crystals; Dragon's Hoard enormous, dry-dark, far echoes, coin sheen (clearly not the lake).
+- [ ] Dungeon: Entrance Hall stronger; Treasure Room rich and golden; Final Boss Lair colossal, sinister, falling echoes.
+- [ ] Castle: Courtyard fluttery and mystical; Great Hall massive; Throne Room rich; Chapel quiet and intimate; Tower Top open and airy with distant echoes.
+- [ ] Village (weary): Green calming; Tavern small, warm, dull; Market dead and dark; Blacksmith loud metal.
+- [ ] Haunted Forest: Forest Edge tense with a dark pitch shadow; Ancient Grove breathing, magical.
+- [ ] Swamp: Mire darker, more reflective. Wizard's Tower: Stairwell rising forever; Library hushed; Observatory vast starry shimmer.
+- [ ] CPU on the MacBook Air stays comfortable with two or three instances (the Vault adds a convolution).
+
 ## M6: distinct places (after the overnight session)
 
 Every place now has a **signature**: one effect no other place uses. On a guitar or
