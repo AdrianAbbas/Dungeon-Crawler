@@ -661,13 +661,13 @@ void sunkenRuinsControl(Voice& v, const Note&, float) {
 // Foothills: a shepherd's flute: a low end-blown flute, breathy, its second harmonic
 // strong, with the shepherd's breath around it (Breath).
 void foothills(Voice& v, const Note& n) {
-    wind(v.layer[0], n.hz, 0.07f * n.scale(1), 0.42f, 0.2f, 0.06f, 0.0f, 0.38f, 0.32f, n);
-    v.layer[0].wind.air = 0.2f;
+    wind(v.layer[0], n.hz, 0.07f * n.scale(1), 0.42f, 0.2f, 0.06f, 0.0f, 0.3f, 0.32f, n);
+    v.layer[0].wind.air = 0.1f;
     v.layer[0].wind.vibratoDepth = 0.16f;
     v.layer[0].wind.vibratoHz = 4.6f;
     if (sig(n) > 0.02f) {
         auto& L = v.layer[1];
-        wind(L, n.hz, 0.1f, 0, 0, 0, 0, 1.0f, 0.0f, n, 0.45f * sig(n));
+        wind(L, n.hz, 0.1f, 0, 0, 0, 0, 1.0f, 0.0f, n, 0.25f * sig(n));
         L.wind.tone = 0;
         L.wind.breathQ = 2.5f;
     }

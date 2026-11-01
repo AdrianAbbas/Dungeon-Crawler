@@ -190,24 +190,24 @@ without after each whole milestone. Resume from the first unticked line. Details
   - [x] Village: Market Square (fiddle)
   - [x] Village: Blacksmith (tuned anvil)
 - Milestone 4: instruments, second half
-  - [ ] Haunted Forest: Forest Edge (detuned wooden flute)
-  - [ ] Haunted Forest: Old Path (cello harmonics)
-  - [ ] Haunted Forest: Witch's Hut (music box)
-  - [ ] Haunted Forest: Ancient Grove (harp + whispers)
-  - [ ] Swamp: Mire (detuned banjo)
-  - [ ] Swamp: Bog (murky low reed)
-  - [ ] Swamp: Sunken Ruins (underwater bells)
-  - [ ] Mountains: Foothills (shepherd's flute)
-  - [ ] Mountains: Mountain Pass (war drums)
-  - [ ] Mountains: Frozen Peak (ice glockenspiel)
-  - [ ] Mountains: Dwarven Hall (dwarven chant + low brass)
-  - [ ] Necropolis: Gates (dark choir pad)
-  - [ ] Necropolis: Graveyard (ghost violin)
-  - [ ] Necropolis: Mausoleum (tolling bell + organ)
-  - [ ] Wizard's Tower: Stairwell (harpsichord arpeggio)
-  - [ ] Wizard's Tower: Library (clavichord)
-  - [ ] Wizard's Tower: Alchemy Lab (glass marimba)
-  - [ ] Wizard's Tower: Observatory (celestial pad)
+  - [x] Haunted Forest: Forest Edge (detuned wooden flute)
+  - [x] Haunted Forest: Old Path (cello harmonics)
+  - [x] Haunted Forest: Witch's Hut (music box)
+  - [x] Haunted Forest: Ancient Grove (harp + whispers)
+  - [x] Swamp: Mire (detuned banjo)
+  - [x] Swamp: Bog (murky low reed)
+  - [x] Swamp: Sunken Ruins (underwater bells)
+  - [x] Mountains: Foothills (shepherd's flute)
+  - [x] Mountains: Mountain Pass (war drums)
+  - [x] Mountains: Frozen Peak (ice glockenspiel)
+  - [x] Mountains: Dwarven Hall (dwarven chant + low brass)
+  - [x] Necropolis: Gates (dark choir pad)
+  - [x] Necropolis: Graveyard (ghost violin)
+  - [x] Necropolis: Mausoleum (tolling bell + organ)
+  - [x] Wizard's Tower: Stairwell (harpsichord arpeggio)
+  - [x] Wizard's Tower: Library (clavichord)
+  - [x] Wizard's Tower: Alchemy Lab (glass marimba)
+  - [x] Wizard's Tower: Observatory (celestial pad)
 - Milestone 5: presets and polish
   - [ ] 5a. 30+ instrument presets (instrument + place + macros), journeys kept
   - [ ] 5b. Tests: every instrument plays from MIDI, in tune, distinct from its siblings, level-matched; no hung notes in travel; both plug-ins validate
@@ -1973,3 +1973,38 @@ cello and the royal strings (it reached 10 kHz), darker fanfare trumpets, the sh
 send on the crystal bells lowered (it washed over the bells), the fiddle's rasp halved.
 The renders' own "clicks" at the end of the dry part were the listening file cutting a
 ringing note into its pause: the dry part now fades out over 50 ms.
+
+### Milestone 4: the instruments, second half (Haunted Forest, Swamp, Mountains, Necropolis, Wizard's Tower)
+
+| Place | Instrument | Made of | Signature (macro 5) | Mod wheel |
+|---|---|---|---|---|
+| Haunted Forest · Forest Edge | Wooden Flute | two breathy wooden flutes not quite agreeing, their pitch wandering | Detune (6-36 cents apart) | vibrato |
+| Old Path | Cello Harmonics | a thin flageolet bowed near the bridge, a pure bowed resonance under it, the wood creaking now and then while the key is held | Creak | vibrato |
+| Witch's Hut | Music Box | a worn comb's teeth (the tine model, an octave up), each paired with a sweeter one a little sharp | Wear (4-20 cents) | vibrato |
+| Ancient Grove | Ancient Harp | a gut harp on a soundboard, a breath whispering the note an octave up as it is plucked | Whispers | vibrato |
+| Swamp · Mire | Detuned Banjo | bright steel strings over a drum head (its resonances), paired strings badly out of tune with each other. **No banjo recording exists** in the Samples repository (the update names one): modelled | Detune (8-38 cents) | vibrato |
+| Bog | Murky Reed | a bass-clarinet-like reed (odd harmonics of a cylindrical bore), mud in its breath, dark | Murk | vibrato |
+| Sunken Ruins | Drowned Bells | soft, misshapen bells drifting slowly in pitch, a glassy FM pad below; the chorus-reverb capture | Pad | vibrato |
+| Mountains · Foothills | Shepherd's Flute | a low end-blown flute, its second harmonic strong, the shepherd's breath around it | Breath | vibrato |
+| Mountain Pass | War Drums | big skins (timpani-like modes) tuned to the key, heavy sticks, the shell, a slap on the rim | Rim | brightness |
+| Frozen Peak | Ice Glockenspiel | hard bright bars two octaves up, ice crackling after the strike | Frost | brightness |
+| Dwarven Hall | Dwarven Chant | deep voices on "oh" an octave below the key, low brass an octave below them | Brass | vibrato |
+| Necropolis · Gates | Dark Choir Pad | slow dark voices and an octave below them more, a faint analog pad; the dark-hall capture | Pad | swell |
+| Graveyard | Ghost Violin | **recorded** violin (open-string sustains), its pitch never settling, the bow's wood (**recorded** col legno) knocking around it | Haunt | vibrato |
+| Mausoleum | Tolling Bell & Organ | a tolling church bell, a low reedy organ under it while the key is held | Organ | tremolo |
+| Wizard's Tower · Stairwell | Harpsichord Arpeggio | a quilled harpsichord string; a held key climbs on its own (note, fifth, octave, twelfth, two octaves...) at the host's tempo, the octaves carrying the note | Rate (eighths to 32nds) | brightness |
+| Library | Clavichord | a soft tangent-struck string that stops the moment the key lets go | Tangent | bebung (vibrato) |
+| Alchemy Lab | Glass Marimba | an FM bar and glass partials, bubbles chirping up off each note | Bubbles | brightness |
+| Observatory | Celestial Pad | **recorded** soft pad patch (the developer's analog polysynth), starlight an octave above; the shimmer capture | Stars | swell |
+
+Recordings not used, and why: the violin pizzicato (the only pizzicato instrument asked
+for is a contrabass; the violin's, two octaves too high, smears when stretched that far,
+so the contrabass is a gut-string model), four of the five synth patches (harsh square,
+cyberpunk, pulsating, static-y bass: none fits a dark-realm medieval instrument here),
+the kalimba's "varying sweep" and "wood tapping" takes (the kalimba uses its three
+velocity layers), the room tone (used by the preparation's noise reduction), the tape
+echo capture (an echo, not an IR; the places have their own).
+
+After the first renders: the shepherd's flute's breath was halved (it covered 3-12 kHz).
+The second half needed nothing else to pass every gate (in tune, velocity, distinct from
+its siblings, level, in its place).
