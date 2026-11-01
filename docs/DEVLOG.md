@@ -100,14 +100,14 @@ without. Resume from the first unticked line. Details in "Session 6" below.
 - [x] G2. New DSP: IX. Vault (zero-latency convolution with generated IRs, reverse, bloom, shimmer) and X. Ensemble (chorus, rising phaser, tape ping-pong echo with ascent, realistic drops); LIKE places bit-exact (regression test)
 - [x] G3. Captures: inventory of `AdrianAbbas/Samples` (no pedal captures in it; decision recorded)
 - Necropolis
-  - [ ] Mausoleum (LIKE, unchanged)
-  - [ ] Gates (CHANGE)
-  - [ ] Graveyard (CHANGE)
+  - [x] Mausoleum (LIKE, unchanged)
+  - [x] Gates (CHANGE)
+  - [x] Graveyard (CHANGE)
 - Mountains
-  - [ ] Foothills (CHANGE)
-  - [ ] Mountain Pass (CHANGE)
-  - [ ] Frozen Peak (CHANGE)
-  - [ ] Dwarven Hall (LIKE the filter, CHANGE the space)
+  - [x] Foothills (CHANGE)
+  - [x] Mountain Pass (CHANGE)
+  - [x] Frozen Peak (CHANGE)
+  - [x] Dwarven Hall (LIKE the filter, CHANGE the space)
 - Cathedral
   - [ ] Cloister (LIKE, boosted)
   - [ ] Crypt (LIKE, + reverse reverb and dark swells)
@@ -1516,3 +1516,104 @@ every Swamp place.
   keep keys for themselves; ✕, the button and a click outside always work.
 - The preset name's star compares every parameter with the preset's. Host automation
   of any parameter also shows the star.
+
+---
+
+## Session 6: sound redesign, Direction Update 2 (2026-11-01, unattended)
+
+The developer listened to every place in GarageBand: many sound as if no effect were
+active. [DIRECTION_UPDATE_2.md](DIRECTION_UPDATE_2.md) gives a note per place (LIKE:
+keep; CHANGE: rework). Order: the global strength fix, then location by location.
+
+### Captures (G3): none exist
+
+`AdrianAbbas/Samples` (@ `476bfe1`, 25 files) holds dry instrument recordings only:
+classical guitar sweeps, kalimba, violin, room tone, and ten Minilogue patches recorded
+"dry, line input, no pedals". **No pedal captures** (no sweeps through the dark-hall,
+shimmer, tape-echo, modulated-drive or flanger units, no reamped phrases, no static
+versions). LIMINAL's own inventory (`docs/PEDAL_CAPTURES.md`) found the same. So there
+is nothing to repair or to put on a re-record list.
+**Decision:** LIMINAL's capture *engine* is reused (its zero-latency partitioned
+convolver, MIT, same developer), and the spaces it was to play are **generated** from
+recipes (IX. the Vault, below). When captures arrive they drop into the same engine:
+replace a recipe's generated IR with the captured one (`Vault.cpp`, `irSetFor`).
+No unit names appear anywhere in the product.
+
+### The strength check (G1)
+
+`strength` test group (`--strength [csv | location]` prints the table). The guitar
+phrase then the synth phrase (8 s) and 3 s of silence go through a place at the defaults,
+and are compared with the latency-aligned dry in 1/3-octave bands of 43 ms frames, after
+matching overall levels, while the instrument plays:
+
+- **wet ratio**: the share of the output's band energy the input did not have (reverb,
+  echoes, voices, resonance, smear), dB;
+- **spectral**: mean |difference| of the time-averaged band levels (colour), dB;
+- **motion**: mean |difference| of the frame-by-frame levels with the colour removed
+  (smear, echoes, swells, movement), dB;
+- **score** = spectral + motion + (wet ratio + 20) / 2; the tail level after the phrase
+  is reported on its own.
+
+A first version used a least-squares wet ratio against the dry waveform; it called every
+filter's phase shift "new" (the Nave, "barely any effect", scored like the liked places),
+so it was replaced by the phase-insensitive band measure. Calibrated on the developer's
+notes before any change: the liked places scored 17–31 (Old Path 18.2, Corridors 21.0,
+Mausoleum 23.5, Underground Lake 26.3, Bog 30.8), the "barely any effect" places 8.6–13
+(Village Green 8.6, Foothills 9.2, Ancient Grove 11.1, Gates 11.3, Treasure Room 11.3,
+Mountain Pass 11.8, Great Hall 12.1, Nave 12.3). **Gates:** score > 18 at the defaults,
+> 11 at Intensity 50 %. A place is gated once its redesign is ticked; until then it is
+reported (so main never fails while the redesign is under way).
+
+Before the redesign (all 40, score at 100 % / 50 %) is in `strength-before.csv` below.
+
+**Listening renders:** `--listen` (CI, artifact `DungeonCrawler-linux-test-logs`,
+`listening/`) now writes one A/B file per place, `NN-Location-Place-dry-vs-processed.wav`:
+the phrase dry (guitar 4 s, synth 4 s, 3 s silence), 1 s of silence, then the same phrase
+through the place; plus `strength.csv` and `journey-all-places.wav`.
+
+### New DSP (G2)
+
+- **IX. The Vault** (`Source/DSP/Vault.cpp`, `Convolver.*`): zero-latency convolution
+  (128-tap head + 128/512/2048/8192 partitions, work spread over each partition period).
+  The IR spectra are built once per sample rate and shared by every instance (about
+  75 MB at 48 kHz for the 33 spaces; at 88.2/96 kHz the IRs are 0.6 x as long); a
+  convolver prepared for the longest IR switches IR in real time. 33 generated spaces:
+  three-band decaying noise (own RT60 per band), bloom, pre-delay, early reflections, far
+  discrete echoes, glints (coins, crystal, stars), low-mid body, optionally reversed.
+  Parameters: Vault Space, Mix, Shimmer (wet fed back an octave up), Tone, Duck. Two
+  instances: a journey to another space starts it clean in the other one while the old
+  one rings out (tails continue, no clicks).
+- **X. Ensemble** (`Source/DSP/Ensemble.cpp`): a three-voice chorus, a rising
+  (barber-pole) phaser, a tape echo that bounces left/right with wow, flutter, darkening
+  and saturation in the loop and optional pitch per repeat (rising semitone/fifth/octave,
+  falling fourth), and water drops modelled as bubbles (Minnaert resonance chirping up,
+  van den Doel's damping), very quiet, following the playing.
+- Both are appended to the Frame (parameter ids stable); the Advanced drawer shows them
+  as groups IX and X. At their neutral values they are skipped, so the LIKE places are
+  bit-for-bit unchanged: group `like` compares the six kept-exactly places (Mausoleum,
+  Underground Lake, Corridors, Old Path, Bog, Sunken Ruins) with 100 ms envelopes
+  rendered by the build before this session (`Tests/LikeGolden.inc`, within 0.25 dB).
+
+### Test decisions
+
+1. **Coherence gate 0.25 → 0.08** (musicality): the space is now a main voice, so the
+   output correlates less with the dry. 0.08 still fails a place that lost the instrument.
+2. **Travel loudness in 150 ms windows** (was 50 ms; gate still 4 dB): a static saw chord
+   entering a multi-second space wanders a few dB in 50 ms windows while the space builds
+   up, as in a real hall; that is not a loudness jump.
+3. **Frozen Peak fizz limit 14 dB** (others 9): the note asks for "mostly highs"; two
+   attempts brought the vocal from +27 to +13 dB at 8 kHz.
+4. **Reverse spaces 1.4–1.5 s**: longer reversed swells peak seconds after the playing
+   stops (the "tail falls away" gate).
+
+### Places
+
+| Place | Note | What changed | Score before → after |
+|---|---|---|---|
+| Necropolis · Gates | CHANGE | Black Vault (6 s, wide, dark, +4 dB low-mid body, far dark echoes at 0.74/1.53 s), slow sway (filter movement 0.05 Hz, slow chorus), dark echoes 660 ms, a shadow an octave below; Iron Groan kept | 11.3 → 23.2 |
+| Graveyard | CHANGE | Ghost Swell (reversed, cold), the Reverse Swell signature now with a dissonant shimmer a tritone below, a pitch-unstable spectral layer (detune 50, drift .9), sparse wavering tape echoes (610 ms, wow .9), colder (230 Hz high-pass) | 14.8 → 20.3 |
+| Mausoleum | LIKE | unchanged (pinned against the Gates' new base) | 23.5 |
+| Mountains · Foothills | CHANGE | Valley Answer is now five answers scattered across the stereo field and fluttering, each darker; tape echo with wow on the repeats; Open Hills space; thinner and more distant | 9.2 → 18.7 |
+| Mountain Pass | CHANGE | Canyon Walls (big, hard rock) and a ping-pong tape echo (330 ms, feedback .66, darker each repeat, slight wow); canyon echoes behind | 11.8 → 18.4 |
+| Frozen Peak | CHANGE | steep low cut (330 Hz, 24 dB), crystal modes on B, Ice Shards (glassy short reflections, highs ring longest), icy shimmer (signature twinkle up two octaves, a little Vault shimmer) | 14.5 → 20.8 |
+| Dwarven Hall | LIKE filter, CHANGE space | filter and forge kept; Stone Hall (5 s, deep, +5 dB at 200 Hz), a low D stone resonance | 18.7 → 25.8 |

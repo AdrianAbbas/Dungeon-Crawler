@@ -142,13 +142,15 @@ const Recipe recipes[Signature::kinds] = {
     { .tone = ToneLow, .toneHz = 1400, .toneQ = 1.0f, .wobbleMs = 3.2f, .wobbleHz = .3f, .wobbleShape = Slosh, .wobbleMix = .5f,
       .tremDepth = .22f, .tremHz = .3f, .tremShape = Slosh },
     // ---- Mountains
-    // 30 Foothills, Valley Answer: one long answer from across the valley.
-    { .taps = 1, .tapMs = { 830 }, .tapGain = { .5f }, .tapPan = { .85f }, .tapLp = 2600 },
+    // 30 Foothills, Valley Answer: answers from hill after hill, scattered across the
+    // stereo field and fluttering, each more distant (Direction Update 2).
+    { .taps = 5, .tapMs = { 290, 530, 790, 1110, 1460 }, .tapGain = { .62f, .52f, .42f, .32f, .22f }, .tapPan = { -.9f, .85f, -.55f, .95f, -.7f },
+      .tapLp = 3600, .tapDarken = .75f, .tapMode = TapsScatter, .tapRate = .35f },
     // 31 Mountain Pass, Canyon Echoes: discrete echoes receding down the canyon.
     { .taps = 5, .tapMs = { 380, 760, 1140, 1520, 1900 }, .tapGain = { .55f, .4f, .28f, .19f, .12f }, .tapPan = { .7f, -.6f, .5f, -.4f, .3f },
       .tapLp = 6000, .tapDarken = .72f },
     // 32 Frozen Peak, Icy Shimmer: a thin, icy shimmer two octaves up, twinkling.
-    { .pitches = 1, .pitchRatio = { 4.0f }, .pitchGain = .22f, .pitchMode = PitchTwinkle, .pitchHp = 3500, .pitchLp = 10000,
+    { .pitches = 1, .pitchRatio = { 4.0f }, .pitchGain = .24f, .pitchMode = PitchTwinkle, .pitchHp = 3500, .pitchLp = 8000,
       .taps = 1, .tapMs = { 900 }, .tapGain = { .2f }, .tapPan = { -.7f }, .tapLp = 8000 },
     // 33 Dwarven Hall, Forge Resonance: a warm, low harmonic resonance like a forge.
     { .tone = ToneBell, .toneHz = 180, .toneQ = .8f, .toneDb = 3.5f,
@@ -157,8 +159,10 @@ const Recipe recipes[Signature::kinds] = {
     // 34 Gates, Iron Groan: rusted iron gates groaning with every attack.
     { .modes = 4, .modeHz = { 98, 189, 281, 402 }, .modeT60 = 2.2f, .modeGain = .55f, .modeStruck = true,
       .smear = .2f, .smearMs = 25 },
-    // 35 Graveyard, Reverse Swell: ghostly swells, each note sucked in backwards.
-    { .reverseMs = 460, .reverseGain = .55f, .reverseLp = 4200 },
+    // 35 Graveyard, Reverse Swell: ghostly swells, each note sucked in backwards, and a
+    // faint dissonant shimmer a tritone below (Direction Update 2).
+    { .pitches = 1, .pitchRatio = { .7071f }, .pitchGain = .3f, .pitchMode = PitchContinuous, .pitchHp = 250, .pitchLp = 3200,
+      .reverseMs = 460, .reverseGain = .65f, .reverseLp = 4200 },
     // 36 Mausoleum, Hollow Tomb: a tight, hollow stone tube, muffled.
     { .tone = ToneLow, .toneHz = 1900, .toneQ = .8f,
       .combs = 2, .combHz = { 238, 357 }, .combFeedback = .72f, .combDamp = .6f, .combGain = .6f },

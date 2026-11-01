@@ -250,53 +250,85 @@ std::vector<LocationDesign> buildWorld() {
 
     //--------------------------------------------------------------------------
     w.push_back({ "Mountains", "Foothills",
-        // Open hills: almost dry, the wind, and one long answer from across the valley
-        // (its signature).
-        { { HighPass, 65 }, { Wind, .28f }, { DelayMix, 0 },
-          { Character, 0 }, { Space, .3f }, { Decay, .9f }, { Damping, .5f }, { PreDelay, 10 }, { ReverbMix, .1f } },
+        // Direction Update 2. Open hills: sound travels from hill to hill. Echoes
+        // scattered across the stereo field and fluttering (the Valley Answer signature,
+        // now a fan of answers), a light tape wow on the repeats, which grow more
+        // distant (darker) each time, an open-air space, the wind.
+        { { HighPass, 110 }, { Cutoff, 7000 }, { Darkness, .1f }, { Wind, .22f }, { DelayMix, 0 },
+          { TapeMix, .48f }, { TapeTime, 455 }, { TapeFeedback, .38f }, { TapeTone, 3600 }, { TapeWow, .55f },
+          { Character, 0 }, { Space, .3f }, { Decay, .9f }, { Damping, .5f }, { PreDelay, 10 }, { ReverbMix, .1f },
+          { VaultKind, 3 }, { VaultMix, .62f } },
         {
-          // The pass: rock walls on both sides, discrete echoes receding down the canyon.
-          { "Mountain Pass", { { HighPass, 100 }, { Wind, .18f },
-                               { Character, 3 }, { Space, .6f }, { Decay, 2.6f }, { Damping, .25f }, { PreDelay, 70 }, { ReverbLowCut, 220 }, { ReverbMix, .18f } } },
-          // The peak: thin, cold, airy; ice above everything, sparse echoes, wind.
-          { "Frozen Peak", { { HighPass, 260 }, { Cutoff, 16000 }, { Wind, .38f },
-                             { WraithMix, .14f }, { Blur, .4f }, { Ghost, .2f },
-                             { Character, 3 }, { Space, .45f }, { Decay, 2.6f }, { Damping, .08f }, { PreDelay, 90 }, { Shimmer, .22f }, { ReverbLowCut, 400 }, { ReverbMix, .26f } } },
-          // The dwarven hall: deep stone carved into the mountain, warm with the forge,
-          // a low hum of voices.
+          // The pass: massive. A big canyon of a space, and a tape echo bouncing between
+          // the left and right walls, darker with every repeat, high but controlled
+          // feedback; the canyon echoes (signature) recede behind it.
+          { "Mountain Pass", { { HighPass, 90 }, { Cutoff, 20000 }, { Darkness, 0 }, { Wind, .14f },
+                               { TapeMix, .8f }, { TapeTime, 330 }, { TapeFeedback, .66f }, { TapeTone, 3000 }, { TapeWow, .22f },
+                               { Character, 3 }, { Space, .6f }, { Decay, 2.6f }, { Damping, .25f }, { PreDelay, 70 }, { ReverbLowCut, 220 }, { ReverbMix, .12f },
+                               { VaultKind, 4 }, { VaultMix, .82f } } },
+          // The peak: sharp, frozen, jagged. Almost no lows left (a steep low cut),
+          // crystal modes ringing, glassy short reflections (Ice Shards), an icy shimmer
+          // two octaves up (signature) and in the space.
+          { "Frozen Peak", { { HighPass, 330 }, { Slope, 1 }, { Cutoff, 9000 }, { Darkness, 0 }, { Wind, .3f },
+                             { Metal, .65f }, { MetalKind, 2 }, { MetalNote, 11 }, { MetalOctave, 2 }, { MetalDecay, 3 },
+                             { WraithMix, .14f }, { Blur, .4f }, { Ghost, 0 },
+                             { TapeMix, 0 },
+                             { Character, 3 }, { Space, .45f }, { Decay, 2.6f }, { Damping, .08f }, { PreDelay, 90 }, { Shimmer, .1f }, { ReverbLowCut, 400 }, { ReverbMix, .16f },
+                             { VaultKind, 5 }, { VaultMix, .72f }, { VaultShimmer, .1f }, { VaultTone, 5000 } } },
+          // The dwarven hall (LIKE the filter, kept): deep stone carved into the
+          // mountain, warm with the forge. New: the hall itself, a big deep stone space
+          // with a resonant low-mid body (Stone Hall, a low D stone resonance).
           { "Dwarven Hall", { { HighPass, 28 }, { Cutoff, 6500 }, { Darkness, .28f }, { Wind, 0 }, { Drive, 4 }, { BloodMix, .18f }, { Flicker, .22f }, { FlickerRate, 2 },
                               { Voices, 1 }, { Interval, 0 }, { ChoirBlend, .1f }, { Formant, .2f },
-                              { Character, 1 }, { Space, .9f }, { Decay, 4.5f }, { Damping, .55f }, { PreDelay, 42 }, { ReverbMix, .42f } } },
+                              { Tomb, .22f }, { TombNote, 2 }, { TombOctave, 1 },
+                              { TapeMix, 0 },
+                              { Character, 1 }, { Space, .9f }, { Decay, 4.5f }, { Damping, .55f }, { PreDelay, 42 }, { ReverbMix, .3f },
+                              { VaultKind, 6 }, { VaultMix, .6f } } },
         },
         {
           { "Altitude", { { HighPass, -.8f, 1.5f }, { Wind, -.2f, .3f }, { Darkness, .1f, 0 } } },
-          { "Echo", { { SigAmount, -.6f, 0 }, { DelayMix, 0, .15f }, { Feedback, 0, .3f } } },
-          { "Frost", { { Shimmer, 0, .35f }, { Damping, .2f, -.2f }, { Blur, 0, .3f }, { WraithMix, 0, .15f } } },
+          { "Echo", { { SigAmount, -.6f, 0 }, { TapeMix, -.2f, .2f }, { TapeFeedback, -.2f, .15f } } },
+          { "Frost", { { Shimmer, 0, .35f }, { Damping, .2f, -.2f }, { Blur, 0, .3f }, { WraithMix, 0, .15f }, { VaultShimmer, 0, .3f } } },
         } });
 
     //--------------------------------------------------------------------------
     w.push_back({ "Necropolis", "Gates",
-        // The gates of the dead city: cold air, rusted iron groaning (its signature), a
-        // faint ghostly haze, a hard stone reverb.
-        { { HighPass, 95 }, { Darkness, .12f }, { Wind, .16f },
+        // Direction Update 2. The gates of the dead city: wider, darker, deeper. A wide
+        // dark vault of a space with weight in the low mids (Black Vault), the rusted
+        // iron groaning (its signature), a slow ominous sway, distant dark echoes, a
+        // shadow an octave below.
+        { { HighPass, 45 }, { Cutoff, 5200 }, { Darkness, .35f }, { FilterMovement, .18f }, { FilterRate, .05f }, { Wind, .12f },
           { WraithMix, .14f }, { Blur, .5f }, { Ghost, .3f },
-          { DelayTime, 520 }, { Feedback, .22f }, { DelayDamping, .6f }, { DelayMix, .08f },
-          { Character, 0 }, { Space, .55f }, { Decay, 2.4f }, { Damping, .3f }, { PreDelay, 22 }, { ReverbMix, .24f } },
+          { Voices, 1 }, { Interval, 0 }, { ChoirBlend, .12f }, { Formant, .12f }, { ChoirDetune, 10 },
+          { EnsMix, .22f }, { EnsDepth, 3.5f }, { EnsRate, .09f },
+          { DelayTime, 660 }, { Feedback, .38f }, { DelayDamping, .82f }, { Diffusion, .65f }, { Spread, 1 }, { DelayMix, .24f },
+          { Character, 0 }, { Space, .55f }, { Decay, 2.4f }, { Damping, .3f }, { PreDelay, 22 }, { ReverbMix, .16f },
+          { VaultKind, 1 }, { VaultMix, .62f }, { VaultTone, 5500 }, { VaultDuck, .15f } },
         {
-          // The graveyard: open, cold and sparse; ghosts of every note, swells drawn in
-          // backwards.
-          { "Graveyard", { { HighPass, 140 }, { Cutoff, 11000 }, { WraithMix, .32f }, { Blur, .55f }, { Ghost, .5f }, { WraithDetune, 30 }, { Drift, .6f },
-                           { DelayTime, 760 }, { Feedback, .25f }, { DelayMix, .1f },
-                           { Space, .6f }, { Decay, 3.6f }, { Damping, .2f }, { PreDelay, 40 }, { ReverbMix, .28f } } },
-          // The mausoleum: a tight, sealed stone tomb, hollow and muffled.
+          // The graveyard: sinister and uneasy. Notes drawn in backwards (a reversed
+          // ghost swell and the Reverse Swell signature, with a dissonant tritone
+          // shimmer below), a cold, pitch-unstable spectral layer, sparse wavering echoes.
+          { "Graveyard", { { HighPass, 210 }, { Cutoff, 7500 }, { Darkness, .2f }, { FilterMovement, 0 }, { Wind, .16f },
+                           { WraithMix, .42f }, { Blur, .6f }, { Ghost, .55f }, { WraithDetune, 50 }, { Drift, .9f },
+                           { ChoirBlend, 0 }, { EnsMix, 0 },
+                           { TapeMix, .3f }, { TapeTime, 610 }, { TapeFeedback, .32f }, { TapeTone, 2600 }, { TapeWow, .9f },
+                           { DelayTime, 760 }, { Feedback, .25f }, { DelayDamping, .6f }, { Diffusion, .35f }, { DelayMix, .1f },
+                           { Character, 0 }, { Space, .6f }, { Decay, 3.6f }, { Damping, .2f }, { PreDelay, 40 }, { ReverbMix, .22f },
+                           { VaultKind, 2 }, { VaultMix, .6f }, { VaultTone, 20000 }, { VaultDuck, 0 } } },
+          // The mausoleum (LIKE, kept exactly): a tight, sealed stone tomb, hollow and
+          // muffled. Everything the Gates' redesign added is pinned back to before.
           { "Mausoleum", { { HighPass, 50 }, { Cutoff, 4500 }, { Darkness, .35f }, { Wind, 0 }, { Drips, .12f },
                            { WraithMix, .08f }, { Ghost, .4f }, { DelayMix, 0 },
-                           { Character, 2 }, { Space, .2f }, { Decay, 1.3f }, { Damping, .6f }, { PreDelay, 3 }, { ReverbMix, .4f } } },
+                           { Character, 2 }, { Space, .2f }, { Decay, 1.3f }, { Damping, .6f }, { PreDelay, 3 }, { ReverbMix, .4f },
+                           { FilterMovement, 0 }, { FilterRate, .12f }, { ChoirBlend, 0 }, { Voices, 2 }, { Interval, 0 }, { Formant, .4f }, { ChoirDetune, 12 },
+                           { EnsMix, 0 }, { EnsDepth, 3 }, { EnsRate, .4f },
+                           { DelayTime, 520 }, { Feedback, .22f }, { DelayDamping, .6f }, { Diffusion, .35f }, { Spread, .6f },
+                           { VaultKind, 0 }, { VaultMix, 0 }, { VaultTone, 20000 }, { VaultDuck, 0 } } },
         },
         {
-          { "Chill", { { HighPass, -.6f, 1 }, { Damping, .15f, -.2f }, { Shimmer, 0, .2f } } },
-          { "Ghosts", { { WraithMix, -.12f, .3f }, { Ghost, -.25f, .35f }, { Drift, -.2f, .3f } } },
-          { "Silence", { { ReverbMix, .1f, -.15f }, { DelayMix, .06f, -.08f }, { Space, .15f, -.25f } } },
+          { "Chill", { { HighPass, -.6f, 1 }, { Damping, .15f, -.2f }, { Shimmer, 0, .2f }, { VaultTone, -.8f, .8f } } },
+          { "Ghosts", { { WraithMix, -.12f, .3f }, { Ghost, -.25f, .35f }, { Drift, -.2f, .3f }, { TapeWow, -.3f, .1f } } },
+          { "Silence", { { ReverbMix, .1f, -.15f }, { DelayMix, .06f, -.08f }, { Space, .15f, -.25f }, { VaultMix, .15f, -.35f } } },
         } });
 
     //--------------------------------------------------------------------------

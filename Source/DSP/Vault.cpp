@@ -35,7 +35,7 @@ const IrRecipe recipes[Vault::kinds] = {
       .bodyHz = 230, .bodyDb = 4, .width = 1, .early = 4, .earlyMs = 90, .earlyGain = .12f, .earlyLp = 3000,
       .echoes = 2, .echoMs = { 740, 1530 }, .echoGain = { .32f, .2f }, .echoBlurMs = 30, .echoLp = 1800 },
     // 2 Ghost Swell (Graveyard): a cold reversed swell.
-    { .seconds = 2.6f, .bloomMs = 20, .rtLow = 2.6f, .rtMid = 2.6f, .rtHigh = 2.2f, .lowCut = 180, .highCut = 7000, .width = 1,
+    { .seconds = 1.5f, .bloomMs = 20, .rtLow = 2.6f, .rtMid = 2.6f, .rtHigh = 2.2f, .lowCut = 180, .highCut = 7000, .width = 1,
       .reverse = true },
     // 3 Open Hills (Foothills): open air, a soft, thin tail.
     { .seconds = 2.2f, .preMs = 20, .bloomMs = 40, .rtLow = 1.4f, .rtMid = 1.8f, .rtHigh = 1.1f, .lowCut = 140, .highCut = 8000, .width = 1,
@@ -44,13 +44,13 @@ const IrRecipe recipes[Vault::kinds] = {
     { .seconds = 4.5f, .preMs = 25, .bloomMs = 50, .rtLow = 4.2f, .rtMid = 3.8f, .rtHigh = 2.2f, .lowCut = 60, .highCut = 7000,
       .bodyHz = 400, .bodyDb = 2, .width = 1, .early = 6, .earlyMs = 140, .earlyGain = .22f, .earlyLp = 5000 },
     // 5 Ice Shards (Frozen Peak): glassy, the highs ring longest, glints of ice.
-    { .seconds = 2.6f, .preMs = 8, .bloomMs = 5, .rtLow = .6f, .rtMid = 1.8f, .rtHigh = 2.6f, .lowCut = 700, .highCut = 16000, .width = 1,
-      .early = 6, .earlyMs = 35, .earlyGain = .2f, .earlyLp = 14000, .glints = 30, .glintHz = 4200, .glintGain = .22f },
+    { .seconds = 2.6f, .preMs = 8, .bloomMs = 5, .rtLow = .6f, .rtMid = 2.0f, .rtHigh = 2.2f, .lowCut = 500, .highCut = 8500, .width = 1,
+      .early = 6, .earlyMs = 35, .earlyGain = .2f, .earlyLp = 8000, .glints = 30, .glintHz = 2600, .glintGain = .22f },
     // 6 Stone Hall (Dwarven Hall): deep stone, warm low-mid body.
     { .seconds = 5, .preMs = 40, .bloomMs = 90, .rtLow = 5.2f, .rtMid = 4.2f, .rtHigh = 1.8f, .lowCut = 35, .highCut = 5000,
       .bodyHz = 200, .bodyDb = 5, .width = .9f, .early = 5, .earlyMs = 70, .earlyGain = .16f, .earlyLp = 3500 },
     // 7 Crypt Swell (Crypt): a dark reversed swell.
-    { .seconds = 2.2f, .bloomMs = 20, .rtLow = 2.4f, .rtMid = 2.2f, .rtHigh = 1.2f, .lowCut = 60, .highCut = 2600,
+    { .seconds = 1.4f, .bloomMs = 20, .rtLow = 2.4f, .rtMid = 2.2f, .rtHigh = 1.2f, .lowCut = 60, .highCut = 2600,
       .bodyHz = 220, .bodyDb = 3, .width = .9f, .reverse = true },
     // 8 Grand Nave: the longest, most majestic space, long pre-delay, slow bloom.
     { .seconds = 7.5f, .preMs = 110, .bloomMs = 420, .rtLow = 8.5f, .rtMid = 7.5f, .rtHigh = 4.2f, .lowCut = 40, .highCut = 7500,
@@ -210,7 +210,7 @@ std::array<std::vector<float>, 2> generate(const IrRecipe& r, double sr, std::ui
         for (std::size_t i = 0; i < total; ++i) {
             float v = tail[i] * tailScale + earlyLp.lp(taps[i]) + echoLp.lp(echoes[i]);
             v = hc2.lp(hc1.lp(lc.hp(v)));
-            v = body.process(v) + glints[i] * tailScale * 40.0f;
+            v = body.process(v) + glints[i] * tailScale * 7.0f;
             h[pre + i] = v;
         }
         if (r.reverse) {
