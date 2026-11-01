@@ -96,30 +96,44 @@ std::vector<LocationDesign> buildWorld() {
     //--------------------------------------------------------------------------
     w.push_back({ "Cathedral", "Cloister",
         // Arcades around a garden: a flutter of reflections between the arches,
-        // feeding a long stone reverb.
-        { { Cutoff, 12000 }, { Darkness, .05f }, { Wind, .1f },
-          { DelayTime, 92 }, { Feedback, .45f }, { Diffusion, .7f }, { DelayDamping, .4f }, { Spread, .6f }, { DelayMix, .16f },
-          { Character, 1 }, { Space, .6f }, { Decay, 4.5f }, { Damping, .5f }, { PreDelay, 28 }, { ReverbMix, .38f } },
+        // feeding a long stone reverb. LIKE (Direction Update 2): boosted overall, the
+        // same character, a bright stone arcade (Old Cloister) behind it.
+        { { Cutoff, 9000 }, { Darkness, .12f }, { Wind, .1f },
+          { DelayTime, 92 }, { Feedback, .55f }, { Diffusion, .7f }, { DelayDamping, .4f }, { Spread, .6f }, { DelayMix, .34f },
+          { Character, 1 }, { Space, .6f }, { Decay, 4.5f }, { Damping, .5f }, { PreDelay, 28 }, { Shimmer, .14f }, { ReverbMix, .5f },
+          { VaultKind, 27 }, { VaultMix, .5f } },
         {
-          // The nave: the longest, wettest place in the world; a breath of choir.
-          { "Nave", { { Cutoff, 10000 }, { Wind, 0 }, { Voices, 2 }, { Interval, 0 }, { ChoirBlend, .06f }, { Formant, .55f }, { DelayMix, 0 },
-                      { Character, 1 }, { Space, 1 }, { Decay, 12 }, { Damping, .45f }, { PreDelay, 80 }, { Shimmer, .05f }, { ReverbMix, .6f } } },
-          // Below the floor: very dark and close, a low resonance, a murmur an octave down.
+          // The nave (CHANGE): the longest, most majestic space in the plug-in. Huge,
+          // smooth stone, a long pre-delay and a slow bloom (Grand Nave, 7.5 s), the
+          // vault's cascades (signature), a breath of choir.
+          { "Nave", { { Cutoff, 6500 }, { Darkness, .15f }, { Wind, 0 }, { Voices, 2 }, { Interval, 0 }, { ChoirBlend, .08f }, { Formant, .55f }, { DelayMix, 0 },
+                      { Character, 1 }, { Space, 1 }, { Decay, 9 }, { Damping, .45f }, { PreDelay, 80 }, { Shimmer, .05f }, { ReverbMix, .22f },
+                      { VaultKind, 8 }, { VaultMix, .76f }, { VaultDuck, .1f } } },
+          // Below the floor (LIKE the filters, kept): very dark and close, a low
+          // resonance, a murmur an octave down. New: notes drawn in backwards, a dark
+          // reversed swell (Crypt Swell) rising out of the stone.
           { "Crypt", { { Cutoff, 1500 }, { Darkness, .62f }, { HighPass, 28 }, { Wind, 0 }, { Drips, .14f },
                        { Tomb, .32f }, { TombNote, 2 }, { TombOctave, 1 }, { Drive, 3 }, { Age, .15f }, { BloodMix, .2f },
                        { Voices, 1 }, { Interval, 0 }, { ChoirBlend, .15f }, { Formant, .1f }, { DelayMix, 0 },
-                       { Character, 2 }, { Space, .3f }, { Decay, 2 }, { Damping, .85f }, { PreDelay, 6 }, { ReverbMix, .45f } } },
-          // In the belfry: the instrument strikes bells, wind through the louvres.
-          { "Bell Tower", { { HighPass, 80 }, { Cutoff, 8000 }, { Darkness, .12f }, { Wind, .25f },
-                            { Metal, .6f }, { MetalKind, 1 }, { MetalNote, 2 }, { MetalOctave, 1 }, { MetalDecay, 5 },
-                            { DelayTime, 420 }, { Feedback, .25f }, { Diffusion, .4f }, { DelayMix, .12f },
-                            { Character, 0 }, { Space, .45f }, { Decay, 2.1f }, { Damping, .35f }, { PreDelay, 40 }, { Shimmer, .08f }, { ReverbMix, .3f } } },
+                       { Character, 2 }, { Space, .3f }, { Decay, 2 }, { Damping, .85f }, { PreDelay, 6 }, { Shimmer, 0 }, { ReverbMix, .45f },
+                       { VaultKind, 7 }, { VaultMix, .3f } } },
+          // The belfry (CHANGE): you strike a bell. Tuned bell partials (hum, prime,
+          // tierce, quint, nominal) ring with every attack (signature and the bell
+          // resonators), the ringing fed back through a tape loop, a slow metallic swirl
+          // (rising phaser), a hard bright stone tower.
+          { "Bell Tower", { { HighPass, 150 }, { Cutoff, 5500 }, { Darkness, .08f }, { Wind, .18f },
+                            { Metal, .9f }, { MetalKind, 1 }, { MetalNote, 2 }, { MetalOctave, 1 }, { MetalDecay, 6 },
+                            { Spiral, .5f }, { SpiralRate, .05f },
+                            { TapeMix, .42f }, { TapeTime, 420 }, { TapeFeedback, .6f }, { TapeTone, 5500 }, { TapeWow, .1f },
+                            { DelayMix, 0 },
+                            { Character, 0 }, { Space, .45f }, { Decay, 2.1f }, { Damping, .35f }, { PreDelay, 40 }, { Shimmer, .08f }, { ReverbMix, .2f },
+                            { VaultKind, 9 }, { VaultMix, .7f } } },
         },
         {
-          { "Vastness", { { Space, -.4f, 0 }, { Decay, -1.3f, .8f }, { PreDelay, -20, 40 }, { ReverbMix, -.15f, .12f } } },
+          { "Vastness", { { Space, -.4f, 0 }, { Decay, -1.3f, .8f }, { PreDelay, -20, 40 }, { ReverbMix, -.15f, .12f }, { VaultMix, -.3f, .15f } } },
           { "Choir", { { ChoirBlend, -.15f, .25f }, { Drone, 0, .2f }, { Voices, 0, 1 } } },
-          { "Bells", { { Metal, -.3f, .4f }, { MetalDecay, -1, 1 }, { Shimmer, -.08f, .2f } } },
-          { "Gloom", { { Cutoff, 1, -2 }, { Darkness, -.15f, .4f }, { Damping, -.2f, .3f } } },
+          { "Bells", { { Metal, -.3f, .25f }, { MetalDecay, -1, 1 }, { Shimmer, -.08f, .2f }, { Spiral, -.2f, .3f } } },
+          { "Gloom", { { Cutoff, 1, -2 }, { Darkness, -.15f, .4f }, { Damping, -.2f, .3f }, { VaultTone, 0, -2 } } },
         } });
 
     //--------------------------------------------------------------------------

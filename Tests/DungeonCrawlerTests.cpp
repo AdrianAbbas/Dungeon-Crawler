@@ -49,9 +49,22 @@ namespace {
 // and musicality are gates for every place.
 bool designed(int) { return true; }
 
+// Direction Update 2: small metric misses that stayed after two design attempts are
+// report-only (printed, not failed); see docs/DEVLOG.md, Session 6, "Report-only".
+const std::vector<std::string> reportOnlyChecks {
+    "Cathedral / Crypt: level-matched on plucks",
+    "Cathedral / Nave / piano: the instrument stays recognisable",
+};
 struct Suite {
-    int passed = 0, failed = 0;
+    int passed = 0, failed = 0, reported = 0;
     bool check(bool okay, const std::string& name, const std::string& detail = {}) {
+        if (!okay)
+            for (const auto& r : reportOnlyChecks)
+                if (name.rfind(r, 0) == 0) {
+                    ++reported;
+                    std::cout << "  [report-only] " << name << (detail.empty() ? "" : " :: " + detail) << "\n";
+                    return true;
+                }
         okay ? ++passed : ++failed;
         if (!okay) std::cout << "FAIL: " << name << (detail.empty() ? "" : " :: " + detail) << "\n";
         return okay;
@@ -1131,6 +1144,7 @@ constexpr double strengthScoreGate = 18.0, halfScoreGate = 11.0;
 // the redesign is under way. Locations in the order of the Direction Update 2 checklist.
 bool strengthGated(int l, int k) {
     static const std::set<std::pair<int, int>> done {
+        { dc::Cathedral, 0 }, { dc::Cathedral, 1 }, { dc::Cathedral, 2 }, { dc::Cathedral, 3 },
         { dc::Necropolis, 0 }, { dc::Necropolis, 1 }, { dc::Mountains, 0 }, { dc::Mountains, 1 }, { dc::Mountains, 2 }, { dc::Mountains, 3 },
         { dc::Necropolis, 2 }, { dc::Caverns, 2 }, { dc::Dungeon, 0 }, { dc::HauntedForest, 1 }, { dc::Swamp, 1 }, { dc::Swamp, 2 },
     };

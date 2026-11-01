@@ -95,7 +95,9 @@ const Recipe recipes[Signature::kinds] = {
     // 13 Crypt, Stone Resonance: low-mid stone modes, dark and close.
     { .modes = 4, .modeHz = { 163, 217, 291, 384 }, .modeT60 = .9f, .modeGain = .65f },
     // 14 Bell Tower, Bell Resonators: a minor-third church bell struck by every attack.
-    { .modes = 6, .modeHz = { 146.8f, 293.7f, 349.2f, 440.0f, 587.3f, 783.0f }, .modeT60 = 4.5f, .modeGain = .28f, .modeStruck = true },
+    // Direction Update 2: a real bell's partials on D4 (hum 0.5, prime 1, minor-third
+    // tierce 1.2, quint 1.5, nominal 2, superquint 3), longer and louder.
+    { .modes = 6, .modeHz = { 146.8f, 293.7f, 352.4f, 440.5f, 587.3f, 881.0f }, .modeT60 = 6.0f, .modeGain = .7f, .modeStruck = true },
     // ---- Haunted Forest
     // 15 Forest Edge, Trunk Scatter: echoes scattered off tree trunks, drifting.
     { .taps = 6, .tapMs = { 41, 77, 109, 158, 203, 262 }, .tapGain = { .22f, .2f, .2f, .17f, .15f, .12f }, .tapPan = { .8f, -.6f, .3f, -.9f, .6f, -.2f },

@@ -8,7 +8,7 @@ namespace dc {
 inline constexpr std::array<std::array<float, 5>, 10> levelTrimsDb {{
     {{ -2.25f, -1.29f, -4.24f, 0.68f, -3.47f }},   // Dungeon
     {{ 0.13f, 0.51f, -1.87f, -0.19f, 2.08f }},   // Castle
-    {{ -3.01f, 1.30f, -3.96f, 0.65f, 0.00f }},   // Cathedral
+    {{ -4.26f, -6.58f, -12.55f, -3.64f, 0.00f }},   // Cathedral
     {{ -1.38f, 0.73f, 3.88f, 1.63f, 0.00f }},   // Haunted Forest
     {{ 0.76f, 1.91f, 4.09f, -1.73f, 0.00f }},   // Caverns
     {{ 2.73f, -0.57f, -1.01f, 0.07f, 0.00f }},   // Village
