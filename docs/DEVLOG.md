@@ -141,9 +141,9 @@ without. Resume from the first unticked line. Details in "Session 6" below.
   - [x] Forest Edge (CHANGE)
   - [x] Ancient Grove (CHANGE)
 - Swamp
-  - [ ] Bog (LIKE, unchanged)
-  - [ ] Sunken Ruins (LIKE, unchanged)
-  - [ ] Mire (CHANGE)
+  - [x] Bog (LIKE, unchanged)
+  - [x] Sunken Ruins (LIKE, unchanged)
+  - [x] Mire (CHANGE)
 - Wizard's Tower
   - [ ] Alchemy Lab (LIKE, slower flanger + more effects)
   - [ ] Stairwell (CHANGE)
@@ -1659,3 +1659,6 @@ through the place; plus `strength.csv` and `journey-all-places.wav`.
 | Old Path | LIKE | unchanged (pinned against the Forest Edge's new base) | 18.2 |
 | Witch's Hut | LIKE, + alluring | the hut, wobble and crooked choir kept; a sweet lush ensemble (.45) and a warm Hut Glow with shimmer on top | 17.0 → 19.0 |
 | Ancient Grove | CHANGE | ancient, magical, breathing: Breathing Grove (600 ms bloom), the breathing octave shimmer louder, an evolving Vault shimmer, a hollow wooden resonance on A, whispering blur (.88), warm wood (6 kHz) | 11.1 → 18.4 |
+| Swamp · Mire | CHANGE | darker (3.8 kHz, darkness .28) and more reflective: Murky Pool (dark wet reflections, a 4.5 s murky tail, ducked under the playing), longer darker echoes (feedback .42, mix .2); Mud Drag kept | 17.0 → 25.6 |
+| Bog | LIKE | unchanged (pinned) | 30.8 |
+| Sunken Ruins | LIKE | unchanged (pinned) | 23.2 |

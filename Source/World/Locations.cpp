@@ -308,21 +308,26 @@ std::vector<LocationDesign> buildWorld() {
     w.push_back({ "Swamp", "Mire",
         // The mire: thick, damp air over mud; dull and slow, attacks dragged (Mud Drag),
         // slow murky filter movement, drips.
-        { { Cutoff, 4500 }, { Resonance, .12f }, { Darkness, .15f }, { FilterMovement, .2f }, { FilterRate, .15f },
+        // Direction Update 2 (CHANGE): darker and more reflective, dark wet reflections
+        // and a longer murky tail (Murky Pool), darker, longer echoes.
+        { { Cutoff, 3800 }, { Resonance, .12f }, { Darkness, .28f }, { FilterMovement, .2f }, { FilterRate, .15f },
           { Instability, .25f }, { BloodMix, .2f }, { Drips, .28f },
-          { DelayTime, 380 }, { Feedback, .3f }, { DelayDamping, .78f }, { Diffusion, .6f }, { DelayMix, .14f },
-          { Character, 2 }, { Space, .45f }, { Decay, 2 }, { Damping, .78f }, { PreDelay, 18 }, { ReverbMix, .22f } },
+          { DelayTime, 380 }, { Feedback, .42f }, { DelayDamping, .85f }, { Diffusion, .6f }, { DelayMix, .2f },
+          { Character, 2 }, { Space, .45f }, { Decay, 2 }, { Damping, .78f }, { PreDelay, 18 }, { ReverbMix, .2f },
+          { VaultKind, 23 }, { VaultMix, .38f }, { VaultDuck, .3f } },
         {
           // The bog: deep and thick, everything low-passed and wobbling, bubbles of drips.
           { "Bog", { { Cutoff, 2600 }, { Resonance, .3f }, { Slope, 1 }, { Darkness, .3f }, { FilterMovement, .35f }, { FilterRate, .3f },
                      { Drive, 4 }, { Instability, .45f }, { Age, .22f }, { BloodMix, .35f }, { Drips, .4f },
                      { DelayTime, 430 }, { Feedback, .36f }, { DelayDamping, .82f }, { DelayMix, .16f },
-                     { Space, .5f }, { Decay, 2.4f }, { Damping, .82f }, { ReverbMix, .24f } } },
+                     { Space, .5f }, { Decay, 2.4f }, { Damping, .82f }, { ReverbMix, .24f },
+                     { VaultKind, 0 }, { VaultMix, 0 } } },
           // Sunken ruins: half under water, echoes off drowned stone, a slow haze.
           { "Sunken Ruins", { { Cutoff, 2800 }, { Resonance, .25f }, { Slope, 1 }, { FilterMovement, .2f }, { Instability, .1f }, { Drips, .3f },
                               { WraithMix, .18f }, { Blur, .7f },
                               { DelayTime, 540 }, { Feedback, .5f }, { DelayDamping, .88f }, { Diffusion, .85f }, { DelayMix, .26f },
-                              { Character, 3 }, { Space, .7f }, { Decay, 3.5f }, { Damping, .88f }, { PreDelay, 35 }, { ReverbMix, .38f } } },
+                              { Character, 3 }, { Space, .7f }, { Decay, 3.5f }, { Damping, .88f }, { PreDelay, 35 }, { ReverbMix, .38f },
+                              { Darkness, .15f }, { VaultKind, 0 }, { VaultMix, 0 } } },
         },
         {
           { "Murk", { { Cutoff, 1.5f, -1.5f }, { Resonance, -.15f, .2f }, { Darkness, -.2f, .3f } } },
