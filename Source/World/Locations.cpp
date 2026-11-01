@@ -70,36 +70,50 @@ std::vector<LocationDesign> buildWorld() {
 
     //--------------------------------------------------------------------------
     w.push_back({ "Castle", "Courtyard",
-        // An open courtyard between high walls: a crisp slap echo off the far wall,
-        // a short open reverb, a breeze.
-        { { HighPass, 70 }, { Darkness, .05f }, { Wind, .22f },
-          { DelayTime, 210 }, { Feedback, .1f }, { Diffusion, .1f }, { DelayDamping, .3f }, { Spread, 1 }, { DelayMix, .22f },
-          { Character, 0 }, { Space, .6f }, { Decay, 1.5f }, { Damping, .35f }, { PreDelay, 22 }, { ReverbMix, .24f } },
+        // Direction Update 2. An open courtyard between high walls, fluttery and
+        // mystical: an open stone court (Stone Court) with fluttering reflections, the
+        // walls' ping-pong scattering, a gentle shimmer and slow modulation, a breeze.
+        { { HighPass, 110 }, { Cutoff, 9000 }, { Darkness, .05f }, { Wind, .18f },
+          { EnsMix, .42f }, { EnsDepth, 3.5f }, { EnsRate, .25f }, { WraithMix, .16f }, { Blur, .5f }, { Ghost, .25f },
+          { DelayTime, 210 }, { Feedback, .3f }, { Diffusion, .15f }, { DelayDamping, .3f }, { Spread, 1 }, { DelayMix, .3f },
+          { Character, 0 }, { Space, .6f }, { Decay, 1.5f }, { Damping, .35f }, { PreDelay, 22 }, { ReverbMix, .16f },
+          { VaultKind, 16 }, { VaultMix, .74f }, { VaultShimmer, .25f } },
         {
-          // Timber roof over stone: warm, wide, medium-large, a fire in the hearth.
-          { "Great Hall", { { HighPass, 35 }, { Cutoff, 10000 }, { Darkness, .12f }, { Drive, 3 }, { Texture, .2f }, { BloodMix, .15f },
-                            { Flicker, .1f }, { FlickerRate, 2.2f }, { Wind, 0 },
+          // The great hall: MASSIVE. A huge, long, wide and grand hall (Great Hall,
+          // 5.5 s, slow bloom), timber warmth, a fire's flicker, banner reflections.
+          { "Great Hall", { { HighPass, 35 }, { Cutoff, 8500 }, { Darkness, .12f }, { Drive, 3 }, { Texture, .2f }, { BloodMix, .15f },
+                            { Flicker, .1f }, { FlickerRate, 2.2f }, { Wind, 0 }, { EnsMix, 0 }, { WraithMix, 0 },
                             { DelayMix, 0 },
-                            { Character, 1 }, { Space, .7f }, { Decay, 2.8f }, { Damping, .62f }, { PreDelay, 20 }, { ReverbMix, .4f } } },
-          // Regal: a grand, bright, very wide hall, an organ-like fifth above, a halo.
-          { "Throne Room", { { HighPass, 40 }, { Wind, 0 },
-                             { Voices, 2 }, { Interval, 3 }, { ChoirBlend, .11f }, { Formant, .5f }, { ChoirDetune, 8 }, { ChoirMovement, .2f },
+                            { Character, 1 }, { Space, .9f }, { Decay, 4 }, { Damping, .55f }, { PreDelay, 30 }, { ReverbMix, .25f },
+                            { VaultKind, 17 }, { VaultMix, .8f }, { VaultShimmer, 0 } } },
+          // The throne room: rich. A regal, warm hall (Regal Hall), a lush ensemble, a
+          // slight harmonic richness (warm drive), the organ-like fifth above, the
+          // brass resonance (signature).
+          { "Throne Room", { { HighPass, 40 }, { Cutoff, 9000 }, { Wind, 0 }, { WraithMix, 0 }, { Drive, 5 }, { Texture, .3f }, { BloodMix, .28f },
+                             { Voices, 2 }, { Interval, 3 }, { ChoirBlend, .14f }, { Formant, .5f }, { ChoirDetune, 8 }, { ChoirMovement, .2f },
+                             { EnsMix, .6f }, { EnsDepth, 4 }, { EnsRate, .35f },
                              { DelayTime, 260 }, { Feedback, .18f }, { Diffusion, .6f }, { DelayMix, .07f },
-                             { Character, 1 }, { Space, .95f }, { Decay, 4.2f }, { Damping, .3f }, { PreDelay, 50 }, { Shimmer, .14f }, { ReverbWidth, 1 }, { ReverbMix, .45f } } },
-          // Sacred: a long reverb and a soft choir an octave below with a drone.
-          { "Chapel", { { Cutoff, 8500 }, { Darkness, .1f }, { Wind, 0 },
-                        { Voices, 2 }, { Interval, 0 }, { ChoirBlend, .22f }, { Formant, .55f }, { ChoirMovement, .4f }, { Drone, .12f }, { DroneHold, 6 },
+                             { Character, 1 }, { Space, .95f }, { Decay, 4.2f }, { Damping, .3f }, { PreDelay, 50 }, { Shimmer, .14f }, { ReverbWidth, 1 }, { ReverbMix, .2f },
+                             { VaultKind, 18 }, { VaultMix, .62f }, { VaultShimmer, 0 } } },
+          // The chapel: quieter, intimate, a sermon in progress. Softer, warmer, close
+          // (Small Chapel), slightly muffled, a gentle choir blooming under the
+          // instrument (signature) and a soft choir an octave below.
+          { "Chapel", { { Cutoff, 3400 }, { Darkness, .32f }, { HighPass, 60 }, { Wind, 0 }, { EnsMix, 0 }, { WraithMix, 0 },
+                        { Voices, 2 }, { Interval, 0 }, { ChoirBlend, .18f }, { Formant, .55f }, { ChoirMovement, .4f }, { Drone, .08f }, { DroneHold, 3 },
                         { DelayMix, 0 },
-                        { Character, 1 }, { Space, .85f }, { Decay, 6.5f }, { Damping, .5f }, { PreDelay, 45 }, { Shimmer, .08f }, { ReverbMix, .5f } } },
-          // On the battlements: thin, windy, open, distant echoes across the valley.
-          { "Tower Top", { { HighPass, 230 }, { Cutoff, 6000 }, { Darkness, .2f }, { Wind, .42f },
-                           { WraithMix, .12f }, { Blur, .6f },
-                           { DelayTime, 520 }, { Feedback, .35f }, { DelayDamping, .6f }, { Diffusion, .5f }, { Spread, 1 }, { DelayMix, .26f },
-                           { Character, 3 }, { Space, .35f }, { Decay, 2 }, { Damping, .5f }, { PreDelay, 100 }, { ReverbLowCut, 320 }, { ReverbMix, .2f } } },
+                        { Character, 0 }, { Space, .4f }, { Decay, 2.5f }, { Damping, .7f }, { PreDelay, 12 }, { Shimmer, 0 }, { ReverbMix, .2f },
+                        { VaultKind, 19 }, { VaultMix, .6f }, { VaultShimmer, 0 } } },
+          // On the battlements: open, looking out over the world ahead. A wide, airy
+          // open sky (almost no reflections), long distant echoes, bright, the wind.
+          { "Tower Top", { { HighPass, 200 }, { Cutoff, 15000 }, { Darkness, 0 }, { Wind, .28f }, { EnsMix, 0 },
+                           { WraithMix, .1f }, { Blur, .6f },
+                           { DelayTime, 700 }, { Feedback, .42f }, { DelayDamping, .5f }, { Diffusion, .3f }, { Spread, 1 }, { DelayMix, .38f },
+                           { Character, 3 }, { Space, .35f }, { Decay, 2 }, { Damping, .5f }, { PreDelay, 100 }, { ReverbLowCut, 320 }, { ReverbMix, .08f },
+                           { VaultKind, 20 }, { VaultMix, .7f }, { VaultShimmer, 0 } } },
         },
         {
-          { "Hall Size", { { Space, -.35f, .3f }, { Decay, -1, 1 }, { PreDelay, -15, 30 } } },
-          { "Grandeur", { { Shimmer, -.1f, .3f }, { ChoirBlend, -.1f, .2f }, { ReverbWidth, -.4f, 0 }, { Drone, 0, .15f } } },
+          { "Hall Size", { { Space, -.35f, .3f }, { Decay, -1, 1 }, { PreDelay, -15, 30 }, { VaultMix, -.3f, .15f } } },
+          { "Grandeur", { { Shimmer, -.1f, .3f }, { ChoirBlend, -.1f, .2f }, { ReverbWidth, -.4f, 0 }, { Drone, 0, .15f }, { EnsMix, -.2f, .2f } } },
           { "Distance", { { ReverbMix, -.2f, .25f }, { Cutoff, 1, -1.5f }, { DelayMix, -.08f, .12f }, { HighPass, -.5f, 1 } } },
         } });
 

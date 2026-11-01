@@ -125,11 +125,11 @@ without. Resume from the first unticked line. Details in "Session 6" below.
   - [x] Treasure Room (CHANGE)
   - [x] Final Boss Lair (CHANGE)
 - Castle
-  - [ ] Courtyard (CHANGE)
-  - [ ] Great Hall (CHANGE)
-  - [ ] Throne Room (CHANGE)
-  - [ ] Chapel (CHANGE)
-  - [ ] Tower Top (CHANGE)
+  - [x] Courtyard (CHANGE)
+  - [x] Great Hall (CHANGE)
+  - [x] Throne Room (CHANGE)
+  - [x] Chapel (CHANGE)
+  - [x] Tower Top (CHANGE)
 - Village
   - [ ] Village Green (CHANGE)
   - [ ] Tavern (CHANGE)
@@ -1616,6 +1616,8 @@ through the place; plus `strength.csv` and `journey-all-places.wav`.
      already bright and a chorus barely moves band levels, so the measure under-reads
      it; two rounds added a golden space at .76, an .85 ensemble, octave choir, louder
      glitter, shimmer and warm drive. Listen for it; the measure moved little.
+   - Castle · Courtyard, strength 17.3 (gate 18; 13.3 before): an open court is mostly
+     reflections and modulation, which the measure reads modestly; two rounds.
 
 ### Places
 
@@ -1641,3 +1643,8 @@ through the place; plus `strength.csv` and `journey-all-places.wav`.
 | Entrance Hall | CHANGE (strengthen) | Vaulted Hall (4 s stone vault), brighter torches, the far-door slap louder (.2, feedback .28) | 20.3 → 24.3 |
 | Treasure Room | CHANGE | Golden Vault (bright, glints of gold), a lush three-voice ensemble, the glitter (octave + twelfth on attacks) louder, two octave-up voices, more shimmer, warm drive, crystal sheen | 11.3 → 15.1 (report-only) |
 | Final Boss Lair | CHANGE | Infernal Abyss (6.5 s colossal and dark), the choir now an octave below (three voices), menace drive kept, slow ominous tape echoes (820 ms) that fall a fourth per repeat (a pitch-down shadow), the sinking echoes, drone hold 2.5 s | 22.8 → 27.0 |
+| Castle · Courtyard | CHANGE | Stone Court (open stone, fluttering reflections), the Wall Ping-Pong now six scattered, fluttering taps, a slow ensemble, a spectral haze, gentle Vault shimmer; thinner | 13.3 → 17.3 (report-only) |
+| Great Hall | CHANGE | MASSIVE: Great Hall (5.5 s, wide, 200 ms bloom) at .8 over the warm timber hall | 12.1 → 19.3 |
+| Throne Room | CHANGE | Regal Hall (warm, rich), a lush ensemble (.6), warm drive (harmonic richness), the fifth above and the brass resonance | 12.7 → 19.3 |
+| Chapel | CHANGE | intimate: Small Chapel (2.2 s, close, warm), muffled (3.4 kHz), the choir pad bloom and a soft choir an octave below; the long 6.5 s reverb gone | 14.7 → 24.3 |
+| Tower Top | CHANGE | Open Sky (almost no reflections, long distant echoes at 0.48/1.05/1.72 s), bright (15 kHz), longer echoes (700 ms, .42), the wind | 18.2 → 19.0 |

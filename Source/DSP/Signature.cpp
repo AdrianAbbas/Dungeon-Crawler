@@ -68,8 +68,9 @@ const Recipe recipes[Signature::kinds] = {
       .taps = 2, .tapMs = { 640, 1280 }, .tapGain = { .3f, .16f }, .tapPan = { .5f, -.5f }, .tapLp = 1800, .tapDarken = .7f },
     // ---- Castle
     // 6 Courtyard, Wall Ping-Pong: a quick bounce between the two walls, left-right.
-    { .taps = 5, .tapMs = { 38, 76, 114, 152, 190 }, .tapGain = { .45f, .34f, .25f, .18f, .12f }, .tapPan = { -.9f, .9f, -.9f, .9f, -.9f },
-      .tapLp = 9000, .tapDarken = .9f },
+    // Direction Update 2: fluttering (scattered), a little longer.
+    { .taps = 6, .tapMs = { 38, 76, 114, 152, 190, 228 }, .tapGain = { .5f, .4f, .32f, .25f, .19f, .14f }, .tapPan = { -.9f, .9f, -.9f, .9f, -.9f, .9f },
+      .tapLp = 9000, .tapDarken = .9f, .tapMode = TapsScatter, .tapRate = .5f },
     // 7 Great Hall, Banner Reflections: a long, soft spread of early reflections,
     // softened by banners and swaying gently.
     { .taps = 6, .tapMs = { 23, 37, 52, 71, 93, 118 }, .tapGain = { .3f, .28f, .26f, .23f, .2f, .17f }, .tapPan = { -.8f, .7f, -.5f, .9f, -.9f, .4f },
