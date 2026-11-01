@@ -251,28 +251,41 @@ std::vector<LocationDesign> buildWorld() {
     // Each place's signature (Signature.cpp) sits on top of the room designed here.
     //--------------------------------------------------------------------------
     w.push_back({ "Village", "Village Green",
-        // The green: open air among cottages, light and lively; a second player's
-        // doubling (Folk Chorus), a little breeze, a small open reverb.
-        { { HighPass, 45 }, { Wind, .1f },
-          { DelayTime, 160 }, { Feedback, .08f }, { Diffusion, .4f }, { DelayDamping, .45f }, { Spread, .9f }, { DelayMix, .08f },
-          { Character, 0 }, { Space, .4f }, { Decay, 1.1f }, { Damping, .45f }, { PreDelay, 12 }, { ReverbMix, .16f } },
+        // Direction Update 2: the whole village is weary, we are in the dark realm. The
+        // green: a calming, slow modulation that softens everything (a gentle ensemble,
+        // the Folk Chorus doubling), softened highs, soft open air between cottages.
+        { { HighPass, 45 }, { Cutoff, 5500 }, { Darkness, .22f }, { Wind, .08f },
+          { EnsMix, .55f }, { EnsDepth, 4.5f }, { EnsRate, .18f },
+          { DelayTime, 160 }, { Feedback, .12f }, { Diffusion, .5f }, { DelayDamping, .6f }, { Spread, .9f }, { DelayMix, .1f },
+          { Character, 0 }, { Space, .4f }, { Decay, 1.1f }, { Damping, .55f }, { PreDelay, 12 }, { ReverbMix, .14f },
+          { VaultKind, 33 }, { VaultMix, .5f } },
         {
-          // A low-beamed tavern: a small, warm, wooden room by the fire.
-          { "Tavern", { { Cutoff, 9000 }, { Darkness, .15f }, { HighPass, 60 }, { Wind, 0 }, { Flicker, .12f }, { FlickerRate, 2.4f },
+          // The tavern: calm, almost empty, a few weary travellers. A small warm wooden
+          // room (Tavern Room), soft and a little dull, gentle saturation, the fire.
+          { "Tavern", { { Cutoff, 4200 }, { Darkness, .32f }, { HighPass, 60 }, { Wind, 0 }, { Flicker, .12f }, { FlickerRate, 2.4f },
+                        { Drive, 5 }, { Texture, .3f }, { BloodMix, .3f }, { EnsMix, 0 },
                         { Tomb, .1f }, { TombNote, 7 }, { TombOctave, 1 }, { DelayMix, 0 },
-                        { Character, 0 }, { Space, .18f }, { Decay, .75f }, { Damping, .72f }, { PreDelay, 4 }, { ReverbMix, .26f } } },
-          // The market square: open and bright among the buildings (the slap-back is
-          // its signature), a busier breeze.
-          { "Market Square", { { HighPass, 80 }, { Wind, .14f }, { DelayMix, 0 },
-                               { Character, 1 }, { Space, .55f }, { Decay, 1.5f }, { Damping, .3f }, { PreDelay, 24 }, { ReverbWidth, 1 }, { ReverbMix, .17f } } },
-          // The smithy: hot, gritty, a hard little room with the forge flickering.
-          { "Blacksmith", { { Cutoff, 12000 }, { HighPass, 70 }, { Wind, 0 }, { Drive, 9 }, { BloodMix, .4f }, { Texture, .75f }, { Dust, .18f },
-                            { Flicker, .4f }, { FlickerRate, 6.5f }, { DelayMix, 0 },
-                            { Character, 2 }, { Space, .28f }, { Decay, 1.1f }, { Damping, .3f }, { PreDelay, 6 }, { ReverbMix, .24f } } },
+                        { Character, 0 }, { Space, .18f }, { Decay, .75f }, { Damping, .72f }, { PreDelay, 4 }, { ReverbMix, .2f },
+                        { VaultKind, 31 }, { VaultMix, .6f } } },
+          // The market square: slow, dead, darker. Dark and damped (Dead Square),
+          // sparse slaps off the empty stalls (signature, darkened), a slowed, dragging
+          // modulation.
+          { "Market Square", { { HighPass, 70 }, { Cutoff, 3200 }, { Darkness, .38f }, { Wind, .1f }, { DelayMix, 0 },
+                               { EnsMix, .45f }, { EnsDepth, 9 }, { EnsRate, .07f },
+                               { Character, 1 }, { Space, .55f }, { Decay, 1.5f }, { Damping, .7f }, { PreDelay, 24 }, { ReverbWidth, 1 }, { ReverbMix, .14f },
+                               { VaultKind, 29 }, { VaultMix, .55f } } },
+          // The smithy: the only loud space in the village. Anvils ringing (signature,
+          // louder) and hot iron resonating, hard bright metallic reflections (Forge
+          // Room), gritty drive, the forge flickering fast.
+          { "Blacksmith", { { Cutoff, 13000 }, { Darkness, 0 }, { HighPass, 90 }, { Wind, 0 }, { Drive, 14 }, { BloodMix, .5f }, { Texture, .75f }, { Dust, .25f },
+                            { Metal, .75f }, { MetalKind, 0 }, { MetalNote, 5 }, { MetalOctave, 3 }, { MetalDecay, 1.6f },
+                            { Flicker, .4f }, { FlickerRate, 6.5f }, { DelayMix, 0 }, { EnsMix, 0 },
+                            { Character, 2 }, { Space, .28f }, { Decay, 1.1f }, { Damping, .3f }, { PreDelay, 6 }, { ReverbMix, .18f },
+                            { VaultKind, 30 }, { VaultMix, .66f } } },
         },
         {
           { "Warmth", { { Drive, -3, 6 }, { Texture, -.15f, .3f }, { Cutoff, 1, -1 }, { Damping, -.2f, .25f } } },
-          { "Bustle", { { DelayMix, -.08f, .15f }, { Space, -.15f, .25f }, { ReverbMix, -.1f, .15f }, { SigAmount, -.4f, .3f } } },
+          { "Bustle", { { DelayMix, -.08f, .15f }, { Space, -.15f, .25f }, { ReverbMix, -.1f, .15f }, { SigAmount, -.4f, .3f }, { VaultMix, -.2f, .2f } } },
           { "Grit", { { Dust, 0, .4f }, { Age, 0, .4f }, { BloodMix, 0, .25f } } },
         } });
 

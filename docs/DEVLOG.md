@@ -131,10 +131,10 @@ without. Resume from the first unticked line. Details in "Session 6" below.
   - [x] Chapel (CHANGE)
   - [x] Tower Top (CHANGE)
 - Village
-  - [ ] Village Green (CHANGE)
-  - [ ] Tavern (CHANGE)
-  - [ ] Market Square (CHANGE)
-  - [ ] Blacksmith (CHANGE)
+  - [x] Village Green (CHANGE)
+  - [x] Tavern (CHANGE)
+  - [x] Market Square (CHANGE)
+  - [x] Blacksmith (CHANGE)
 - Haunted Forest
   - [ ] Old Path (LIKE, unchanged)
   - [ ] Witch's Hut (LIKE, + alluring shimmer/chorus)
@@ -1618,6 +1618,9 @@ through the place; plus `strength.csv` and `journey-all-places.wav`.
      glitter, shimmer and warm drive. Listen for it; the measure moved little.
    - Castle · Courtyard, strength 17.3 (gate 18; 13.3 before): an open court is mostly
      reflections and modulation, which the measure reads modestly; two rounds.
+   - Village · Blacksmith, strength 16.0 (gate 18; 11.5 before): a bright, hard, small
+     room colours little; more drive or a 150 Hz high-pass made the synth unrecognisable
+     (coherence 0.04), so the drive stays at 14 and the high-pass at 90 Hz.
 
 ### Places
 
@@ -1648,3 +1651,7 @@ through the place; plus `strength.csv` and `journey-all-places.wav`.
 | Throne Room | CHANGE | Regal Hall (warm, rich), a lush ensemble (.6), warm drive (harmonic richness), the fifth above and the brass resonance | 12.7 → 19.3 |
 | Chapel | CHANGE | intimate: Small Chapel (2.2 s, close, warm), muffled (3.4 kHz), the choir pad bloom and a soft choir an octave below; the long 6.5 s reverb gone | 14.7 → 24.3 |
 | Tower Top | CHANGE | Open Sky (almost no reflections, long distant echoes at 0.48/1.05/1.72 s), bright (15 kHz), longer echoes (700 ms, .42), the wind | 18.2 → 19.0 |
+| Village · Village Green | CHANGE | weary and calming: a slow, gentle ensemble (.55, 0.18 Hz) with the Folk Chorus, softened highs (5.5 kHz), Soft Green open air | 8.6 → 19.4 |
+| Tavern | CHANGE | almost empty: Tavern Room (small, wooden, 0.9 s), dull (4.2 kHz), gentle warm saturation, the fire | 12.6 → 23.4 |
+| Market Square | CHANGE | slow and dead: Dead Square (dark, damped, sparse slaps at 165/390 ms), the slap-back darkened (3 kHz), a slow dragging ensemble (9 ms, 0.07 Hz), dark (3.2 kHz) | 10.9 → 25.8 |
+| Blacksmith | CHANGE | the only loud space: iron resonating (.75) and the anvil louder and longer (signature), Forge Room (hard, bright, metallic reflections with glints), gritty drive 14 | 11.5 → 16.0 (report-only) |

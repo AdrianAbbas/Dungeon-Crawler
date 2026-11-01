@@ -11,7 +11,7 @@ inline constexpr std::array<std::array<float, 5>, 10> levelTrimsDb {{
     {{ -4.26f, -6.58f, -12.55f, -3.64f, 0.00f }},   // Cathedral
     {{ -1.38f, 0.73f, 3.88f, 1.63f, 0.00f }},   // Haunted Forest
     {{ -9.68f, 5.85f, 4.09f, -10.61f, 0.00f }},   // Caverns
-    {{ 2.73f, -0.57f, -1.01f, 0.07f, 0.00f }},   // Village
+    {{ -1.32f, -8.04f, -10.21f, -0.68f, 0.00f }},   // Village
     {{ 0.87f, 3.39f, 5.62f, 0.00f, 0.00f }},   // Swamp
     {{ -7.45f, -8.52f, 4.43f, -11.86f, 0.00f }},   // Mountains
     {{ -8.61f, -4.05f, -2.47f, 0.00f, 0.00f }},   // Necropolis

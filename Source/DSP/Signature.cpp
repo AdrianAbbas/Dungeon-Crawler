@@ -134,10 +134,10 @@ const Recipe recipes[Signature::kinds] = {
     // 24 Tavern, Warm Tavern: warm saturation, softened highs, a crowded-room smear.
     { .sat = SatWarm, .drive = 9, .tone = ToneShelf, .toneHz = 5500, .toneDb = -4, .smear = .32f, .smearMs = 18 },
     // 25 Market Square, Slap-Back: a hard slap off the buildings across the square.
-    { .taps = 3, .tapMs = { 96, 129, 178 }, .tapGain = { .55f, .45f, .2f }, .tapPan = { -.8f, .8f, 0 }, .tapLp = 7000, .tapDarken = .8f },
+    { .taps = 3, .tapMs = { 96, 129, 178 }, .tapGain = { .55f, .45f, .2f }, .tapPan = { -.8f, .8f, 0 }, .tapLp = 3000, .tapDarken = .75f },
     // 26 Blacksmith, Anvil: an anvil ringing on every attack, gritty.
     { .sat = SatGrit, .drive = 6,
-      .modes = 6, .modeHz = { 880, 1294, 1839, 2253, 2983, 3670 }, .modeT60 = 1.1f, .modeGain = .5f, .modeStruck = true },
+      .modes = 6, .modeHz = { 880, 1294, 1839, 2253, 2983, 3670 }, .modeT60 = 1.4f, .modeGain = .75f, .modeStruck = true },
     // ---- Swamp
     // 27 Mire, Mud Drag: attacks dragged through mud, a sticky smear.
     { .tone = ToneShelf, .toneHz = 3000, .toneDb = -3, .swellMs = 60, .smear = .3f, .smearMs = 35 },
