@@ -975,6 +975,11 @@ int locationOf(int index) noexcept {
 int subOf(int index) noexcept { return std::clamp(index, 0, instrumentCount - 1) - firstOf(locationOf(index)); }
 
 float designTrimDb(int index) noexcept { return trims[std::size_t(std::clamp(index, 0, instrumentCount - 1))]; }
+float standInTrimDb(int index) noexcept { return standInTrims[std::size_t(std::clamp(index, 0, instrumentCount - 1))]; }
+bool usesRecordings(int index) noexcept {
+    const int l = locationOf(index), k = subOf(index);
+    return (l == Castle && k == 0) || (l == Caverns && k == 2) || (l == Village && (k == 1 || k == 2)) || (l == Necropolis && k == 1) || (l == WizardsTower && k == 3);
+}
 float placeTrimDb(int location, int sub) noexcept { return placeTrims[std::size_t(designFor(location, sub))]; }
 
 // The instruments that carry one of the developer's effect captures with them.

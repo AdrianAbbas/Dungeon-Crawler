@@ -1,0 +1,86 @@
+#pragma once
+// DUNGEON CRAWLER's factory presets (Direction Update 3): instrument presets (an
+// instrument, a place, its macros) and, after them, the effect's journeys (they move the
+// place, and with it the instrument). Like the effect's presets, a preset sets the listed
+// parameters on top of the defaults.
+#include "../Parameters.h"
+#include "../World/Presets.h"
+#include "Synth.h"
+
+namespace dc::inst {
+
+inline const std::vector<FactoryPreset>& instrumentPresets() {
+    static const std::vector<FactoryPreset> presets = [] {
+        std::vector<FactoryPreset> p;
+        // In its own place: the place chooses the instrument. `m` are the five macros
+        // (0.5 = as designed); then Intensity and Atmosphere.
+        const auto here = [&p](const char* name, int location, int sub, std::array<float, 5> m = { 0.5f, 0.5f, 0.5f, 0.5f, 0.5f },
+                               float intensity = 1.0f, float atmosphere = 0.0f) {
+            FactoryPreset f { name, "Instruments", { { "location", float(location) }, { "subLocation", float(sub) }, { "intensity", intensity },
+                                                     { "atmosLevel", atmosphere } }, {} };
+            for (std::size_t k = 0; k < m.size(); ++k) f.values.push_back({ ids::instMacros[k], m[k] });
+            p.push_back(std::move(f));
+        };
+        // Locked: an instrument in another place.
+        const auto elsewhere = [&p](const char* name, int fromLocation, int fromSub, int location, int sub, std::array<float, 5> m = { 0.5f, 0.5f, 0.5f, 0.5f, 0.5f },
+                                    float intensity = 1.0f) {
+            FactoryPreset f { name, "Instruments elsewhere", { { "instLock", 1.0f }, { "instrument", float(designFor(fromLocation, fromSub)) },
+                                                              { "location", float(location) }, { "subLocation", float(sub) }, { "intensity", intensity } }, {} };
+            for (std::size_t k = 0; k < m.size(); ++k) f.values.push_back({ ids::instMacros[k], m[k] });
+            p.push_back(std::move(f));
+        };
+        here("Pizzicato in the Dark", Dungeon, 0, { 0.5f, 0.5f, 0.55f, 0.6f, 0.7f });
+        here("Cello at the Gate", Dungeon, 1, { 0.45f, 0.55f, 0.55f, 0.6f, 0.7f });
+        here("Chains in the Cells", Dungeon, 2, { 0.5f, 0.6f, 0.5f, 0.5f, 0.7f });
+        here("Gold and Glints", Dungeon, 3, { 0.55f, 0.5f, 0.6f, 0.5f, 0.8f });
+        here("The Devil's Brass", Dungeon, 4, { 0.42f, 0.5f, 0.55f, 0.65f, 0.8f });
+        here("Courtyard Lute", Castle, 0, { 0.5f, 0.5f, 0.5f, 0.55f, 0.6f });
+        here("Fanfare for the King", Castle, 1, { 0.55f, 0.45f, 0.5f, 0.5f, 0.8f });
+        here("The Royal Court", Castle, 2, { 0.5f, 0.5f, 0.6f, 0.55f, 0.65f });
+        here("Vespers", Castle, 3, { 0.45f, 0.5f, 0.5f, 0.5f, 0.75f });
+        here("Call from the Tower", Castle, 4, { 0.5f, 0.55f, 0.6f, 0.5f, 0.65f });
+        here("Cloister Choir", Cathedral, 0, { 0.45f, 0.6f, 0.6f, 0.5f, 0.3f });
+        here("Organ of the Nave", Cathedral, 1, { 0.5f, 0.5f, 0.55f, 0.5f, 0.7f });
+        here("Chant below the Crypt", Cathedral, 2, { 0.4f, 0.55f, 0.6f, 0.5f, 0.35f });
+        here("Tolling the Hour", Cathedral, 3, { 0.5f, 0.5f, 0.6f, 0.5f, 0.6f }, 1.0f, 0.2f);
+        here("Edge of the Wood", HauntedForest, 0, { 0.45f, 0.5f, 0.55f, 0.5f, 0.65f });
+        here("Creaking Path", HauntedForest, 1, { 0.45f, 0.55f, 0.55f, 0.5f, 0.75f });
+        here("Lullaby for the Lost", HauntedForest, 2, { 0.5f, 0.5f, 0.6f, 0.5f, 0.7f });
+        here("Harp of the Grove", HauntedForest, 3, { 0.5f, 0.5f, 0.6f, 0.55f, 0.7f });
+        here("Fireside Marimba", Caverns, 0, { 0.5f, 0.45f, 0.55f, 0.6f, 0.6f });
+        here("Crystal Bells", Caverns, 1, { 0.55f, 0.5f, 0.6f, 0.5f, 0.7f });
+        here("Kalimba by the Lake", Caverns, 2, { 0.5f, 0.5f, 0.55f, 0.5f, 0.6f }, 1.0f, 0.25f);
+        here("The Dragon Wakes", Caverns, 3, { 0.45f, 0.5f, 0.6f, 0.6f, 0.8f });
+        here("Weary Whistle", Village, 0, { 0.45f, 0.5f, 0.5f, 0.5f, 0.6f });
+        here("Last Song at the Tavern", Village, 1, { 0.45f, 0.5f, 0.55f, 0.6f, 0.7f }, 1.0f, 0.3f);
+        here("Fiddler in the Square", Village, 2, { 0.5f, 0.5f, 0.5f, 0.55f, 0.55f });
+        here("Anvil Song", Village, 3, { 0.5f, 0.55f, 0.55f, 0.5f, 0.6f });
+        here("Mire Banjo", Swamp, 0, { 0.5f, 0.5f, 0.5f, 0.6f, 0.65f });
+        here("Reed of the Bog", Swamp, 1, { 0.45f, 0.5f, 0.5f, 0.5f, 0.6f });
+        here("Bells under Water", Swamp, 2, { 0.5f, 0.5f, 0.6f, 0.5f, 0.7f });
+        here("Shepherd of the Hills", Mountains, 0, { 0.5f, 0.5f, 0.55f, 0.5f, 0.45f });
+        here("War Drums of the Pass", Mountains, 1, { 0.5f, 0.6f, 0.55f, 0.6f, 0.7f });
+        here("Frozen Glockenspiel", Mountains, 2, { 0.55f, 0.5f, 0.55f, 0.5f, 0.6f });
+        here("Song of the Dwarves", Mountains, 3, { 0.45f, 0.5f, 0.55f, 0.55f, 0.7f });
+        here("Gates of the Dead", Necropolis, 0, { 0.45f, 0.55f, 0.6f, 0.5f, 0.6f });
+        here("Ghost Violin", Necropolis, 1, { 0.5f, 0.55f, 0.6f, 0.5f, 0.7f }, 1.0f, 0.2f);
+        here("The Mausoleum Bell", Necropolis, 2, { 0.45f, 0.5f, 0.6f, 0.5f, 0.6f });
+        here("Spiral Stair", WizardsTower, 0, { 0.5f, 0.5f, 0.5f, 0.5f, 0.4f });
+        here("Hush of the Library", WizardsTower, 1, { 0.45f, 0.5f, 0.5f, 0.5f, 0.5f });
+        here("Alchemist's Bubbles", WizardsTower, 2, { 0.5f, 0.5f, 0.55f, 0.5f, 0.8f });
+        here("Starfield", WizardsTower, 3, { 0.55f, 0.6f, 0.6f, 0.5f, 0.7f });
+        elsewhere("Tavern Guitar in the Boss Lair", Village, 1, Dungeon, 4, { 0.5f, 0.5f, 0.55f, 0.55f, 0.5f });
+        elsewhere("Church Bells in the Crystal Cavern", Cathedral, 3, Caverns, 1);
+        elsewhere("Music Box in the Crypt", HauntedForest, 2, Cathedral, 2, { 0.5f, 0.5f, 0.6f, 0.5f, 0.7f });
+        elsewhere("Choir in the Observatory", Cathedral, 0, WizardsTower, 3, { 0.5f, 0.6f, 0.6f, 0.5f, 0.4f });
+        elsewhere("Ghost Violin in the Great Hall", Necropolis, 1, Castle, 1);
+        elsewhere("Lute by the Lake", Castle, 0, Caverns, 2);
+        elsewhere("Dry Harp (no place)", HauntedForest, 3, HauntedForest, 3, { 0.5f, 0.5f, 0.55f, 0.55f, 0.4f }, 0.0f);
+        // The effect's journeys: the place moves, and the instrument with it.
+        for (const auto& f : factoryPresets())
+            if (juce::String(f.category) == "Journeys") p.push_back(f);
+        return p;
+    }();
+    return presets;
+}
+}

@@ -3,6 +3,7 @@
 #include "Engine.h"
 #include "Parameters.h"
 #include "World/Journey.h"
+#include "World/Presets.h"
 #include "DSP/Atmosphere.h"
 #include "Instrument/Synth.h"
 
@@ -112,7 +113,9 @@ public:
     // Milestone 11 (message thread). The window's scale (saved with the state).
     std::atomic<float> editorScale { 1.0f };
     int qualityMode() const noexcept;
-    // Presets: factory (favourite spots, journeys) and user presets (state files).
+    // Presets: factory (the effect: favourite spots, journeys; the instrument: instrument
+    // presets, instruments elsewhere, journeys) and user presets (state files).
+    const std::vector<dc::FactoryPreset>& factoryPresetList() const;
     void applyFactoryPreset(int index);
     // "Init / No preset": every parameter at its default (Quality and Bypass kept), no
     // route, no journey; the preset name is "Init".

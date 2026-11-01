@@ -10,9 +10,12 @@ checkout="${1:?checkout directory}"
 out="${2:?output directory}"
 repo="${SAMPLES_REPOSITORY:-AdrianAbbas/Samples}"
 
+# Without the token the build goes on without the recordings: the sampled instruments
+# play their synthesised stand-ins and the samples checks are skipped (DC_REQUIRE_SAMPLES
+# stays unset). With it, every later check requires the samples.
 if [[ -z "${SAMPLES_TOKEN:-}" ]]; then
-    echo "::error title=Samples token missing::The repository secret SAMPLES_TOKEN is not set, so the private recordings ($repo) cannot be fetched. Add it under Settings > Secrets and variables > Actions (see docs/DEVLOG.md, Session 7), then re-run this workflow."
-    exit 1
+    echo "::warning title=Samples token missing::The repository secret SAMPLES_TOKEN is not set, so the private recordings ($repo) cannot be fetched: this build has no recorded instruments (they play synthesised stand-ins). Add the secret under Settings > Secrets and variables > Actions (see docs/DEVLOG.md, Session 7)."
+    exit 0
 fi
 
 rm -rf "$checkout" "$out"
@@ -22,6 +25,7 @@ if ! git -c http.extraheader="AUTHORIZATION: basic $auth" clone -q --depth 1 "ht
     echo "::error title=Samples fetch failed::Could not clone $repo with SAMPLES_TOKEN. Check that the token has not expired and has Contents: read access to $repo."
     exit 1
 fi
+[[ -n "${GITHUB_ENV:-}" ]] && echo "DC_REQUIRE_SAMPLES=1" >> "$GITHUB_ENV"
 echo "Samples: $(git -C "$checkout" log -1 --format='%h %s') ($(find "$checkout" -maxdepth 1 -iname '*.mp3' | wc -l | tr -d ' ') MP3s, $(find "$checkout" -maxdepth 1 -iname '*.wav' | wc -l | tr -d ' ') WAVs)"
 
 python3 -m pip install --quiet -r "$here/tools/sample-prep/requirements.txt"

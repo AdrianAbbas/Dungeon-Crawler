@@ -35,8 +35,10 @@ for entry in "DungeonCrawler aumu Dgci DungeonCrawlerInstAUFactory" "DungeonCraw
             samples="$bundle/Contents/Resources/Samples"
             if [[ -f "$samples/index.json" ]]; then
                 printf '    samples: %s instruments, %s\n' "$(find "$samples" -maxdepth 1 -name '*.json' ! -name index.json | wc -l | tr -d ' ')" "$(du -sh "$samples" | cut -f1)"
-            else
+            elif [[ "${DC_REQUIRE_SAMPLES:-0}" == 1 ]]; then
                 echo "::error::missing the recorded samples in $bundle (Contents/Resources/Samples)"; status=1
+            else
+                echo "    samples: none (no SAMPLES_TOKEN: the sampled instruments play their stand-ins)"
             fi
         fi
     done

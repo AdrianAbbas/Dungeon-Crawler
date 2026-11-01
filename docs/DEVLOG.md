@@ -209,10 +209,10 @@ without after each whole milestone. Resume from the first unticked line. Details
   - [x] Wizard's Tower: Alchemy Lab (glass marimba)
   - [x] Wizard's Tower: Observatory (celestial pad)
 - Milestone 5: presets and polish
-  - [ ] 5a. 30+ instrument presets (instrument + place + macros), journeys kept
-  - [ ] 5b. Tests: every instrument plays from MIDI, in tune, distinct from its siblings, level-matched; no hung notes in travel; both plug-ins validate
-  - [ ] 5c. Listening render: one melody on every instrument, dry and in its place
-  - [ ] 5d. DEVLOG handoff (what to listen for), README, MANUAL_TEST; final push without `[skip ci]`
+  - [x] 5a. 30+ instrument presets (instrument + place + macros), journeys kept
+  - [x] 5b. Tests: every instrument plays from MIDI, in tune, distinct from its siblings, level-matched; no hung notes in travel; both plug-ins validate
+  - [x] 5c. Listening render: one melody on every instrument, dry and in its place
+  - [x] 5d. DEVLOG handoff (what to listen for), README, MANUAL_TEST; final push without `[skip ci]`
 
 ---
 
@@ -2008,3 +2008,88 @@ echo capture (an echo, not an IR; the places have their own).
 After the first renders: the shepherd's flute's breath was halved (it covered 3-12 kHz).
 The second half needed nothing else to pass every gate (in tune, velocity, distinct from
 its siblings, level, in its place).
+
+### Milestone 5: presets and polish
+
+- **Presets** (`Source/Instrument/Presets.h`): 47 instrument presets in two menus.
+  *Instruments* has all forty, each in its own place with its macros set. *Instruments
+  elsewhere* has seven locked instruments in other places: the Tavern guitar in the Boss
+  Lair, church bells in the Crystal Cavern, the music box in the Crypt, the choir in the
+  Observatory, the ghost violin in the Great Hall, the lute by the lake, and a dry harp.
+  The effect's nine journeys follow, in their own menu. The instrument has its own list;
+  the effect keeps its own. Presets and Init leave the pitch-bend range alone (it is the
+  player's controller setting, like Quality).
+- **Tests** (Linux, with the recordings): the full suite as CI shards it. Its figures are
+  in the handoff. Without the recordings (`--no-samples`, or a CI build without
+  `SAMPLES_TOKEN`): 373 of the instruments group pass, and 5 checks on instruments that
+  use the recordings or captures are reported instead of failed. Their stand-ins keep
+  them playable, not identical: Ghost Violin in tune; Stone Marimba / Water Kalimba and
+  Weary Guitar / Tuned Anvil distinct; Water Kalimba and Drowned Bells levels without
+  their capture.
+- **Stand-in trims**: the six sampled instruments have their own measured trim for their
+  stand-in (`standInTrims`), so a build without the recordings stays level-matched.
+- **CI without the token**: the first two pushes of this session failed at the samples
+  step (the repository had no `SAMPLES_TOKEN`). The step now warns and goes on without
+  the recordings; the samples checks (bundle gate, harness `--require-samples`) apply
+  only when they were fetched. The developer then added the secret, so builds from here
+  on carry the recordings and captures.
+- **CPU** (report only, one core of this container, 48 kHz, a four-note chord held in the
+  place): Royal Strings 9.2 %, Pipe Organ 8.7 %, Crystal Bells 11.7 %, Dark Choir Pad
+  16.6 % (formant choirs and the dark-hall capture); the effect's figures are unchanged.
+- **Listening render**: `--listen-instruments dir` (CI: test-logs artifact,
+  `instruments/`) writes the same melody (A minor, 4.4 s) on every instrument, dry,
+  then a second's pause, then in its own place: one `NN-Location-Place-Instrument-dry-then-in-place.wav`
+  per instrument, plus `all-instruments.wav` with its cue list.
+
+### Handoff (end of session 7)
+
+**Tests**: full suite (Linux, with the recordings): 2256 passed, 0 failed (the effect's
+1717 from before unchanged, plus the instrument's: `instrument` 161 incl. presets,
+`instruments` 378, `instrumenteditor` 20; the CPU group reports).
+
+**Done**: Milestones 1-5 of Direction Update 3, on the branch `direction-update-3`
+(pushed after each milestone without `[skip ci]`; not merged into `main`).
+
+**Listen to in GarageBand / Logic** (MANUAL_TEST, "Direction Update 3"):
+1. Your recordings first: the Lute and Weary Guitar (the classical guitar, made two
+   different instruments), the Fiddle and Ghost Violin (the violin; open-string sustains
+   are stretched across the range, so listen for notes far from G3/D4/A4/E5), the Water
+   Kalimba, the Celestial Pad (the soft pad patch).
+2. The captures: Crystal Bells (shimmer), Doom Brass & Choir and Dark Choir Pad (dark
+   hall), Water Kalimba and Drowned Bells (chorus reverb): is the send (0.2-0.25) too
+   much under the place's own space?
+3. The models that are most "designed" rather than recorded, and so most likely to need
+   your ear: Iron Chains, Hoard Gong, Tuned Anvil, War Drums, Glass Marimba (bubbles),
+   Harpsichord Arpeggio (the arpeggio's rate follows the song's tempo; macro Rate), the
+   Detuned Banjo (no banjo recording exists).
+4. Travel with a chord held, Lock instrument, the panel's keyboard and wheels, presets.
+5. Old projects with the effect: they should find DUNGEON CRAWLER FX.
+
+**Decisions made without asking**:
+1. One processor with two kinds; both plug-ins compile every file; the instrument's sound
+   is the place chain's input, so the effect is unchanged.
+2. The instrument takes `DungeonCrawler.component`; the effect becomes `DungeonCrawlerFX.component`
+   with its old codes and bundle ID (an old install is replaced cleanly by the installer).
+3. Notes keep their instrument through travel; only new notes take the new place's.
+4. The panel stays open while you choose places on the map (it is played from).
+5. Instruments are transposed where the real ones are (contrabass -12, dwarven chant -12;
+   celesta, music box, crystal bells and tin whistle +12, glockenspiel +24).
+6. Six instruments carry an effect capture; the FX does not.
+7. A per-place wet correction for the instrument (measured) keeps each instrument in its
+   place about as loud as dry; a held note crossing to another place can dip (measured
+   -11 dB on the cello to the Courtyard; gate -18 dB, i.e. "not cut").
+8. Work went on the branch `direction-update-3`, not `main` (the session's rules).
+
+**Known issues / limits**:
+- Nothing has been heard on a Mac, and the Mac build, `auval` and both harnesses ran
+  only in CI (not here). The instrument harness's AUAudioUnit route sends notes with
+  `scheduleMIDIEventBlock` for the first time; if that route fails while the AUv2 routes
+  pass, it is the harness, not the plug-in (the effect's harness needed an AVAudioEngine
+  route for the same reason).
+- Sound design was judged by measurements and spectrograms, not by ear.
+- No articulations by note length (WORLDBUILDER's short/long recorded hits): the
+  instruments here have one articulation each.
+- Fiddle and ghost violin are four open strings stretched: notes far from them sound
+  less natural.
+- The Instrument parameter's 40 choices are automatable (host lists show the names);
+  MIDI travel is off in the instrument.

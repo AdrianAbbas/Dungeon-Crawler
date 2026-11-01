@@ -92,7 +92,28 @@ Audio → DUNGEON CRAWLER. Play your MIDI keyboard or the piano roll.
   default), the mod wheel (vibrato, brightness, tremulant, swell or growl, as fits the
   instrument; the panel says which), up to 4–12 notes at once depending on the
   instrument, click-free voice stealing.
+- **Presets** (toolbar): *Instruments* (all forty, each in its own place with its macros
+  set), *Instruments elsewhere* (locked instruments in other places: the Tavern guitar in
+  the Boss Lair, church bells in the Crystal Cavern…) and the effect's *Journeys* (the
+  instrument changes with each place of the route).
 - Intensity 0 % plays the instrument dry; Bypass too.
+
+| Location (family) | Its places' instruments |
+|---|---|
+| Dungeon (dark orchestral) | Contrabass Pizzicato · Cello Drone-Lead · Iron Chains · Golden Celesta · Doom Brass & Choir† |
+| Castle (royal court) | Lute* · Brass Fanfare · Royal Strings · Chamber Organ · Heroic Horn |
+| Cathedral (sacred voices, bells) | Soft Choir · Pipe Organ · Monk Chant · Church Bells |
+| Haunted Forest (eerie wood, wind) | Wooden Flute · Cello Harmonics · Music Box · Ancient Harp |
+| Caverns (stone, crystal, water) | Stone Marimba · Crystal Bells† · Water Kalimba*† · Hoard Gong |
+| Village (weary folk) | Tin Whistle · Weary Guitar* · Fiddle* · Tuned Anvil |
+| Swamp (murky) | Detuned Banjo · Murky Reed · Drowned Bells† |
+| Mountains (highland, stone) | Shepherd's Flute · War Drums · Ice Glockenspiel · Dwarven Chant |
+| Necropolis (death, ghosts) | Dark Choir Pad† · Ghost Violin* · Tolling Bell & Organ |
+| Wizard's Tower (arcane) | Harpsichord Arpeggio · Clavichord · Glass Marimba · Celestial Pad*† |
+
+\* the developer's own recordings (guitar, violin, kalimba, a soft synth pad); † carries
+one of the developer's effect captures (shimmer, dark hall, chorus reverb). The rest are
+WORLDBUILDER's physical, modal, formant and FM models.
 - Without MIDI the instrument is silent. MIDI travel (an effect feature) is off in the
   instrument: its notes are the music.
 

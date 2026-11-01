@@ -77,15 +77,21 @@ suites="v2-oop v2-inproc auaudiounit"
 rosetta=0
 /usr/bin/arch -x86_64 /usr/bin/true 2>/dev/null && rosetta=1
 [[ $rosetta == 1 ]] || { echo "::error::Rosetta unavailable: the x86_64 slices were not validated"; status=1; }
+samples_flag=""
+[[ "${DC_REQUIRE_SAMPLES:-0}" == 1 ]] && samples_flag="--require-samples"
 for entry in "fx aufx Dgcr $harness" "instrument aumu Dgci $instrument_harness"; do
     read -r tag type subtype binary <<< "$entry"
+    extra=""
+    [[ $tag == instrument ]] && extra="$samples_flag"
     # shellcheck disable=SC2086  # $strict is empty or one flag
     run_check "auval-$tag-arm64" /usr/bin/arch -arm64 /usr/bin/auval $strict -v "$type" "$subtype" Veil
-    for suite in $suites; do run_check "harness-$tag-arm64-$suite" /usr/bin/arch -arm64 "$binary" --strict --only "$suite"; done
+    # shellcheck disable=SC2086  # $extra is empty or one flag
+    for suite in $suites; do run_check "harness-$tag-arm64-$suite" /usr/bin/arch -arm64 "$binary" --strict --only "$suite" $extra; done
     if [[ $rosetta == 1 ]]; then
         # shellcheck disable=SC2086
         run_check "auval-$tag-x86_64" /usr/bin/arch -x86_64 /usr/bin/auval $strict -v "$type" "$subtype" Veil
-        for suite in $suites; do run_check "harness-$tag-x86_64-$suite" /usr/bin/arch -x86_64 "$binary" --strict --only "$suite"; done
+        # shellcheck disable=SC2086
+        for suite in $suites; do run_check "harness-$tag-x86_64-$suite" /usr/bin/arch -x86_64 "$binary" --strict --only "$suite" $extra; done
     fi
 done
 # Control (also a gate): Apple's own AULowpass through the same AUAudioUnit route, so a

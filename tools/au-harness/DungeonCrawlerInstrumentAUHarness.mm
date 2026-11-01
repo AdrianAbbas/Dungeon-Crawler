@@ -612,7 +612,8 @@ void v2Suite(Report& r, AudioComponent component, bool outOfProcess, bool useWin
                 }
             }
             if (info != nullptr) CFRelease(info);
-            r.check(std::atoi(count.c_str()) > 0, "Samples: the recorded instruments load from the bundle", count + " recorded notes");
+            if (requireSamples) r.check(std::atoi(count.c_str()) > 0, "Samples: the recorded instruments load from the bundle", count + " recorded notes");
+            else r.info("Samples", count + " recorded notes (not required: this build has no SAMPLES_TOKEN)");
         }
 
         // 5. Factory presets via kAudioUnitProperty_PresentPreset.
@@ -887,6 +888,7 @@ int main(int argc, const char* argv[]) {
             const std::string a = argv[i];
             if (a == "--strict") strict = true;
             else if (a == "--no-window") useWindow = false;
+            else if (a == "--require-samples") requireSamples = true;
             else if (a == "--only" && i + 1 < argc) only = argv[++i];
             else if (a == "--component" && i + 1 < argc) componentText = argv[++i];
             else { std::fprintf(stderr, "unknown argument %s\n", a.c_str()); return 64; }

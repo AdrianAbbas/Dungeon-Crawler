@@ -222,6 +222,10 @@ int locationOf(int design) noexcept;
 int subOf(int design) noexcept;
 // The measured level trims (dB, Trims.h) that bring every instrument to the same loudness.
 float designTrimDb(int index) noexcept;
+// The same for an instrument that plays its synthesised stand-in (a build without the
+// recordings): only the sampled instruments differ.
+float standInTrimDb(int index) noexcept;
+bool usesRecordings(int index) noexcept;
 // The instrument's wet correction in a place (dB, Trims.h), measured with the place's own
 // instrument: the instrument in its place as loud as it is dry.
 float placeTrimDb(int location, int sub) noexcept;

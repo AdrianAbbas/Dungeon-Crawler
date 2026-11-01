@@ -30,6 +30,8 @@ jobs:
       # The developer's recordings live in the private AdrianAbbas/Samples repository,
       # read with the SAMPLES_TOKEN secret, and are prepared for the instrument's sampler
       # here (tools/sample-prep, from WORLDBUILDER). They are never committed to this repository.
+      # Without the secret the build goes on without them (a warning; the sampled
+      # instruments play their synthesised stand-ins).
       - name: Fetch and prepare the samples (private repository)
         env:
           SAMPLES_TOKEN: ${{ secrets.SAMPLES_TOKEN }}
@@ -123,6 +125,8 @@ jobs:
       # The developer's recordings live in the private AdrianAbbas/Samples repository,
       # read with the SAMPLES_TOKEN secret, and are prepared for the instrument's sampler
       # here (tools/sample-prep, from WORLDBUILDER). They are never committed to this repository.
+      # Without the secret the build goes on without them (a warning; the sampled
+      # instruments play their synthesised stand-ins).
       - name: Fetch and prepare the samples (private repository)
         env:
           SAMPLES_TOKEN: ${{ secrets.SAMPLES_TOKEN }}

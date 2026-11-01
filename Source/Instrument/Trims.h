@@ -53,42 +53,85 @@ inline constexpr std::array<float, 40> placeTrims {
     -2.50f,   // Corridors (in place 0.0 dB)
     -5.51f,   // Entrance Hall (in place 0.0 dB)
     -3.55f,   // Prison Cells (in place -0.0 dB)
-    -2.55f,   // Treasure Room (in place 0.1 dB)
+    -2.68f,   // Treasure Room (in place 0.0 dB)
     -1.96f,   // Final Boss Lair (in place 0.0 dB)
-    -10.38f,   // Courtyard (in place 0.6 dB)
+    -11.01f,   // Courtyard (in place 0.1 dB)
     -3.89f,   // Great Hall (in place 0.0 dB)
     -2.68f,   // Throne Room (in place 0.0 dB)
-    -7.12f,   // Chapel (in place 0.2 dB)
+    -7.27f,   // Chapel (in place 0.0 dB)
     -4.69f,   // Tower Top (in place -0.0 dB)
     -0.37f,   // Cloister (in place -0.0 dB)
-    -6.02f,   // Nave (in place 0.0 dB)
+    -6.02f,   // Nave (in place -0.0 dB)
     -7.23f,   // Crypt (in place -0.0 dB)
-    -9.18f,   // Bell Tower (in place 0.5 dB)
-    -5.02f,   // Forest Edge (in place 0.1 dB)
+    -9.73f,   // Bell Tower (in place 0.1 dB)
+    -5.07f,   // Forest Edge (in place 0.0 dB)
     -1.29f,   // Old Path (in place 0.0 dB)
-    -3.75f,   // Witch's Hut (in place 0.1 dB)
-    -4.65f,   // Ancient Grove (in place 0.1 dB)
-    -6.38f,   // Cave Mouth (in place 0.3 dB)
+    -3.86f,   // Witch's Hut (in place 0.0 dB)
+    -4.70f,   // Ancient Grove (in place 0.0 dB)
+    -6.72f,   // Cave Mouth (in place 0.1 dB)
     -0.91f,   // Crystal Cavern (in place 0.0 dB)
     1.92f,   // Underground Lake (in place -0.0 dB)
-    -5.49f,   // Dragon's Hoard (in place 0.0 dB)
+    -5.49f,   // Dragon's Hoard (in place -0.0 dB)
     -3.19f,   // Village Green (in place 0.0 dB)
-    -6.14f,   // Tavern (in place 0.6 dB)
-    -2.55f,   // Market Square (in place 0.0 dB)
-    -6.75f,   // Blacksmith (in place 0.8 dB)
+    -7.06f,   // Tavern (in place 0.2 dB)
+    -2.55f,   // Market Square (in place -0.0 dB)
+    -8.02f,   // Blacksmith (in place 0.3 dB)
     -3.26f,   // Mire (in place 0.0 dB)
     -5.33f,   // Bog (in place -0.0 dB)
     0.78f,   // Sunken Ruins (in place -0.0 dB)
-    -5.02f,   // Foothills (in place 0.1 dB)
-    -7.52f,   // Mountain Pass (in place 0.1 dB)
-    -3.47f,   // Frozen Peak (in place 0.0 dB)
+    -5.04f,   // Foothills (in place 0.0 dB)
+    -7.55f,   // Mountain Pass (in place 0.0 dB)
+    -3.47f,   // Frozen Peak (in place -0.0 dB)
     -7.07f,   // Dwarven Hall (in place 0.0 dB)
     -5.55f,   // Gates (in place -0.0 dB)
     -1.83f,   // Graveyard (in place 0.0 dB)
     -1.15f,   // Mausoleum (in place 0.0 dB)
-    -3.85f,   // Stairwell (in place 0.1 dB)
-    -4.18f,   // Library (in place 0.2 dB)
+    -3.90f,   // Stairwell (in place 0.0 dB)
+    -4.41f,   // Library (in place 0.0 dB)
     -2.61f,   // Alchemy Lab (in place 0.0 dB)
     -0.95f,   // Observatory (in place -0.0 dB)
+};
+// The sampled instruments' synthesised stand-ins (a build without the recordings).
+inline constexpr std::array<float, 40> standInTrims {
+    -0.76f,   // Contrabass Pizzicato
+    -12.62f,   // Cello Drone-Lead
+    -2.60f,   // Iron Chains
+    -2.13f,   // Golden Celesta
+    -14.62f,   // Doom Brass & Choir
+    7.68f,   // Lute (stand-in measured -20.0 dB)
+    -15.66f,   // Brass Fanfare
+    -14.69f,   // Royal Strings
+    -14.38f,   // Chamber Organ
+    -12.36f,   // Heroic Horn
+    3.81f,   // Soft Choir
+    -11.96f,   // Pipe Organ
+    2.64f,   // Monk Chant
+    -12.11f,   // Church Bells
+    -14.48f,   // Wooden Flute
+    -8.24f,   // Cello Harmonics
+    -1.67f,   // Music Box
+    -0.67f,   // Ancient Harp
+    -2.95f,   // Stone Marimba
+    -6.58f,   // Crystal Bells
+    -6.46f,   // Water Kalimba (stand-in measured -20.0 dB)
+    -11.96f,   // Hoard Gong
+    -13.12f,   // Tin Whistle
+    2.44f,   // Weary Guitar (stand-in measured -20.0 dB)
+    -13.25f,   // Fiddle (stand-in measured -20.0 dB)
+    -5.13f,   // Tuned Anvil
+    9.85f,   // Detuned Banjo
+    -13.24f,   // Murky Reed
+    -13.46f,   // Drowned Bells
+    -13.80f,   // Shepherd's Flute
+    -3.95f,   // War Drums
+    -3.43f,   // Ice Glockenspiel
+    -7.55f,   // Dwarven Chant
+    7.66f,   // Dark Choir Pad
+    -11.28f,   // Ghost Violin (stand-in measured -20.0 dB)
+    -14.34f,   // Tolling Bell & Organ
+    5.22f,   // Harpsichord Arpeggio
+    7.95f,   // Clavichord
+    -10.71f,   // Glass Marimba
+    -9.24f,   // Celestial Pad (stand-in measured -20.0 dB)
 };
 }

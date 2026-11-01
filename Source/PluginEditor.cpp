@@ -693,7 +693,7 @@ void DungeonCrawlerView::refreshToolbar() {
 }
 
 void DungeonCrawlerView::stepPreset(int direction) {
-    const int count = static_cast<int>(dc::factoryPresets().size());
+    const int count = static_cast<int>(processor.factoryPresetList().size());
     const int next = processor.presetIndex < 0 ? (direction > 0 ? 0 : count - 1) : (processor.presetIndex + direction + count) % count;
     processor.applyFactoryPreset(next);
     wasSteering = false;
@@ -704,16 +704,21 @@ void DungeonCrawlerView::stepPreset(int direction) {
 }
 
 void DungeonCrawlerView::showPresetMenu() {
-    juce::PopupMenu menu, spots, journeys, user;
+    juce::PopupMenu menu, user;
     menu.addItem(899, "Init / No preset", true, processor.presetIndex < 0 && processor.presetName == "Init" && !processor.presetModified());
     menu.addSeparator();
-    const auto& presets = dc::factoryPresets();
-    for (int k = 0; k < static_cast<int>(presets.size()); ++k) {
-        auto& target = juce::String(presets[static_cast<std::size_t>(k)].category) == "Journeys" ? journeys : spots;
-        target.addItem(1 + k, presets[static_cast<std::size_t>(k)].name, true, processor.presetIndex == k);
+    // One submenu per category, in the list's order (the effect: favourite spots and
+    // journeys; the instrument: instruments, instruments elsewhere, journeys).
+    const auto& presets = processor.factoryPresetList();
+    juce::StringArray categories;
+    for (const auto& preset : presets) categories.addIfNotAlreadyThere(preset.category);
+    for (const auto& category : categories) {
+        juce::PopupMenu sub;
+        for (int k = 0; k < static_cast<int>(presets.size()); ++k)
+            if (category == presets[static_cast<std::size_t>(k)].category)
+                sub.addItem(1 + k, presets[static_cast<std::size_t>(k)].name, true, processor.presetIndex == k);
+        menu.addSubMenu(category, sub);
     }
-    menu.addSubMenu("Favourite spots", spots);
-    menu.addSubMenu("Journeys", journeys);
     const auto files = processor.userPresetFolder().findChildFiles(juce::File::findFiles, false, "*.dcpreset");
     juce::Array<juce::File> sorted(files);
     sorted.sort();

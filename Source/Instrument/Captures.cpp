@@ -19,6 +19,7 @@ juce::File captureFolder() {
     // Next to the samples (the bank knows where they are), or the development folder.
     auto& bank = wb::samples::Bank::get();
     bank.waitUntilLoaded(3000);
+    if (!bank.ready()) return {};   // no recordings (or the tests' --no-samples): no captures either
     auto folder = bank.folder().getChildFile("captures");
     if (folder.isDirectory()) return folder;
    #ifdef DC_DEV_SAMPLES_DIR

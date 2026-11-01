@@ -288,3 +288,41 @@ A quick pass over everything, about 15 minutes, on the MacBook Air:
 - [ ] Save, quit GarageBand, reopen: everything is as you left it.
 - [ ] With the window open for 5 minutes during playback the Air stays cool and quiet
       (no stutter, no freeze, no flicker).
+
+## Direction Update 3: the instrument (DUNGEON CRAWLER) and the effect (DUNGEON CRAWLER FX)
+
+Install from the new package (`bash install-mac.sh`): it must end with both plug-ins
+validated.
+
+**The effect still works**
+- [ ] An old project that used DUNGEON CRAWLER as an effect opens with the effect in
+      place (now named DUNGEON CRAWLER FX) and sounds as before.
+- [ ] A new Audio Effect slot lists Veil Audio > DUNGEON CRAWLER FX; it behaves as before.
+
+**The instrument**
+- [ ] A Software Instrument track: Veil Audio > DUNGEON CRAWLER loads; the painted map
+      opens; without notes it is silent.
+- [ ] Play a few notes: the Dungeon's Corridors play the contrabass pizzicato.
+- [ ] Visit every location and a few of its places: each place plays its own instrument
+      (the crumb top left names it), in its space. Listen first to: the Lute (Courtyard),
+      Weary Guitar (Tavern), Fiddle (Market Square), Water Kalimba (Underground Lake),
+      Ghost Violin (Graveyard) and Celestial Pad (Observatory), which are your
+      recordings; then Crystal Bells (shimmer capture), Doom Brass & Choir, Church Bells,
+      Pipe Organ, Harpsichord Arpeggio (hold a key: it climbs at the song's tempo).
+- [ ] Hold a chord and click another place: the chord keeps sounding while the space
+      morphs; the next notes play the new instrument. Let go: nothing hangs.
+- [ ] Instrument button (controls, left of Intensity): the panel slides up. Its five
+      macros carry the instrument's names (e.g. Snap, Glint, Course, Whispers); move
+      each, they change the sound. Intensity and Space change the place's share.
+- [ ] Lock instrument on, travel to the Final Boss Lair: the same instrument, in the lair.
+      Choose another instrument from the panel's list: it plays and Lock is on.
+- [ ] The panel's keyboard lights up with every note you play and can be clicked; the
+      Bend, Mod and Pedal indicators follow your keyboard.
+- [ ] Velocity, sustain pedal, pitch bend (±2 st; the panel's Bend menu changes it) and
+      the mod wheel (the panel says what it does on this instrument) all respond.
+- [ ] Fast playing on a bell or celesta (many notes): no clicks when notes are stolen.
+- [ ] Presets (toolbar): "Instruments", "Instruments elsewhere" and "Journeys" menus;
+      a few of each load and play. A journey moves the instrument with the place.
+- [ ] Logic Pro: the same, plus automation of Location and Sub-location changes the
+      instrument over the song.
+- [ ] CPU on the Air: four instances with chords held (Activity Monitor or Logic's meter).

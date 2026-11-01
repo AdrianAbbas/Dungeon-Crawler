@@ -2622,8 +2622,12 @@ int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
     juce::String snapshot;
     juce::StringArray only;
+    // --no-samples: as a build without the recordings (CI without SAMPLES_TOKEN).
+    for (int i = 1; i < argc; ++i)
+        if (juce::String(argv[i]) == "--no-samples") wb::samples::Bank::bypassForTests(true);
     for (int i = 1; i < argc; ++i) {
         const juce::String arg(argv[i]);
+        if (arg == "--no-samples") continue;
         if (arg == "--snapshot" && i + 1 < argc) snapshot = argv[++i];
         else if (arg == "--only" && i + 1 < argc) only = juce::StringArray::fromTokens(argv[++i], ",", "");
         else if (arg == "--calibrate" && i + 1 < argc) return calibrate(argv[i + 1]);
@@ -2666,11 +2670,11 @@ int main(int argc, char** argv) {
     if (run("navigation")) testNavigation(s);
     if (run("atmosphere")) testAtmosphere(s);
     if (run("workflow")) testWorkflow(s);
-    if (run("instrument")) testInstrumentEngine(s);
+    if (run("instrument")) { testInstrumentEngine(s); testInstrumentPresets(s); }
     if (run("instruments")) testInstruments(s);
     if (run("instrumenteditor")) testInstrumentEditor(s, snapshot);
     if (only.contains("qa")) testQa(s);   // long (130 journeys): run explicitly
-    if (only.contains("cpu")) testCpu(s);   // report only: run explicitly
+    if (only.contains("cpu")) { testCpu(s); testInstrumentCpu(s); }   // report only: run explicitly
     std::cout << "\n" << s.passed << " passed, " << s.failed << " failed" << std::endl;
     return s.failed == 0 ? 0 : 1;
 }

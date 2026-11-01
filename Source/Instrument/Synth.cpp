@@ -349,6 +349,12 @@ void Synth::noteOn(int key, float velocity) noexcept {
     v.capture = captures.available(cap.capture) ? cap.capture : CaptureNone;
     v.captureSend = cap.send;
     des.start(v, n);
+    // A sampled instrument playing its stand-in (no recordings): its own trim.
+    if (usesRecordings(designNow)) {
+        bool recorded = false;
+        for (const auto& L : v.layer) recorded |= L.model == Model::Sample;
+        if (!recorded) v.gain = d::dbToGain(standInTrimDb(designNow));
+    }
     // Velocity sets the level of the blown, bowed, sung and held sources (struck and
     // plucked models already respond to it in their own way).
     const float velocityGain = 0.35f + 0.65f * std::pow(v.velocity, 1.3f);

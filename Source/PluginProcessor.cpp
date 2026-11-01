@@ -1,6 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "World/Presets.h"
+#include "Instrument/Presets.h"
 #include <cmath>
 #include <optional>
 
@@ -144,7 +145,8 @@ void DungeonCrawlerProcessor::applyInit() {
     {
         const juce::ScopedValueSetter<bool> guard(applying, true);
         for (auto* p : getParameters()) {
-            if (p == getBypassParameter() || p == parameters.getParameter(dc::ids::quality)) continue;
+            // Quality, Bypass and the bend range (the player's controller) are settings.
+            if (p == getBypassParameter() || p == parameters.getParameter(dc::ids::quality) || p == parameters.getParameter(dc::ids::bendRange)) continue;
             if (std::abs(p->getValue() - p->getDefaultValue()) > 1.0e-7f) {
                 p->beginChangeGesture();
                 p->setValueNotifyingHost(p->getDefaultValue());
@@ -254,15 +256,19 @@ void DungeonCrawlerProcessor::copyCurrentToOtherSlot() {
     slotUsed[static_cast<std::size_t>(other)] = true;
 }
 
+const std::vector<dc::FactoryPreset>& DungeonCrawlerProcessor::factoryPresetList() const {
+    return isInstrument() ? dc::inst::instrumentPresets() : dc::factoryPresets();
+}
+
 void DungeonCrawlerProcessor::applyFactoryPreset(int index) {
-    const auto& presets = dc::factoryPresets();
+    const auto& presets = factoryPresetList();
     if (index < 0 || index >= static_cast<int>(presets.size())) return;
     pushUndo();
     const auto& preset = presets[static_cast<std::size_t>(index)];
     const juce::ScopedValueSetter<bool> guard(applying, true);
     for (auto* p : getParameters())
         if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(p)) {
-            if (p == getBypassParameter() || p == parameters.getParameter(dc::ids::quality)) continue;
+            if (p == getBypassParameter() || p == parameters.getParameter(dc::ids::quality) || p == parameters.getParameter(dc::ids::bendRange)) continue;
             float value = ranged->getDefaultValue();
             for (const auto& [id, plain] : preset.values)
                 if (ranged->getParameterID() == id) value = ranged->convertTo0to1(plain);
