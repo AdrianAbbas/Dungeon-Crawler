@@ -167,28 +167,28 @@ without after each whole milestone. Resume from the first unticked line. Details
   - [x] 2b. Place = instrument + space, Lock instrument, travel with held notes
   - [x] 2c. Instrument panel (slide-up drawer: name, macros, Intensity, keyboard, bend/mod/sustain); tests
 - Milestone 3: instruments, first half
-  - [ ] Dungeon: Corridors (contrabass pizzicato)
-  - [ ] Dungeon: Entrance Hall (cello drone-lead)
-  - [ ] Dungeon: Prison Cells (iron chains)
-  - [ ] Dungeon: Treasure Room (golden celesta)
-  - [ ] Dungeon: Final Boss Lair (doom brass + choir stabs)
-  - [ ] Castle: Courtyard (lute)
-  - [ ] Castle: Great Hall (brass fanfare)
-  - [ ] Castle: Throne Room (string ensemble)
-  - [ ] Castle: Chapel (chamber organ)
-  - [ ] Castle: Tower Top (horn calls)
-  - [ ] Cathedral: Cloister (soft choir)
-  - [ ] Cathedral: Nave (pipe organ)
-  - [ ] Cathedral: Crypt (monk chant)
-  - [ ] Cathedral: Bell Tower (church bells)
-  - [ ] Caverns: Cave Mouth (stone marimba)
-  - [ ] Caverns: Crystal Cavern (crystal bells)
-  - [ ] Caverns: Underground Lake (water kalimba)
-  - [ ] Caverns: Dragon's Hoard (gong + growling low brass)
-  - [ ] Village: Village Green (tin whistle)
-  - [ ] Village: Tavern (weary guitar)
-  - [ ] Village: Market Square (fiddle)
-  - [ ] Village: Blacksmith (tuned anvil)
+  - [x] Dungeon: Corridors (contrabass pizzicato)
+  - [x] Dungeon: Entrance Hall (cello drone-lead)
+  - [x] Dungeon: Prison Cells (iron chains)
+  - [x] Dungeon: Treasure Room (golden celesta)
+  - [x] Dungeon: Final Boss Lair (doom brass + choir stabs)
+  - [x] Castle: Courtyard (lute)
+  - [x] Castle: Great Hall (brass fanfare)
+  - [x] Castle: Throne Room (string ensemble)
+  - [x] Castle: Chapel (chamber organ)
+  - [x] Castle: Tower Top (horn calls)
+  - [x] Cathedral: Cloister (soft choir)
+  - [x] Cathedral: Nave (pipe organ)
+  - [x] Cathedral: Crypt (monk chant)
+  - [x] Cathedral: Bell Tower (church bells)
+  - [x] Caverns: Cave Mouth (stone marimba)
+  - [x] Caverns: Crystal Cavern (crystal bells)
+  - [x] Caverns: Underground Lake (water kalimba)
+  - [x] Caverns: Dragon's Hoard (gong + growling low brass)
+  - [x] Village: Village Green (tin whistle)
+  - [x] Village: Tavern (weary guitar)
+  - [x] Village: Market Square (fiddle)
+  - [x] Village: Blacksmith (tuned anvil)
 - Milestone 4: instruments, second half
   - [ ] Haunted Forest: Forest Edge (detuned wooden flute)
   - [ ] Haunted Forest: Old Path (cello harmonics)
@@ -1913,3 +1913,63 @@ velocity, pedal (17 dB more after the key with the pedal), pitch bend (+200 cent
 the next note the lute), 24 quick journeys with chords, Lock, the chooser, stealing (60
 fast notes on a 12-voice celesta: no click), the panel keyboard, state, and no allocation
 in `processBlock` with notes, bends, pedal, macros and travel.
+
+### Milestone 3: the instruments, first half (Dungeon, Castle, Cathedral, Caverns, Village)
+
+How each instrument is made (`Source/Instrument/Designs.cpp`, one start function each; the
+five macros are Tone, Attack, Release, Body and the signature, renamed per instrument).
+"Recorded" means the developer's own recordings from the Samples repository.
+
+| Place | Instrument | Made of | Signature (macro 5) | Mod wheel |
+|---|---|---|---|---|
+| Dungeon · Corridors | Contrabass Pizzicato | a gut waveguide string an octave below the key, the double bass's body (78/129 Hz), a finger's thump | Snap (a Bartók snap: the string slapping the board) | vibrato |
+| Entrance Hall | Cello Drone-Lead | a bowed cello (one player, cello body), bow noise kept low | Drone (the same note an octave below on a bowed resonator) | vibrato |
+| Prison Cells | Iron Chains | a struck chain link (stiff inharmonic modes, beating), a bowed iron hum that sustains (soft velocity: more scrape), the links rattling after the strike | Rattle | swell |
+| Treasure Room | Golden Celesta | steel bars over resonators, an octave up as a celesta sounds | Glint (1-4 coins ringing high above each note) | brightness |
+| Final Boss Lair | Doom Brass & Choir | two low horns and the same an octave below, driven; the dark-hall capture behind | Choir (a shouted choir stab on each note) | growl (drive) |
+| Castle · Courtyard | Lute | **recorded** classical guitar made a lute: paired courses a few cents apart, the lute's body, quicker decay | Course (the second string) | vibrato |
+| Great Hall | Brass Fanfare | two trumpets (an octave up) a few cents apart and a trombone | Section | vibrato |
+| Throne Room | Royal Strings | a three-player violin section, violas and cellos an octave down | Low Section | vibrato |
+| Chapel | Chamber Organ | flue stops 8' 4' 2' (additive ranks, chiff, wind) | Stops (thins to 8' alone below the middle; adds nazard and tierce above) | tremulant |
+| Tower Top | Heroic Horn | a dark horn and a second horn doubling, scooping lips | Bell Up (brighter, brassier) | vibrato |
+| Cathedral · Cloister | Soft Choir | two formant choir sections, oo to ah | Vowel | vibrato |
+| Nave | Pipe Organ | the full principal chorus 16' to a mixture | Reeds (a trumpet rank) | swell |
+| Crypt | Monk Chant | basses on "oo", a basso profundo an octave below | Vowel | vibrato |
+| Bell Tower | Church Bells | WORLDBUILDER's bell partials (hum, prime, tierce, quint, nominal...), beating | Clapper (the clapper's clang) | brightness |
+| Caverns · Cave Mouth | Stone Marimba | stone bars (a lithophone's rough overtones) over a resonator | Flicker (firelight on the level) | brightness |
+| Crystal Cavern | Crystal Bells | glass modes, beating, an octave up; a shimmer an octave above that blooms; the **shimmer capture** | Shimmer | brightness |
+| Underground Lake | Water Kalimba | **recorded** kalimba, rippling in pitch as if across water; the chorus-reverb capture | Ripple | vibrato |
+| Dragon's Hoard | Hoard Gong | a huge tuned gong (crowded modes, bloom); played hard a growling low brass rises out of it | Growl | growl |
+| Village · Village Green | Tin Whistle | a wind voice an octave up, its pitch wandering a little (weary) | Breath | vibrato |
+| Tavern | Weary Guitar | **recorded** classical guitar: warm, dull, slower to speak | Weariness (darker, a touch out of tune) | vibrato |
+| Market Square | Fiddle | **recorded** violin (open-string sustains, vibrato added) with a raspy folk bow under it | Rasp | vibrato |
+| Blacksmith | Tuned Anvil | a heavy block's modes, hammered | Clank (the hammer's iron) | brightness |
+
+Each has its synthesised stand-in when the recordings are missing (a build without the
+Samples repository): a waveguide guitar or lute, the tine model for the kalimba, a
+bowed-string model for the fiddle.
+
+**The effect captures** (`Source/Instrument/Captures.*`, `tools/captures` = LIMINAL's
+capture tools): the Samples repository now has the pedal captures Session 6 lacked (the
+capture kit, a shimmer patch with a static take, a dark reverb + delay, a chorus
+modulator into a reverb, a tape echo). LIMINAL's tools make IRs of the first three
+(their QC and measurements: LIMINAL's `docs/PEDAL_CAPTURES.md`; the same takes here).
+Six instruments send part of their sound through one before it enters the place:
+Crystal Bells and Celestial Pad (shimmer, with its octave added at -11.5 dB as measured),
+Doom Brass and Dark Choir Pad (dark hall), Water Kalimba and Drowned Bells (chorus
+reverb). Sends 0.2-0.25 (the place is still the space). A capture runs only while
+something was sent to it within its IR's length. The FX does not use them (Direction
+Update 3: unchanged in behaviour).
+
+**Levels**: every instrument has a measured trim (dry melody, loudest 400 ms,
+K-weighted, two passes: all within 0.01 dB of -20 dB), and in the instrument every place
+a measured wet correction (`placeTrims`), because some spaces build up on a sustained
+or ringing instrument more than on the effect's material (the Courtyard on the lute,
+the Crypt on the chant: +6 to +7 dB before); after two passes every instrument is within
+about 2 dB in its own place of its dry level.
+
+Changes after looking at the spectrograms of the first renders: less bow noise on the
+cello and the royal strings (it reached 10 kHz), darker fanfare trumpets, the shimmer
+send on the crystal bells lowered (it washed over the bells), the fiddle's rasp halved.
+The renders' own "clicks" at the end of the dry part were the listening file cutting a
+ringing note into its pause: the dry part now fades out over 50 ms.

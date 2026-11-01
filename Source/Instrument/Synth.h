@@ -15,6 +15,7 @@
 // place, a preset) never cuts or retunes a note that is held: it rings on as it was, and
 // the next note plays the new instrument. Nothing allocates after prepare().
 #include "SampleBank.h"
+#include "Captures.h"
 #include "wb/Instruments.h"
 #include <array>
 #include <atomic>
@@ -221,6 +222,13 @@ int locationOf(int design) noexcept;
 int subOf(int design) noexcept;
 // The measured level trims (dB, Trims.h) that bring every instrument to the same loudness.
 float designTrimDb(int index) noexcept;
+// The instrument's wet correction in a place (dB, Trims.h), measured with the place's own
+// instrument: the instrument in its place as loud as it is dry.
+float placeTrimDb(int location, int sub) noexcept;
+// Which of the developer's effect captures an instrument sends part of itself into, and
+// how much (Captures.h). Most send nothing.
+struct CaptureSend { int capture = CaptureNone; float send = 0; };
+CaptureSend captureOf(int index) noexcept;
 
 struct Voice {
     std::array<Layer, 3> layer;
@@ -234,6 +242,8 @@ struct Voice {
     std::array<d::Svf, 3> body;
     std::array<float, 3> bodyGain {};
     float drive = 0, baseDrive = 0, toneHz = 18000, toneQ = 0.7f;
+    int capture = CaptureNone;
+    float captureSend = 0;
     d::Stream noise;
     // Free for the instrument's own control function (arpeggios, wobble, bubbles...).
     std::array<float, 8> state {};
@@ -274,6 +284,8 @@ public:
 
     int activeVoices() const noexcept;
     const Performance& performance() const noexcept { return perf; }
+    // Whether the effect captures were found (tests, the panel).
+    bool capturesReady(int capture) const noexcept { return captures.available(capture); }
     // For the panel: which keys sound (1 bit per key; written on the audio thread).
     bool keyLit(int key) const noexcept;
 
@@ -283,7 +295,9 @@ private:
     void releaseVoice(Voice&) noexcept;
     void controlChunk() noexcept;
 
+    void renderBlock(float* l, float* r, int n) noexcept;
     std::array<Voice, maxVoices> voices;
+    CaptureBus captures;
     std::array<float, macroCount> macros { 0.5f, 0.5f, 0.5f, 0.5f, 0.5f };
     Performance perf;
     float rate = 48000, bendRange = 2, level = 1, bendNow = 0, modNow = 0;

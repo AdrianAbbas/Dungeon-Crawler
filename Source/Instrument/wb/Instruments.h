@@ -555,5 +555,32 @@ struct StringVoice {
     }
 };
 
+//==============================================================================
+// Octave-up pitch shifter: two read heads sweep through a short delay line at twice
+// the speed, crossfaded with sine windows. In a reverb's feedback path it gives a
+// shimmer (each pass rises an octave).
+struct OctaveUp {
+    DelayLine line;
+    float window = 2048, phase = 0;
+    void prepare(float rate) {
+        window = std::round(0.04f * rate);
+        line.prepare(std::size_t(window) + 8);
+        clear();
+    }
+    void clear() {
+        line.clear();
+        phase = 0;
+    }
+    float process(float x) {
+        line.push(x);
+        phase += 1.0f / window;
+        if (phase >= 1.0f) phase -= 1.0f;
+        const float p2 = phase + 0.5f >= 1.0f ? phase - 0.5f : phase + 0.5f;
+        // Reading at double speed: the delay shrinks by one sample per sample.
+        const float a = line.read(1.0f + window * (1.0f - phase)) * sinCycles(0.5f * phase);
+        const float b = line.read(1.0f + window * (1.0f - p2)) * sinCycles(0.5f * p2);
+        return a + b;
+    }
+};
 
 } // namespace wb::dsp

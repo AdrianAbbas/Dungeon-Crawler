@@ -364,6 +364,8 @@ void DungeonCrawlerProcessor::prepareToPlay(double sampleRate, int) {
     latency = world.latencySamples();
     for (auto& d : dryDelay) d.prepare(static_cast<std::size_t>(latency + 8));
     for (auto* s : { &inputGain, &outputGain, &wetMix }) s->setTime(0.02, rate);
+    placeGain.setTime(0.3, rate);
+    placeGain.snap(1.0f);
     inputGain.snap(dc::dsp::dbToGain(input->load()));
     outputGain.snap(dc::dsp::dbToGain(output->load()));
     wetMix.snap(mix->load());
@@ -564,6 +566,7 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
         synth.setMacros(m);
         synth.setBendRange(static_cast<float>(juce::jlimit(1, 24, static_cast<int>(std::lround(finiteOr(bendRange->load(), 2))))));
         synth.setTempo(bpm);
+        placeGain.set(dc::dsp::dbToGain(dc::inst::placeTrimDb(controls.location, controls.sub)));
         renderInstrument(buffer, outputs, midi);
     }
     inputGain.set(dc::dsp::dbToGain(juce::jlimit(-24.0f, 24.0f, finiteOr(input->load(), 0))));
@@ -596,6 +599,15 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
             r[i] = x1 * g;
         }
         world.process(l, r, n, dryAligned[0].data(), dryAligned[1].data());
+        if (isInstrument()) {
+            // The instrument in its place: a measured correction per place (some spaces
+            // build up on sustained or ringing notes more than on the effect's material).
+            for (int i = 0; i < n; ++i) {
+                const float g = placeGain.next();
+                l[i] *= g;
+                r[i] *= g;
+            }
+        }
         // The Atmosphere joins the wet signal (Mix, Intensity 0 and Bypass remove it too).
         if (atmosAmount > 0.0f || atmosphere.activeVoices() > 0)
             atmosphere.process(l, r, n, beats + beatsPerSample * start, beatsPerSample, world.destination(), world.destinationSub(),

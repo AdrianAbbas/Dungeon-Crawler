@@ -217,6 +217,7 @@ void Synth::prepare(double sampleRate) {
         for (auto& L : v.layer) L.prepare(rate);
         v.noise.setKey(0x5eed + uint32_t(k), 7);
     }
+    captures.prepare(sampleRate);
     reset();
 }
 
@@ -229,6 +230,7 @@ void Synth::reset() {
         for (auto& h : v.highPass) h.reset();
         for (auto& b : v.body) b.reset();
     }
+    captures.reset();
     perf = {};
     bendNow = modNow = 0;
     counter = 0;
@@ -343,6 +345,9 @@ void Synth::noteOn(int key, float velocity) noexcept {
     }
     v.drive = v.baseDrive = p.drive;
     v.gain = d::dbToGain(designTrimDb(designNow));
+    const auto cap = captureOf(designNow);
+    v.capture = captures.available(cap.capture) ? cap.capture : CaptureNone;
+    v.captureSend = cap.send;
     des.start(v, n);
     // Velocity sets the level of the blown, bowed, sung and held sources (struck and
     // plucked models already respond to it in their own way).
@@ -481,6 +486,10 @@ void Synth::controlChunk() noexcept {
 }
 
 void Synth::render(float* outL, float* outR, int n) noexcept {
+    for (int at = 0; at < n; at += CaptureBus::block) renderBlock(outL + at, outR + at, std::min(CaptureBus::block, n - at));
+}
+
+void Synth::renderBlock(float* outL, float* outR, int n) noexcept {
     for (int i = 0; i < n; ++i) {
         if (counter == 0) controlChunk();
         counter = (counter + 1) % d::chunk;
@@ -526,9 +535,21 @@ void Synth::render(float* outL, float* outR, int n) noexcept {
             }
             sumL += l * g;
             sumR += r * g;
+            if (v.capture != CaptureNone) captures.send(v.capture, i, 0.5f * (l + r) * g * v.captureSend);
         }
         outL[i] += sumL * level;
         outR[i] += sumR * level;
+    }
+    // The captures' wet joins the instrument (before its place), at the same level.
+    if (level != 1.0f) {
+        std::array<float, CaptureBus::block> wl {}, wr {};
+        captures.process(wl.data(), wr.data(), n);
+        for (int i = 0; i < n; ++i) {
+            outL[i] += wl[std::size_t(i)] * level;
+            outR[i] += wr[std::size_t(i)] * level;
+        }
+    } else {
+        captures.process(outL, outR, n);
     }
 }
 

@@ -249,7 +249,7 @@ void corridors(Voice& v, const Note& n) {
 // Entrance Hall: a cello drone-lead. One bowed cello; Drone: the same note an octave
 // below on a bowed resonator, under it (only what is played sounds).
 void entranceHall(Voice& v, const Note& n) {
-    strings(v.layer[0], n.hz, 0.12f * n.scale(1), 1, 0.11f, 0.42f + 0.3f * n.offset(0), 0.22f, n);
+    strings(v.layer[0], n.hz, 0.12f * n.scale(1), 1, 0.11f, 0.42f + 0.3f * n.offset(0), 0.14f, n);
     if (sig(n) > 0.02f) bowed(v.layer[1], n.hz * 0.5f, 0.3f * n.scale(1), { 1, 2, 3, 4 }, { 1.0f, 0.5f, 0.3f, 0.15f }, 0.5f, 0.6f, 0.12f, n, 0.55f * sig(n));
 }
 
@@ -345,12 +345,12 @@ void greatHall(Voice& v, const Note& n) {
     const float a = 0.012f * n.scale(1);
     synth(v.layer[0], d::SynthBrass, n.hz * 2.0f, a, 1.0f, 1.0f, n, 0.8f, -0.3f);
     v.layer[0].synth.detuneCents = 5;
-    v.layer[0].synth.cutoff = 2200.0f * std::exp2(n.offset(0));
+    v.layer[0].synth.cutoff = 1700.0f * std::exp2(n.offset(0));
     v.layer[0].synth.formantHz = 1600;
     v.layer[0].synth.formantLevel = 0.9f;
     synth(v.layer[1], d::SynthBrass, n.hz * 2.0f * std::exp2(-7.0f / 1200.0f), a * 1.3f, 1.0f, 1.0f, n, 0.55f + 0.3f * sig(n), 0.3f);
     v.layer[1].synth.detuneCents = 0;
-    v.layer[1].synth.cutoff = 2000.0f * std::exp2(n.offset(0));
+    v.layer[1].synth.cutoff = 1500.0f * std::exp2(n.offset(0));
     v.layer[1].synth.formantHz = 1500;
     synth(v.layer[2], d::SynthBrass, n.hz, a * 1.6f, 1.0f, 1.0f, n, 0.45f * sig(n) * 2.0f, 0.0f);
     v.layer[2].synth.detuneCents = 0;
@@ -362,7 +362,7 @@ void greatHall(Voice& v, const Note& n) {
 // octave down (Low Section).
 void throneRoom(Voice& v, const Note& n) {
     const float a = 0.2f * n.scale(1);
-    strings(v.layer[0], n.hz, a, 3, 0.12f, 0.5f + 0.3f * n.offset(0), 0.25f, n, 1.0f);
+    strings(v.layer[0], n.hz, a, 3, 0.12f, 0.5f + 0.3f * n.offset(0), 0.15f, n, 1.0f);
     if (sig(n) > 0.02f) strings(v.layer[1], n.hz * 0.5f, a * 1.2f, 2, 0.13f, 0.4f + 0.3f * n.offset(0), 0.2f, n, 0.6f * sig(n) * 2.0f);
 }
 
@@ -548,7 +548,7 @@ void marketSquare(Voice& v, const Note& n) {
     } else {
         strings(v.layer[0], n.hz, 0.06f * n.scale(1), 1, 0.1f, 0.6f + 0.3f * n.offset(0), 0.3f, n);
     }
-    if (sig(n) > 0.02f) strings(v.layer[1], n.hz, 0.03f * n.scale(1), 1, 0.07f, 0.7f, 0.7f, n, (rec ? 0.35f : 0.25f) * sig(n) * 2.0f);
+    if (sig(n) > 0.02f) strings(v.layer[1], n.hz, 0.03f * n.scale(1), 1, 0.07f, 0.7f, 0.5f, n, (rec ? 0.18f : 0.14f) * sig(n) * 2.0f);
 }
 
 // Blacksmith: a tuned anvil, struck with a hammer (Clank: the hammer's iron).
@@ -860,7 +860,7 @@ const std::array<Design, instrumentCount>& table() {
         { "Contrabass Pizzicato", M5("Tone", "Pluck", "Ring", "Body", "Snap"), "Vibrato", ModWheel::Vibrato, 8, 0.25f, -12, false,
           withBody(stringPost(0.28f, 3600, 0.8f), { { 78, 3, 0.7f }, { 129, 4, 0.6f }, { 600, 1.2f, 0.25f } }), corridors, nullptr },
         { "Cello Drone-Lead", M5("Tone", "Bow", "Release", "Body", "Drone"), "Vibrato", ModWheel::Vibrato, 6, 0.35f, 0, true,
-          stringPost(0.45f, 6500, 0.7f), entranceHall, nullptr },
+          stringPost(0.45f, 5000, 0.7f), entranceHall, nullptr },
         { "Iron Chains", M5("Tone", "Strike", "Ring", "Weight", "Rattle"), "Swell", ModWheel::Swell, 8, 0.6f, 0, false,
           plainPost(9000, 60), prisonCells, prisonCellsControl },
         { "Golden Celesta", M5("Tone", "Strike", "Ring", "Body", "Glint"), "Brightness", ModWheel::Brightness, 12, 0.5f, 12, false,
@@ -873,7 +873,7 @@ const std::array<Design, instrumentCount>& table() {
         { "Brass Fanfare", M5("Tone", "Attack", "Release", "Body", "Section"), "Vibrato", ModWheel::Vibrato, 6, 0.25f, 0, true,
           plainPost(9000, 40), greatHall, nullptr },
         { "Royal Strings", M5("Tone", "Bow", "Release", "Body", "Low Section"), "Vibrato", ModWheel::Vibrato, 8, 0.5f, 0, true,
-          stringPost(1.0f, 9000, 0.5f), throneRoom, nullptr },
+          stringPost(1.0f, 6500, 0.5f), throneRoom, nullptr },
         { "Chamber Organ", M5("Tone", "Speech", "Release", "Body", "Stops"), "Tremulant", ModWheel::Tremolo, 10, 0.12f, 0, true,
           withBody(plainPost(7500, 40, 0, 0.2f), { { 500, 1.0f, 0.2f } }), chapel, nullptr },
         { "Heroic Horn", M5("Tone", "Attack", "Release", "Body", "Bell Up"), "Vibrato", ModWheel::Vibrato, 6, 0.3f, 0, true,
@@ -911,7 +911,7 @@ const std::array<Design, instrumentCount>& table() {
         { "Weary Guitar", M5("Tone", "Pluck", "Ring", "Body", "Weariness"), "Vibrato", ModWheel::Vibrato, 10, 0.3f, 0, false,
           bodyPost(d::BodyGuitar, 3800, 0.6f, 50), tavern, nullptr },
         { "Fiddle", M5("Tone", "Bow", "Release", "Body", "Rasp"), "Vibrato", ModWheel::Vibrato, 6, 0.25f, 0, true,
-          stringPost(1.0f, 8000, 0.6f), marketSquare, nullptr },
+          stringPost(1.0f, 7000, 0.6f), marketSquare, nullptr },
         { "Tuned Anvil", M5("Tone", "Hammer", "Ring", "Body", "Clank"), "Brightness", ModWheel::Brightness, 8, 1.0f, 0, false,
           plainPost(10000, 80), blacksmith, nullptr },
         // Swamp
@@ -975,4 +975,17 @@ int locationOf(int index) noexcept {
 int subOf(int index) noexcept { return std::clamp(index, 0, instrumentCount - 1) - firstOf(locationOf(index)); }
 
 float designTrimDb(int index) noexcept { return trims[std::size_t(std::clamp(index, 0, instrumentCount - 1))]; }
+float placeTrimDb(int location, int sub) noexcept { return placeTrims[std::size_t(designFor(location, sub))]; }
+
+// The instruments that carry one of the developer's effect captures with them.
+CaptureSend captureOf(int index) noexcept {
+    const int l = locationOf(index), k = subOf(index);
+    if (l == Caverns && k == 1) return { CaptureShimmer, 0.2f };       // Crystal Bells: the shimmer (Direction Update 3)
+    if (l == WizardsTower && k == 3) return { CaptureShimmer, 0.22f };  // Celestial Pad: starlight
+    if (l == Dungeon && k == 4) return { CaptureDarkHall, 0.2f };       // Doom Brass: the dark hall behind it
+    if (l == Necropolis && k == 0) return { CaptureDarkHall, 0.22f };   // Dark Choir Pad
+    if (l == Caverns && k == 2) return { CaptureChorusVerb, 0.22f };    // Water Kalimba: rippling
+    if (l == Swamp && k == 2) return { CaptureChorusVerb, 0.25f };      // Drowned Bells
+    return {};
+}
 }

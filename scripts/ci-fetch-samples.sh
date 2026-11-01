@@ -26,6 +26,10 @@ echo "Samples: $(git -C "$checkout" log -1 --format='%h %s') ($(find "$checkout"
 
 python3 -m pip install --quiet -r "$here/tools/sample-prep/requirements.txt"
 python3 "$here/tools/sample-prep/prepare.py" --source "$checkout" --out "$out" | tee "$out.log"
+# The effect captures (LIMINAL's capture tools) into the same folder: captures/*.wav.
+python3 -I "$here/tools/captures/prepare.py" "$checkout" "$out/captures" > "$out.captures.log" 2>&1 || { tail -30 "$out.captures.log"; echo "::warning title=Captures::the effect captures could not be prepared; the instruments play without them"; }
+rm -rf "$out/captures/report"
+ls -la "$out/captures" || true
 # The recordings themselves are not needed after preparation.
 rm -rf "$checkout"
 test -f "$out/index.json"

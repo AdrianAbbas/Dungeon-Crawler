@@ -191,7 +191,7 @@ private:
     dc::SafetyLimiter limiter;
     std::array<dc::dsp::DelayLine, 2> dryDelay;   // aligns the dry path with the engine's latency
     std::array<std::array<float, dc::maxChunk>, 2> dryAligned {}, work {};
-    dc::dsp::Smoothed inputGain, outputGain, wetMix;
+    dc::dsp::Smoothed inputGain, outputGain, wetMix, placeGain;
     dc::dsp::Ramp bypassRamp;
     // Intensity 0 is a true dry path: the output crossfades (30 ms) to the latency-aligned
     // input, so it is exactly transparent instead of a neutral-sounding chain.
