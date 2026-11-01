@@ -1144,6 +1144,7 @@ constexpr double strengthScoreGate = 18.0, halfScoreGate = 11.0;
 // the redesign is under way. Locations in the order of the Direction Update 2 checklist.
 bool strengthGated(int l, int k) {
     static const std::set<std::pair<int, int>> done {
+        { dc::Caverns, 0 }, { dc::Caverns, 1 }, { dc::Caverns, 3 },
         { dc::Cathedral, 0 }, { dc::Cathedral, 1 }, { dc::Cathedral, 2 }, { dc::Cathedral, 3 },
         { dc::Necropolis, 0 }, { dc::Necropolis, 1 }, { dc::Mountains, 0 }, { dc::Mountains, 1 }, { dc::Mountains, 2 }, { dc::Mountains, 3 },
         { dc::Necropolis, 2 }, { dc::Caverns, 2 }, { dc::Dungeon, 0 }, { dc::HauntedForest, 1 }, { dc::Swamp, 1 }, { dc::Swamp, 2 },

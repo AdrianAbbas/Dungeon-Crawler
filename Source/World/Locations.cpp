@@ -174,34 +174,50 @@ std::vector<LocationDesign> buildWorld() {
 
     //--------------------------------------------------------------------------
     w.push_back({ "Caverns", "Cave Mouth",
-        // The mouth of the cave: big rock, discrete echoes from deep inside, drips.
-        { { HighPass, 60 }, { Cutoff, 9000 }, { Darkness, .1f }, { Drips, .35f }, { Wind, .12f },
-          { DelayTime, 290 }, { Feedback, .42f }, { Diffusion, .25f }, { DelayDamping, .35f }, { Spread, .85f }, { DelayMix, .22f },
-          { Character, 1 }, { Space, .8f }, { Decay, 4.5f }, { Damping, .3f }, { PreDelay, 55 }, { ReverbMix, .38f } },
+        // Direction Update 2. The mouth of the cave, enclosed: rocky early reflections
+        // close around you (Rock Mouth), a medium cave tail, warm; firelight flickers on
+        // the reflections and the cave's hum (the signature's layers), a far answer
+        // from deep inside.
+        { { HighPass, 60 }, { Cutoff, 6500 }, { Darkness, .22f }, { Drive, 3 }, { BloodMix, .15f }, { Texture, .3f },
+          { Drips, .2f }, { Wind, .06f }, { Flicker, .2f }, { FlickerRate, 2.8f },
+          { DelayTime, 130 }, { Feedback, .32f }, { Diffusion, .5f }, { DelayDamping, .55f }, { Spread, .85f }, { DelayMix, .16f },
+          { Character, 2 }, { Space, .5f }, { Decay, 2.2f }, { Damping, .45f }, { PreDelay, 12 }, { ReverbMix, .22f },
+          { VaultKind, 10 }, { VaultMix, .62f } },
         {
-          // Crystal: everything rings, cold and bright; long glassy echoes.
-          { "Crystal Cavern", { { Cutoff, 20000 }, { HighPass, 180 }, { Darkness, 0 }, { Wind, 0 },
-                                { Metal, .7f }, { MetalKind, 2 }, { MetalNote, 4 }, { MetalOctave, 3 }, { MetalDecay, 4.5f }, { Drips, .5f },
-                                { DelayTime, 230 }, { Feedback, .45f }, { DelayDamping, .08f }, { Diffusion, .1f }, { Spread, 1 }, { DelayMix, .16f },
-                                { Character, 1 }, { Space, .6f }, { Decay, 5 }, { Damping, .08f }, { PreDelay, 30 }, { Shimmer, .12f }, { ReverbMix, .36f } } },
-          // A still lake under the rock: watery, filtered, wavering, very long.
+          // Crystal (CHANGE): shimmering and magical, a room full of crystals. An octave
+          // shimmer climbing in a bright Crystal Hall, crystal resonators ringing, struck
+          // glass modes (signature), glassy sparkle.
+          { "Crystal Cavern", { { Cutoff, 20000 }, { HighPass, 280 }, { Darkness, 0 }, { Wind, 0 }, { Drive, 0 }, { BloodMix, 0 }, { Flicker, 0 },
+                                { Metal, .8f }, { MetalKind, 2 }, { MetalNote, 4 }, { MetalOctave, 3 }, { MetalDecay, 4.5f }, { Drips, .4f },
+                                { DelayTime, 230 }, { Feedback, .45f }, { DelayDamping, .08f }, { Diffusion, .1f }, { Spread, 1 }, { DelayMix, .14f },
+                                { Character, 1 }, { Space, .6f }, { Decay, 5 }, { Damping, .2f }, { PreDelay, 30 }, { Shimmer, .2f }, { ReverbMix, .3f },
+                                { VaultKind, 11 }, { VaultMix, .8f }, { VaultShimmer, .5f }, { VaultTone, 5500 } } },
+          // A still lake under the rock (LIKE, near perfect: kept exactly). The Cave
+          // Mouth's new settings are pinned back to before.
           { "Underground Lake", { { Cutoff, 2200 }, { Resonance, .35f }, { FilterMovement, .45f }, { FilterRate, .12f }, { Darkness, .3f }, { Wind, 0 },
                                   { Instability, .45f }, { BloodMix, .25f }, { Drips, .6f },
                                   { WraithMix, .2f }, { Blur, .6f }, { Drift, .6f },
                                   { DelayTime, 650 }, { Feedback, .55f }, { DelayDamping, .8f }, { Diffusion, .85f }, { DelayMix, .25f },
-                                  { Character, 3 }, { Space, .8f }, { Decay, 8 }, { Damping, .75f }, { PreDelay, 80 }, { ReverbMix, .48f } } },
-          // The hoard: massive and dark, a rumbling sub-octave drone and resonance,
-          // the glint of gold above it.
-          { "Dragon's Hoard", { { Cutoff, 2400 }, { Darkness, .6f }, { HighPass, 25 }, { Wind, 0 }, { Drips, 0 },
-                                { Drive, 8 }, { BloodMix, .35f }, { Texture, .5f },
-                                { Voices, 2 }, { Interval, 0 }, { ChoirBlend, .2f }, { Formant, .12f }, { Drone, .26f }, { DroneHold, 10 },
-                                { Tomb, .3f }, { TombNote, 2 }, { TombOctave, 0 },
-                                { Metal, .12f }, { MetalKind, 2 }, { MetalNote, 2 }, { MetalOctave, 4 }, { MetalDecay, 1.5f },
+                                  { Character, 3 }, { Space, .8f }, { Decay, 8 }, { Damping, .75f }, { PreDelay, 80 }, { ReverbMix, .48f },
+                                  { HighPass, 60 }, { Spread, .85f }, { Drive, 0 }, { Texture, .35f }, { Flicker, 0 }, { FlickerRate, 3 },
+                                  { VaultKind, 0 }, { VaultMix, 0 } } },
+          // The hoard (CHANGE): the vast cavern inside the mountain where the dragon
+          // sleeps. Enormous and dry-dark (Vast Cavern, 6.5 s): long distinct far echoes
+          // of anything that falls, a metallic sheen of coins on the reflections, a deep
+          // rumble (sub-octave voice, drone, low resonance, growl), a slow heavy
+          // movement. No watery filter, no wobble: vast, not wet.
+          { "Dragon's Hoard", { { Cutoff, 4800 }, { Darkness, .35f }, { HighPass, 25 }, { Wind, 0 }, { Drips, 0 }, { Flicker, 0 },
+                                { Drive, 8 }, { BloodMix, .3f }, { Texture, .5f },
+                                { Voices, 2 }, { Interval, 0 }, { ChoirBlend, .16f }, { Formant, .12f }, { Drone, .2f }, { DroneHold, 10 },
+                                { Tomb, .28f }, { TombNote, 2 }, { TombOctave, 0 },
+                                { Metal, .16f }, { MetalKind, 2 }, { MetalNote, 2 }, { MetalOctave, 4 }, { MetalDecay, 1.5f },
+                                { EnsMix, .3f }, { EnsDepth, 7 }, { EnsRate, .05f },
                                 { DelayMix, 0 },
-                                { Character, 1 }, { Space, 1 }, { Decay, 7 }, { Damping, .7f }, { PreDelay, 70 }, { ReverbMix, .46f } } },
+                                { Character, 1 }, { Space, 1 }, { Decay, 7 }, { Damping, .7f }, { PreDelay, 70 }, { ReverbMix, .18f },
+                                { VaultKind, 12 }, { VaultMix, .72f } } },
         },
         {
-          { "Depth", { { Space, -.35f, .15f }, { Decay, -1, 1 }, { PreDelay, -25, 40 } } },
+          { "Depth", { { Space, -.35f, .15f }, { Decay, -1, 1 }, { PreDelay, -25, 40 }, { VaultMix, -.25f, .15f } } },
           { "Drips", { { Drips, -.35f, .45f } } },
           { "Echo", { { DelayMix, -.15f, .2f }, { Feedback, -.25f, .25f }, { DelayTime, -.6f, .6f } } },
           { "Rumble", { { Drone, 0, .35f }, { Drive, -4, 10 }, { BloodMix, -.15f, .25f }, { Tomb, 0, .25f } } },

@@ -114,10 +114,10 @@ without. Resume from the first unticked line. Details in "Session 6" below.
   - [x] Nave (CHANGE)
   - [x] Bell Tower (CHANGE)
 - Caverns
-  - [ ] Underground Lake (LIKE, unchanged)
-  - [ ] Cave Mouth (CHANGE)
-  - [ ] Crystal Cavern (CHANGE)
-  - [ ] Dragon's Hoard (CHANGE)
+  - [x] Underground Lake (LIKE, unchanged)
+  - [x] Cave Mouth (CHANGE)
+  - [x] Crystal Cavern (CHANGE)
+  - [x] Dragon's Hoard (CHANGE)
 - Dungeon
   - [ ] Corridors (LIKE, unchanged)
   - [ ] Prison Cells (LIKE, water drops rebuilt)
@@ -1628,3 +1628,7 @@ through the place; plus `strength.csv` and `journey-all-places.wav`.
 | Nave | CHANGE | Grand Nave: 7.5 s, 110 ms pre-delay, 420 ms bloom, smooth and dark stone (6.5 kHz), the Vault Cascade signature; the old 12 s FDN kept underneath at .22 | 12.3 → 19.5 |
 | Crypt | LIKE, + reverse | the filters, resonance and murmur kept; a dark reversed swell (Crypt Swell, 1.4 s) draws every note in | 31.3 → 35.0 |
 | Bell Tower | CHANGE | real bell partials on D (hum, prime, minor-third tierce, quint, nominal, superquint; 6 s) struck by every attack, the iron-bell resonators louder, the ringing fed back through a tape loop (420 ms, .6), a slow rising-phaser swirl, a hard bright Belfry; thinner (150 Hz–5.5 kHz) | 13.7 → 19.7 |
+| Caverns · Cave Mouth | CHANGE | enclosed: Rock Mouth (dense rocky early reflections, 2.4 s warm tail), close slaps (130 ms), warmth (a little drive, 6.5 kHz); the Cave Hum signature now has close wall reflections and firelight flickering on its layers, the torch flicker on the whole | 13.6 → 21.6 |
+| Crystal Cavern | CHANGE | a bright Crystal Hall with an octave shimmer climbing (Vault shimmer .5), crystal resonators louder (.8), the glass modes louder and longer, the FDN's shimmer; thinner (280 Hz) | 12.9 → 18.6 |
+| Underground Lake | LIKE | unchanged (pinned against the Cave Mouth's new base) | 26.3 |
+| Dragon's Hoard | CHANGE | Vast Cavern: 6.5 s, dry-dark, distinct far echoes at 0.64/1.39/2.25 s, a coin sheen of glints; the rumble kept (sub-octave voice, drone, low D, growl) with a slow heavy chorus sway; the muffled low-pass opened (2.4 → 4.8 kHz) so it reads as vast, not underwater | 30.3 → 28.5 |

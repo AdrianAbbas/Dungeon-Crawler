@@ -113,10 +113,12 @@ const Recipe recipes[Signature::kinds] = {
       .pitches = 1, .pitchRatio = { 2.0f }, .pitchGain = .45f, .pitchHp = 1200, .smear = .5f, .smearMs = 55 },
     // ---- Caverns
     // 19 Cave Mouth, Cave Hum: the deep hum of the cave's mouth and a far answer.
-    { .modes = 3, .modeHz = { 72, 108, 151 }, .modeT60 = 1.4f, .modeGain = .55f,
-      .taps = 1, .tapMs = { 430 }, .tapGain = { .3f }, .tapPan = { .4f }, .tapLp = 1500 },
+    // Direction Update 2: firelight flickering on the hum and the answer.
+    { .tremDepth = .55f, .tremHz = 3.2f, .tremShape = SmoothRandom, .tremLayersOnly = true,
+      .modes = 3, .modeHz = { 72, 108, 151 }, .modeT60 = 1.4f, .modeGain = .6f,
+      .taps = 3, .tapMs = { 23, 41, 430 }, .tapGain = { .32f, .26f, .3f }, .tapPan = { -.7f, .7f, .4f }, .tapLp = 2600 },
     // 20 Crystal Cavern, Glass Ring: glassy, inharmonic modal ringing.
-    { .modes = 5, .modeHz = { 1318.5f, 2489.0f, 3184.0f, 3638.0f, 4620.0f }, .modeT60 = 3, .modeGain = .45f, .modeStruck = true },
+    { .modes = 5, .modeHz = { 1318.5f, 2489.0f, 3184.0f, 3638.0f, 4620.0f }, .modeT60 = 3.5f, .modeGain = .6f, .modeStruck = true },
     // 21 Underground Lake, Underwater: muffled as if underwater, a slow wobble, a long
     // watery tail.
     { .tone = ToneLow, .toneHz = 950, .toneQ = .9f,
