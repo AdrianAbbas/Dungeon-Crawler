@@ -101,8 +101,11 @@ const Recipe recipes[Signature::kinds] = {
     { .modes = 6, .modeHz = { 146.8f, 293.7f, 352.4f, 440.5f, 587.3f, 881.0f }, .modeT60 = 6.0f, .modeGain = .7f, .modeStruck = true },
     // ---- Haunted Forest
     // 15 Forest Edge, Trunk Scatter: echoes scattered off tree trunks, drifting.
-    { .taps = 6, .tapMs = { 41, 77, 109, 158, 203, 262 }, .tapGain = { .22f, .2f, .2f, .17f, .15f, .12f }, .tapPan = { .8f, -.6f, .3f, -.9f, .6f, -.2f },
-      .tapLp = 5500, .tapDarken = .9f, .tapMode = TapsScatter, .tapRate = .22f },
+    // Direction Update 2: a dark shadow a semitone below, wavering.
+    { .wobbleMs = 1.2f, .wobbleHz = .4f, .wobbleShape = SmoothRandom, .wobbleMix = .35f,
+      .pitches = 1, .pitchRatio = { .9439f }, .pitchGain = .4f, .pitchMode = PitchContinuous, .pitchHp = 120, .pitchLp = 2800,
+      .taps = 6, .tapMs = { 41, 77, 109, 158, 203, 262 }, .tapGain = { .22f, .2f, .2f, .17f, .15f, .12f }, .tapPan = { .8f, -.6f, .3f, -.9f, .6f, -.2f },
+      .tapLp = 3500, .tapDarken = .9f, .tapMode = TapsScatter, .tapRate = .22f },
     // 16 Old Path, Spectral Smear: every note smeared into a ghostly blur, slightly adrift.
     { .wobbleMs = .8f, .wobbleHz = .2f, .wobbleShape = SmoothRandom, .wobbleMix = .5f,
       .smear = .8f, .smearMs = 70 },
@@ -111,7 +114,7 @@ const Recipe recipes[Signature::kinds] = {
       .wobbleMs = 2.4f, .wobbleHz = 2.3f, .wobbleShape = Crooked, .wobbleMix = .5f },
     // 18 Ancient Grove, Breathing Shimmer: an octave of mystic shimmer, breathing slowly.
     { .tremDepth = .6f, .tremHz = .12f, .tremShape = Sine, .tremLayersOnly = true,
-      .pitches = 1, .pitchRatio = { 2.0f }, .pitchGain = .45f, .pitchHp = 1200, .smear = .5f, .smearMs = 55 },
+      .pitches = 1, .pitchRatio = { 2.0f }, .pitchGain = .6f, .pitchHp = 1200, .smear = .6f, .smearMs = 60 },
     // ---- Caverns
     // 19 Cave Mouth, Cave Hum: the deep hum of the cave's mouth and a far answer.
     // Direction Update 2: firelight flickering on the hum and the answer.

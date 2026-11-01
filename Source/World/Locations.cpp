@@ -162,38 +162,53 @@ std::vector<LocationDesign> buildWorld() {
 
     //--------------------------------------------------------------------------
     w.push_back({ "Haunted Forest", "Forest Edge",
-        // Open air under the first trees: soft, damped, airy, wind in the leaves, a
-        // faint haze, diffuse echoes from the trunks.
-        { { Cutoff, 9000 }, { Darkness, .15f }, { HighPass, 40 }, { Wind, .36f },
-          { WraithMix, .12f }, { Blur, .5f }, { Ghost, .15f },
-          { DelayTime, 380 }, { Feedback, .25f }, { DelayDamping, .7f }, { Diffusion, .85f }, { Spread, .8f }, { DelayMix, .16f },
-          { Character, 0 }, { Space, .4f }, { Decay, 1.4f }, { Damping, .8f }, { ReverbMix, .15f } },
+        // Direction Update 2. The edge of the forest: on edge; you know you shouldn't
+        // go in, but you must. A dark shadow a semitone below and an unstable detune
+        // (signature, Wraith), tense resonant filtering that never settles, a dark,
+        // close wood (Dark Wood), the trunks scattering echoes.
+        { { Cutoff, 3000 }, { Resonance, .42f }, { Darkness, .25f }, { HighPass, 55 }, { FilterMovement, .22f }, { FilterRate, .35f }, { Wind, .26f },
+          { WraithMix, .26f }, { Blur, .4f }, { Ghost, .1f }, { WraithDetune, 38 }, { Drift, .75f },
+          { DelayTime, 380 }, { Feedback, .3f }, { DelayDamping, .75f }, { Diffusion, .85f }, { Spread, .8f }, { DelayMix, .16f },
+          { Character, 0 }, { Space, .4f }, { Decay, 1.4f }, { Damping, .8f }, { ReverbMix, .12f },
+          { VaultKind, 21 }, { VaultMix, .5f } },
         {
-          // The old path: spectral ghosts of every note, whispers played backwards.
+          // The old path (LIKE, sinister, perfect: kept exactly). The Forest Edge's new
+          // settings are pinned back to before.
           { "Old Path", { { Cutoff, 5000 }, { Darkness, .4f }, { FilterMovement, .25f }, { FilterRate, .07f }, { Wind, .2f },
                           { WraithMix, .45f }, { Blur, .75f }, { Ghost, .55f }, { WraithDetune, 30 }, { Drift, .6f },
                           { DelayTime, 560 }, { Feedback, .35f }, { DelayDamping, .75f }, { Diffusion, .7f }, { Reverse, 1 }, { DelayMix, .2f },
-                          { Space, .5f }, { Decay, 2 }, { Damping, .75f }, { PreDelay, 20 }, { ReverbMix, .2f } } },
-          // A small wooden hut: boxy, woody, a candle, a crooked choir a fifth below.
-          { "Witch's Hut", { { Cutoff, 8000 }, { Darkness, .2f }, { HighPass, 70 }, { Wind, 0 },
+                          { Space, .5f }, { Decay, 2 }, { Damping, .75f }, { PreDelay, 20 }, { ReverbMix, .2f },
+                          { HighPass, 40 }, { Resonance, 0 }, { Character, 0 }, { Spread, .8f },
+                          { VaultKind, 0 }, { VaultMix, 0 } } },
+          // A small wooden hut (LIKE, kept), a little more alluring: sweet, warm and
+          // inviting on the surface (a lush ensemble, a warm glow with shimmer), wrong
+          // underneath (the crooked wobble, the crooked choir a fifth below).
+          { "Witch's Hut", { { Cutoff, 8000 }, { Darkness, .2f }, { HighPass, 70 }, { Wind, 0 }, { Resonance, 0 }, { FilterMovement, 0 },
                              { Drive, 5 }, { BloodMix, .3f }, { Texture, .45f }, { Age, .25f }, { Instability, .2f }, { Flicker, .3f }, { FlickerRate, 4.5f },
                              { Tomb, .14f }, { TombNote, 9 }, { TombOctave, 2 },
                              { Voices, 1 }, { Interval, 1 }, { ChoirBlend, .12f }, { ChoirDetune, 30 }, { ChoirMovement, .7f }, { Formant, .3f },
-                             { WraithMix, 0 },
+                             { WraithMix, 0 }, { WraithDetune, 15 }, { Drift, .4f },
+                             { EnsMix, .45f }, { EnsDepth, 3.5f }, { EnsRate, .45f },
                              { DelayTime, 48 }, { Feedback, .25f }, { Diffusion, .3f }, { DelayDamping, .6f }, { DelayMix, .1f },
-                             { Space, .08f }, { Decay, .5f }, { Damping, .55f }, { PreDelay, 2 }, { ReverbMix, .35f } } },
-          // The grove: mystical; a vast soft halo, an octave of air above, slow blur.
-          { "Ancient Grove", { { Cutoff, 15000 }, { Darkness, 0 }, { FilterMovement, .2f }, { FilterRate, .05f }, { Wind, .2f },
-                               { WraithMix, .3f }, { Blur, .85f }, { Ghost, .25f }, { Drift, .3f },
-                               { Voices, 2 }, { Interval, 5 }, { ChoirBlend, .14f }, { Formant, .7f }, { ChoirMovement, .6f },
-                               { DelayMix, .08f },
-                               { Character, 3 }, { Space, .65f }, { Decay, 4.5f }, { Damping, .45f }, { PreDelay, 40 }, { Shimmer, .35f }, { ReverbMix, .42f } } },
+                             { Space, .08f }, { Decay, .5f }, { Damping, .55f }, { PreDelay, 2 }, { ReverbMix, .35f },
+                             { VaultKind, 28 }, { VaultMix, .35f }, { VaultShimmer, .3f } } },
+          // The grove (CHANGE): ancient, magical, breathing. A soft halo that blooms
+          // slowly and breathes (Breathing Grove, the breathing octave shimmer), an
+          // evolving Vault shimmer, a hollow wooden resonance, whispering spectral
+          // blur, a choir an octave and a fifth above.
+          { "Ancient Grove", { { Cutoff, 6000 }, { Darkness, .15f }, { Resonance, 0 }, { HighPass, 50 }, { FilterMovement, .2f }, { FilterRate, .05f }, { Wind, .14f },
+                               { WraithMix, .4f }, { Blur, .88f }, { Ghost, .3f }, { Drift, .35f }, { WraithDetune, 15 },
+                               { Voices, 2 }, { Interval, 5 }, { ChoirBlend, .16f }, { Formant, .7f }, { ChoirMovement, .6f },
+                               { Tomb, .32f }, { TombNote, 9 }, { TombOctave, 1 }, { TombRing, .8f },
+                               { DelayMix, .06f },
+                               { Character, 3 }, { Space, .65f }, { Decay, 4.5f }, { Damping, .45f }, { PreDelay, 40 }, { Shimmer, .15f }, { ReverbMix, .25f },
+                               { VaultKind, 22 }, { VaultMix, .74f }, { VaultShimmer, .3f } } },
         },
         {
           { "Mist", { { WraithMix, -.12f, .3f }, { Blur, -.3f, .2f }, { Drift, -.2f, .3f } } },
           { "Whispers", { { Ghost, -.2f, .4f }, { DelayMix, -.1f, .15f }, { Feedback, -.15f, .2f } } },
           { "Wind", { { Wind, -.3f, .4f }, { FilterMovement, -.15f, .3f }, { HighPass, 0, 1.5f } } },
-          { "Shadows", { { Cutoff, 1, -1.5f }, { Darkness, -.1f, .35f }, { Decay, -.5f, .8f } } },
+          { "Shadows", { { Cutoff, 1, -1.5f }, { Darkness, -.1f, .35f }, { Decay, -.5f, .8f }, { VaultMix, -.2f, .2f } } },
         } });
 
     //--------------------------------------------------------------------------

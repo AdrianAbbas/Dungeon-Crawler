@@ -136,10 +136,10 @@ without. Resume from the first unticked line. Details in "Session 6" below.
   - [x] Market Square (CHANGE)
   - [x] Blacksmith (CHANGE)
 - Haunted Forest
-  - [ ] Old Path (LIKE, unchanged)
-  - [ ] Witch's Hut (LIKE, + alluring shimmer/chorus)
-  - [ ] Forest Edge (CHANGE)
-  - [ ] Ancient Grove (CHANGE)
+  - [x] Old Path (LIKE, unchanged)
+  - [x] Witch's Hut (LIKE, + alluring shimmer/chorus)
+  - [x] Forest Edge (CHANGE)
+  - [x] Ancient Grove (CHANGE)
 - Swamp
   - [ ] Bog (LIKE, unchanged)
   - [ ] Sunken Ruins (LIKE, unchanged)
@@ -1655,3 +1655,7 @@ through the place; plus `strength.csv` and `journey-all-places.wav`.
 | Tavern | CHANGE | almost empty: Tavern Room (small, wooden, 0.9 s), dull (4.2 kHz), gentle warm saturation, the fire | 12.6 → 23.4 |
 | Market Square | CHANGE | slow and dead: Dead Square (dark, damped, sparse slaps at 165/390 ms), the slap-back darkened (3 kHz), a slow dragging ensemble (9 ms, 0.07 Hz), dark (3.2 kHz) | 10.9 → 25.8 |
 | Blacksmith | CHANGE | the only loud space: iron resonating (.75) and the anvil louder and longer (signature), Forge Room (hard, bright, metallic reflections with glints), gritty drive 14 | 11.5 → 16.0 (report-only) |
+| Haunted Forest · Forest Edge | CHANGE | on edge: a dark shadow a semitone below with a wavering, unstable detune (signature, Wraith detune 38, drift .75), tense resonant filtering that never settles (3 kHz, resonance .42, 0.35 Hz), a close Dark Wood, darker trunk echoes | 14.3 → 22.6 |
+| Old Path | LIKE | unchanged (pinned against the Forest Edge's new base) | 18.2 |
+| Witch's Hut | LIKE, + alluring | the hut, wobble and crooked choir kept; a sweet lush ensemble (.45) and a warm Hut Glow with shimmer on top | 17.0 → 19.0 |
+| Ancient Grove | CHANGE | ancient, magical, breathing: Breathing Grove (600 ms bloom), the breathing octave shimmer louder, an evolving Vault shimmer, a hollow wooden resonance on A, whispering blur (.88), warm wood (6 kHz) | 11.1 → 18.4 |
