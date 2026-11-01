@@ -23,33 +23,43 @@ std::vector<LocationDesign> buildWorld() {
           { DelayTime, 140 }, { Feedback, .2f }, { DelayDamping, .75f }, { Diffusion, .75f }, { Spread, .5f }, { DelayMix, .12f },
           { Character, 2 }, { Space, .55f }, { Decay, 2.5f }, { Damping, .62f }, { PreDelay, 14 }, { ReverbMix, .4f } },
         {
-          // A vaulted entrance: bigger and lighter, the torches brighter, no slap.
-          { "Entrance Hall", { { Cutoff, 6000 }, { Darkness, .3f }, { HighPass, 45 }, { Flicker, .45f }, { FlickerRate, 2.6f }, { Drips, .06f },
-                               { DelayTime, 310 }, { Feedback, .1f }, { Diffusion, .2f }, { DelayDamping, .6f }, { Spread, .9f }, { DelayMix, .1f },
-                               { Character, 2 }, { Space, .9f }, { Decay, 3.5f }, { Damping, .55f }, { PreDelay, 38 }, { ReverbMix, .45f } } },
-          // A cramped cell: boxy and muffled, iron bars ringing, a flutter between the
-          // walls, grime on everything.
+          // A vaulted entrance (CHANGE, strengthened): a big stone vault (Vaulted Hall),
+          // the torches brighter, a wide slap from the far door, the stone flutter.
+          { "Entrance Hall", { { Cutoff, 6000 }, { Darkness, .3f }, { HighPass, 45 }, { Flicker, .5f }, { FlickerRate, 2.6f }, { Drips, .06f },
+                               { DelayTime, 310 }, { Feedback, .28f }, { Diffusion, .3f }, { DelayDamping, .6f }, { Spread, .9f }, { DelayMix, .2f },
+                               { Character, 2 }, { Space, .9f }, { Decay, 3.5f }, { Damping, .55f }, { PreDelay, 38 }, { ReverbMix, .3f },
+                               { VaultKind, 13 }, { VaultMix, .45f } } },
+          // A cramped cell (LIKE, kept): boxy and muffled, iron bars ringing, a flutter
+          // between the walls, grime on everything. The old water drops sounded
+          // unrealistic: replaced by rare, very quiet modelled drops (Ensemble) in the
+          // cell's stone.
           { "Prison Cells", { { Cutoff, 1900 }, { Resonance, .25f }, { Darkness, .45f }, { HighPass, 130 },
                               { Drive, 5 }, { Age, .35f }, { Dust, .12f }, { BloodMix, .35f },
-                              { Metal, .42f }, { MetalKind, 0 }, { MetalNote, 2 }, { MetalOctave, 2 }, { MetalDecay, .7f }, { Drips, .3f }, { Flicker, .12f },
+                              { Metal, .42f }, { MetalKind, 0 }, { MetalNote, 2 }, { MetalOctave, 2 }, { MetalDecay, .7f }, { Drips, 0 }, { Drops, .45f }, { Flicker, .12f },
                               { DelayTime, 55 }, { Feedback, .42f }, { Diffusion, .15f }, { DelayDamping, .5f }, { Spread, .3f }, { DelayMix, .16f },
                               { Character, 0 }, { Space, .08f }, { Decay, .7f }, { Damping, .7f }, { PreDelay, 2 }, { ReverbMix, .38f } } },
-          // Gold everywhere: bright glittering reflections, crystal glints, an octave of
-          // sparkle above, shimmer, ping-pong echoes on the eighth.
-          { "Treasure Room", { { Cutoff, 20000 }, { Darkness, 0 }, { HighPass, 90 }, { Resonance, 0 }, { BloodMix, 0 }, { Drive, 0 }, { Age, 0 },
-                               { Metal, .22f }, { MetalKind, 2 }, { MetalNote, 9 }, { MetalOctave, 4 }, { MetalDecay, 1.4f }, { Flicker, .1f }, { Drips, 0 },
-                               { Voices, 1 }, { Interval, 4 }, { ChoirBlend, .12f }, { Formant, .85f }, { ChoirDetune, 6 },
+          // Gold everywhere (CHANGE): rich, like sound reflecting off coins. A bright
+          // golden space full of glints (Golden Vault), a lush three-voice ensemble, an
+          // octave and twelfth glittering on every attack (signature), a metallic sheen.
+          { "Treasure Room", { { Cutoff, 20000 }, { Darkness, 0 }, { HighPass, 110 }, { Resonance, 0 }, { BloodMix, .3f }, { Drive, 7 }, { Texture, .2f }, { Age, 0 },
+                               { Metal, .45f }, { MetalKind, 2 }, { MetalNote, 9 }, { MetalOctave, 4 }, { MetalDecay, 1.4f }, { Flicker, .1f }, { Drips, 0 },
+                               { Voices, 2 }, { Interval, 4 }, { ChoirBlend, .22f }, { Formant, .85f }, { ChoirDetune, 9 },
+                               { EnsMix, .85f }, { EnsDepth, 5 }, { EnsRate, .55f },
                                { DelayTime, 250 }, { DelaySync, 2 }, { Feedback, .38f }, { Spread, 1 }, { DelayDamping, .12f }, { Diffusion, .2f }, { DelayMix, .16f },
-                               { Character, 0 }, { Space, .55f }, { Decay, 3 }, { Damping, .12f }, { PreDelay, 18 }, { Shimmer, .4f }, { ReverbMix, .38f } } },
-          // The lair: vast and menacing. A distorted, darkened instrument, a choir a
-          // fifth below with a held drone, a low resonance, slow echoes that sink a
-          // semitone each time, an endless void of a room.
-          { "Final Boss Lair", { { Cutoff, 3000 }, { Darkness, .55f }, { HighPass, 30 }, { Drive, 18 }, { BloodMix, .55f }, { Texture, .6f },
-                                 { Voices, 3 }, { Interval, 1 }, { ChoirBlend, .3f }, { Formant, .2f }, { ChoirDetune, 22 }, { Drone, .22f },
+                               { Character, 0 }, { Space, .55f }, { Decay, 3 }, { Damping, .12f }, { PreDelay, 18 }, { Shimmer, .45f }, { ReverbMix, .3f },
+                               { VaultKind, 14 }, { VaultMix, .76f }, { VaultTone, 9000 } } },
+          // The lair (CHANGE): huge and sinister, the devil himself. A colossal dark
+          // space (Infernal Abyss, 7.5 s), a sub-octave choir, menacing drive, slow
+          // ominous delays that fall a fourth with every repeat (a pitch-down shadow),
+          // echoes sinking a semitone, a low resonance.
+          { "Final Boss Lair", { { Cutoff, 3200 }, { Darkness, .55f }, { HighPass, 30 }, { Drive, 18 }, { BloodMix, .55f }, { Texture, .6f },
+                                 { Voices, 3 }, { Interval, 0 }, { ChoirBlend, .3f }, { Formant, .2f }, { ChoirDetune, 22 }, { Drone, .22f }, { DroneHold, 2.5f },
                                  { Tomb, .25f }, { TombNote, 2 }, { TombOctave, 1 }, { Flicker, .3f }, { FlickerRate, 1.6f }, { Drips, 0 },
                                  { WraithMix, .1f }, { Blur, .5f },
-                                 { DelayTime, 760 }, { Feedback, .45f }, { DelayDamping, .65f }, { Descent, 1 }, { Diffusion, .5f }, { DelayMix, .2f },
-                                 { Character, 3 }, { Space, .95f }, { Decay, 8 }, { Damping, .55f }, { PreDelay, 60 }, { ReverbMix, .45f } } },
+                                 { TapeMix, .28f }, { TapeTime, 820 }, { TapeFeedback, .3f }, { TapeTone, 1800 }, { TapeWow, .3f }, { TapeAscend, 4 },
+                                 { DelayTime, 760 }, { Feedback, .45f }, { DelayDamping, .65f }, { Descent, 1 }, { Diffusion, .5f }, { DelayMix, .16f },
+                                 { Character, 3 }, { Space, .95f }, { Decay, 6 }, { Damping, .55f }, { PreDelay, 60 }, { ReverbMix, .18f },
+                                 { VaultKind, 15 }, { VaultMix, .66f } } },
         },
         {
           { "Depth", { { Space, -.35f, .35f }, { Decay, -1, 1 }, { PreDelay, -12, 30 }, { ReverbMix, -.15f, .15f } } },

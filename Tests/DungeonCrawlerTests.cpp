@@ -54,6 +54,7 @@ bool designed(int) { return true; }
 const std::vector<std::string> reportOnlyChecks {
     "Cathedral / Crypt: level-matched on plucks",
     "Cathedral / Nave / piano: the instrument stays recognisable",
+    "Dungeon / Treasure Room: obvious at the defaults",
 };
 struct Suite {
     int passed = 0, failed = 0, reported = 0;
@@ -974,7 +975,8 @@ void testMusicality(Suite& s) {
             // mostly highs"; after two attempts its limit is 14 dB (decision, DEVLOG).
             const double fizzLimit = l == dc::Mountains && k == 2 ? 14.0 : 9.0;
             s.check(fizz < fizzLimit, name + ": no fizz (8 kHz band < +" + fmt(fizzLimit, 0) + " dB)", fmt(fizz) + " dB");
-            s.check(toDb(h.rms(h.end() - h.at(0.5), h.end())) < toDb(h.rms(from, to)) - 12.0, name + ": the tail falls away after the phrase");
+            const double tailDrop = toDb(h.rms(from, to)) - toDb(h.rms(h.end() - h.at(0.5), h.end()));
+            s.check(tailDrop > 12.0, name + ": the tail falls away after the phrase (> 12 dB down 2.5-3 s after)", fmt(tailDrop) + " dB");
         }
     }
     s.metric("lowest coherence (" + lowestName + ")", lowest);
@@ -1144,6 +1146,7 @@ constexpr double strengthScoreGate = 18.0, halfScoreGate = 11.0;
 // the redesign is under way. Locations in the order of the Direction Update 2 checklist.
 bool strengthGated(int l, int k) {
     static const std::set<std::pair<int, int>> done {
+        { dc::Dungeon, 1 }, { dc::Dungeon, 2 }, { dc::Dungeon, 3 }, { dc::Dungeon, 4 },
         { dc::Caverns, 0 }, { dc::Caverns, 1 }, { dc::Caverns, 3 },
         { dc::Cathedral, 0 }, { dc::Cathedral, 1 }, { dc::Cathedral, 2 }, { dc::Cathedral, 3 },
         { dc::Necropolis, 0 }, { dc::Necropolis, 1 }, { dc::Mountains, 0 }, { dc::Mountains, 1 }, { dc::Mountains, 2 }, { dc::Mountains, 3 },

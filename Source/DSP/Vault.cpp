@@ -77,7 +77,7 @@ const IrRecipe recipes[Vault::kinds] = {
     { .seconds = 3.5f, .preMs = 15, .bloomMs = 50, .rtLow = 2.6f, .rtMid = 3.2f, .rtHigh = 3.2f, .lowCut = 120, .highCut = 15000,
       .width = 1, .early = 5, .earlyMs = 40, .earlyGain = .14f, .earlyLp = 12000, .glints = 35, .glintHz = 5200, .glintGain = .28f },
     // 15 Infernal Abyss (Final Boss Lair): colossal and dark, slow ominous echoes.
-    { .seconds = 7.5f, .preMs = 70, .bloomMs = 320, .rtLow = 10, .rtMid = 7.5f, .rtHigh = 2.5f, .lowCut = 25, .highCut = 3000,
+    { .seconds = 6.5f, .preMs = 70, .bloomMs = 320, .rtLow = 6, .rtMid = 5, .rtHigh = 2.5f, .lowCut = 25, .highCut = 3000,
       .bodyHz = 110, .bodyDb = 5, .width = 1, .echoes = 2, .echoMs = { 900, 1800 }, .echoGain = { .3f, .2f }, .echoBlurMs = 40, .echoLp = 1500 },
     // 16 Stone Court (Courtyard): open stone, fluttering reflections between walls.
     { .seconds = 2.4f, .preMs = 12, .bloomMs = 20, .rtLow = 1.8f, .rtMid = 2.2f, .rtHigh = 1.6f, .lowCut = 90, .highCut = 9000,

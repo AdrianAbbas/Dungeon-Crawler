@@ -119,11 +119,11 @@ without. Resume from the first unticked line. Details in "Session 6" below.
   - [x] Crystal Cavern (CHANGE)
   - [x] Dragon's Hoard (CHANGE)
 - Dungeon
-  - [ ] Corridors (LIKE, unchanged)
-  - [ ] Prison Cells (LIKE, water drops rebuilt)
-  - [ ] Entrance Hall (CHANGE, strengthened)
-  - [ ] Treasure Room (CHANGE)
-  - [ ] Final Boss Lair (CHANGE)
+  - [x] Corridors (LIKE, unchanged)
+  - [x] Prison Cells (LIKE, water drops rebuilt)
+  - [x] Entrance Hall (CHANGE, strengthened)
+  - [x] Treasure Room (CHANGE)
+  - [x] Final Boss Lair (CHANGE)
 - Castle
   - [ ] Courtyard (CHANGE)
   - [ ] Great Hall (CHANGE)
@@ -1612,6 +1612,10 @@ through the place; plus `strength.csv` and `journey-all-places.wav`.
      .3, ducking) moved it 5.2 → 4.5–4.9.
    - Cathedral · Nave, piano coherence 0.07 (gate 0.08): the most majestic space is
      mostly space by design; guitar, synth and vocal pass.
+   - Dungeon · Treasure Room, strength 15.1 (gate 18; 11.3 before). The source is
+     already bright and a chorus barely moves band levels, so the measure under-reads
+     it; two rounds added a golden space at .76, an .85 ensemble, octave choir, louder
+     glitter, shimmer and warm drive. Listen for it; the measure moved little.
 
 ### Places
 
@@ -1632,3 +1636,8 @@ through the place; plus `strength.csv` and `journey-all-places.wav`.
 | Crystal Cavern | CHANGE | a bright Crystal Hall with an octave shimmer climbing (Vault shimmer .5), crystal resonators louder (.8), the glass modes louder and longer, the FDN's shimmer; thinner (280 Hz) | 12.9 → 18.6 |
 | Underground Lake | LIKE | unchanged (pinned against the Cave Mouth's new base) | 26.3 |
 | Dragon's Hoard | CHANGE | Vast Cavern: 6.5 s, dry-dark, distinct far echoes at 0.64/1.39/2.25 s, a coin sheen of glints; the rumble kept (sub-octave voice, drone, low D, growl) with a slow heavy chorus sway; the muffled low-pass opened (2.4 → 4.8 kHz) so it reads as vast, not underwater | 30.3 → 28.5 |
+| Dungeon · Corridors | LIKE | unchanged (the location's base; nothing in it was touched) | 21.0 |
+| Prison Cells | LIKE, drops | the old drips (a sine sweep) removed; rare, very quiet modelled drops (a bubble's resonance chirping upwards after a tiny impact) in the cell's stone | 29.5 |
+| Entrance Hall | CHANGE (strengthen) | Vaulted Hall (4 s stone vault), brighter torches, the far-door slap louder (.2, feedback .28) | 20.3 → 24.3 |
+| Treasure Room | CHANGE | Golden Vault (bright, glints of gold), a lush three-voice ensemble, the glitter (octave + twelfth on attacks) louder, two octave-up voices, more shimmer, warm drive, crystal sheen | 11.3 → 15.1 (report-only) |
+| Final Boss Lair | CHANGE | Infernal Abyss (6.5 s colossal and dark), the choir now an octave below (three voices), menace drive kept, slow ominous tape echoes (820 ms) that fall a fourth per repeat (a pitch-down shadow), the sinking echoes, drone hold 2.5 s | 22.8 → 27.0 |

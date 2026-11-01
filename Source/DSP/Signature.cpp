@@ -60,7 +60,7 @@ const Recipe recipes[Signature::kinds] = {
       .combs = 3, .combHz = { 146.8f, 220.0f, 311.1f }, .combFeedback = .93f, .combDamp = .12f, .combGain = .55f },
     // 4 Treasure Room, Glitter Sparkle: an octave and an octave + fifth glitter on every
     // attack, twinkling.
-    { .pitches = 2, .pitchRatio = { 2.0f, 3.0f }, .pitchGain = .45f, .pitchMode = PitchTransient, .pitchHp = 1800, .pitchLp = 8000 },
+    { .pitches = 2, .pitchRatio = { 2.0f, 3.0f }, .pitchGain = .8f, .pitchMode = PitchTransient, .pitchHp = 1800, .pitchLp = 8000 },
     // 5 Final Boss Lair, Sub Choir Menace: a sub-octave choir ("oh"), menacing drive and
     // slow ominous repeats.
     { .sat = SatMenace, .drive = 12,
