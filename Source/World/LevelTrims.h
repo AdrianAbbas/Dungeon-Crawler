@@ -15,6 +15,6 @@ inline constexpr std::array<std::array<float, 5>, 10> levelTrimsDb {{
     {{ -8.54f, 3.39f, 5.62f, 0.00f, 0.00f }},   // Swamp
     {{ -7.45f, -8.52f, 4.43f, -11.86f, 0.00f }},   // Mountains
     {{ -8.61f, -4.05f, -2.47f, 0.00f, 0.00f }},   // Necropolis
-    {{ 1.21f, 0.80f, 3.63f, 0.19f, 0.00f }},   // Wizard's Tower
+    {{ -0.18f, -6.49f, 8.20f, -0.05f, 0.00f }},   // Wizard's Tower
 }};
 }

@@ -57,6 +57,9 @@ const std::vector<std::string> reportOnlyChecks {
     "Dungeon / Treasure Room: obvious at the defaults",
     "Castle / Courtyard: obvious at the defaults",
     "Village / Blacksmith: obvious at the defaults",
+    "Wizard's Tower / Stairwell: obvious at the defaults",
+    "Wizard's Tower / Alchemy Lab: obvious at the defaults",
+    "Wizard's Tower / Observatory: obvious at the defaults",
 };
 struct Suite {
     int passed = 0, failed = 0, reported = 0;
@@ -1148,6 +1151,7 @@ constexpr double strengthScoreGate = 18.0, halfScoreGate = 11.0;
 // the redesign is under way. Locations in the order of the Direction Update 2 checklist.
 bool strengthGated(int l, int k) {
     static const std::set<std::pair<int, int>> done {
+        { dc::WizardsTower, 0 }, { dc::WizardsTower, 1 }, { dc::WizardsTower, 2 }, { dc::WizardsTower, 3 },
         { dc::Swamp, 0 },
         { dc::HauntedForest, 0 }, { dc::HauntedForest, 2 }, { dc::HauntedForest, 3 },
         { dc::Village, 0 }, { dc::Village, 1 }, { dc::Village, 2 }, { dc::Village, 3 },

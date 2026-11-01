@@ -145,10 +145,10 @@ without. Resume from the first unticked line. Details in "Session 6" below.
   - [x] Sunken Ruins (LIKE, unchanged)
   - [x] Mire (CHANGE)
 - Wizard's Tower
-  - [ ] Alchemy Lab (LIKE, slower flanger + more effects)
-  - [ ] Stairwell (CHANGE)
-  - [ ] Library (CHANGE)
-  - [ ] Observatory (CHANGE)
+  - [x] Alchemy Lab (LIKE, slower flanger + more effects)
+  - [x] Stairwell (CHANGE)
+  - [x] Library (CHANGE)
+  - [x] Observatory (CHANGE)
 - [ ] F1. Trims recalibrated, full suite green, distinctness/musicality/levels, ten weakest places listed
 - [ ] F2. README, MANUAL_TEST, DEVLOG handoff; final push without `[skip ci]`
 
@@ -1621,6 +1621,10 @@ through the place; plus `strength.csv` and `journey-all-places.wav`.
    - Village · Blacksmith, strength 16.0 (gate 18; 11.5 before): a bright, hard, small
      room colours little; more drive or a 150 Hz high-pass made the synth unrecognisable
      (coherence 0.04), so the drive stays at 14 and the high-pass at 90 Hz.
+   - Wizard's Tower · Stairwell 16.6, Alchemy Lab 16.0 (a LIKE place, 13.6 before),
+     Observatory 17.5 (gate 18). Modulation (a phaser, rising echoes, wobble) and a bright
+     space read modestly; more Vault on the Stairwell made the synth unrecognisable
+     (coherence 0.07). Two rounds each.
 
 ### Places
 
@@ -1662,3 +1666,7 @@ through the place; plus `strength.csv` and `journey-all-places.wav`.
 | Swamp · Mire | CHANGE | darker (3.8 kHz, darkness .28) and more reflective: Murky Pool (dark wet reflections, a 4.5 s murky tail, ducked under the playing), longer darker echoes (feedback .42, mix .2); Mud Drag kept | 17.0 → 25.6 |
 | Bog | LIKE | unchanged (pinned) | 30.8 |
 | Sunken Ruins | LIKE | unchanged (pinned) | 23.2 |
+| Wizard's Tower · Stairwell | CHANGE | an ascending modulator: a rising (barber-pole) phaser that climbs forever (.72, 0.12 Hz), tape echoes that rise a semitone with every repeat (290 ms, .55) as they climb, the circling echoes, a narrow Spiral Stair | 13.9 → 16.6 (report-only) |
+| Library | CHANGE | hushed: dry, a small close Hush Room, paper-soft (3.6 kHz, darkness .3, Paper Hush), gentle roll-off | 15.4 → 24.8 |
+| Alchemy Lab | LIKE, slower + more | the flanging wobble slowed (signature rate x0.35, filter sweep 1.2 → 0.5 Hz); added bubbles (modelled drops, rising), a stronger strange resonance (F#), more crooked choir, a slight chorus, a small Glass Room | 13.6 → 16.0 (report-only) |
+| Observatory | CHANGE | vast and starry: Star Dome (6.5 s, 380 ms bloom, starlight glints) at .86 with its shimmer climbing (.45), the twinkling octave + twelfth louder, the rising halo kept | 11.7 → 17.5 (report-only) |

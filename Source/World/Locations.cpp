@@ -420,31 +420,51 @@ std::vector<LocationDesign> buildWorld() {
 
     //--------------------------------------------------------------------------
     w.push_back({ "Wizard's Tower", "Stairwell",
-        // The spiral stair: narrow, tall, bright stone; echoes circling up and around
-        // (its signature), a lamp's flicker.
+        // Direction Update 2 (CHANGE). The spiral stair: an ascending modulator. A
+        // rising phaser that climbs forever, echoes that rise a semitone with every
+        // repeat as they climb the stair (tape), the echoes circling around you
+        // (signature), narrow bright stone (Spiral Stair), a lamp's flicker.
         { { Cutoff, 9000 }, { HighPass, 140 }, { Flicker, .18f }, { FlickerRate, 3 }, { DelayMix, 0 },
-          { Character, 2 }, { Space, .3f }, { Decay, 1.8f }, { Damping, .25f }, { PreDelay, 4 }, { ReverbMix, .3f } },
+          { Spiral, .72f }, { SpiralRate, .12f },
+          { TapeMix, .46f }, { TapeTime, 290 }, { TapeFeedback, .55f }, { TapeTone, 6000 }, { TapeWow, .05f }, { TapeAscend, 1 },
+          { Character, 2 }, { Space, .3f }, { Decay, 1.8f }, { Damping, .25f }, { PreDelay, 4 }, { ReverbMix, .2f },
+          { VaultKind, 25 }, { VaultMix, .45f } },
         {
-          // The library: dry, hushed, paper-soft.
-          { "Library", { { Cutoff, 7000 }, { Darkness, .2f }, { HighPass, 70 }, { Flicker, .08f },
+          // The library (CHANGE): hushed and filtered precisely like a library. Dry, a
+          // small close room (Hush Room), paper-soft damping of highs and attacks
+          // (signature), a gentle high roll-off.
+          { "Library", { { Cutoff, 3600 }, { Darkness, .3f }, { HighPass, 70 }, { Flicker, .06f },
                          { BloodMix, .12f }, { Age, .15f }, { Dust, .1f },
-                         { Character, 0 }, { Space, .3f }, { Decay, .7f }, { Damping, .85f }, { PreDelay, 5 }, { ReverbMix, .16f } } },
-          // The alchemy lab: bubbling, strange, resonant glassware and a crooked choir.
-          { "Alchemy Lab", { { Cutoff, 6000 }, { Resonance, .3f }, { FilterMovement, .35f }, { FilterRate, 1.2f },
-                             { Instability, .3f }, { BloodMix, .2f }, { Drips, .25f },
-                             { Voices, 2 }, { Interval, 3 }, { ChoirBlend, .14f }, { ChoirDetune, 35 }, { ChoirMovement, .8f },
+                         { Spiral, 0 }, { TapeMix, 0 }, { TapeAscend, 0 },
+                         { Character, 0 }, { Space, .2f }, { Decay, .6f }, { Damping, .9f }, { PreDelay, 3 }, { ReverbMix, .12f },
+                         { VaultKind, 32 }, { VaultMix, .45f } } },
+          // The alchemy lab (LIKE, kept), with the flanging wobble slowed (signature
+          // rate x0.35, filter sweep 1.2 -> 0.5 Hz) and more alongside it: bubbles
+          // (modelled drops, rising), a strange resonance, a small glassy room.
+          { "Alchemy Lab", { { Cutoff, 5000 }, { Resonance, .45f }, { FilterMovement, .35f }, { FilterRate, .5f },
+                             { Instability, .3f }, { BloodMix, .2f }, { Drips, .25f }, { Drops, .8f },
+                             { Tomb, .34f }, { TombNote, 6 }, { TombOctave, 2 },
+                             { EnsMix, .3f }, { EnsDepth, 2 }, { EnsRate, .15f },
+                             { Voices, 2 }, { Interval, 3 }, { ChoirBlend, .22f }, { ChoirDetune, 35 }, { ChoirMovement, .8f },
                              { DelayTime, 190 }, { Feedback, .35f }, { Descent, 2 }, { DelayMix, .12f },
-                             { Character, 0 }, { Space, .35f }, { Decay, 1.4f }, { Damping, .45f }, { ReverbMix, .24f } } },
-          // The observatory: open to the night sky; vast, slow-rising, starlight.
-          { "Observatory", { { Cutoff, 20000 }, { HighPass, 60 }, { Flicker, 0 }, { CryptMode, 1 }, { RiseTime, 1.5f },
+                             { Spiral, 0 }, { TapeMix, 0 }, { TapeAscend, 0 },
+                             { Character, 0 }, { Space, .35f }, { Decay, 1.4f }, { Damping, .45f }, { ReverbMix, .24f },
+                             { SigRate, .35f },
+                             { VaultKind, 26 }, { VaultMix, .5f } } },
+          // The observatory (CHANGE): open to the night sky, a vast, starry shimmer,
+          // long and bright (Star Dome, 6.5 s, shimmer climbing in it), the twinkling
+          // starlight (signature, louder), the slow-rising halo.
+          { "Observatory", { { Cutoff, 20000 }, { HighPass, 120 }, { Flicker, 0 }, { CryptMode, 1 }, { RiseTime, 1.5f },
                              { WraithMix, .12f }, { Ghost, .3f }, { Blur, .4f },
+                             { Spiral, 0 }, { TapeMix, 0 }, { TapeAscend, 0 },
                              { DelayTime, 375 }, { Feedback, .3f }, { DelayDamping, .3f }, { DelayMix, .1f },
-                             { Character, 3 }, { Space, 1 }, { Decay, 12 }, { Shimmer, .4f }, { Damping, .3f }, { PreDelay, 60 }, { ReverbMix, .46f } } },
+                             { Character, 3 }, { Space, 1 }, { Decay, 12 }, { Shimmer, .3f }, { Damping, .3f }, { PreDelay, 60 }, { ReverbMix, .25f },
+                             { VaultKind, 24 }, { VaultMix, .86f }, { VaultShimmer, .45f }, { VaultTone, 5800 } } },
         },
         {
-          { "Arcana", { { Shimmer, -.1f, .35f }, { ChoirBlend, -.1f, .2f }, { Ghost, 0, .3f } } },
-          { "Alchemy", { { FilterMovement, -.2f, .4f }, { Instability, -.2f, .4f }, { SigRate, -1, 1 } } },
-          { "Starlight", { { Space, -.3f, .2f }, { Decay, -1, 1 }, { SigAmount, -.5f, .3f } } },
+          { "Arcana", { { Shimmer, -.1f, .35f }, { ChoirBlend, -.1f, .2f }, { Ghost, 0, .3f }, { VaultShimmer, -.2f, .2f } } },
+          { "Alchemy", { { FilterMovement, -.2f, .4f }, { Instability, -.2f, .4f }, { SigRate, -1, 1 }, { Spiral, -.3f, .2f } } },
+          { "Starlight", { { Space, -.3f, .2f }, { Decay, -1, 1 }, { SigAmount, -.5f, .3f }, { VaultMix, -.25f, .15f } } },
         } });
     return w;
 }

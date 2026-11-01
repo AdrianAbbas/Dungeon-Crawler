@@ -184,7 +184,7 @@ const Recipe recipes[Signature::kinds] = {
     { .wobbleMs = .7f, .wobbleHz = 6, .wobbleShape = Bubbling, .wobbleMix = .35f,
       .modes = 4, .modeHz = { 523, 740, 906, 1170 }, .modeT60 = 1.0f, .modeGain = .4f },
     // 40 Observatory, Starry Shimmer: vast, slowly evolving starlight above the notes.
-    { .pitches = 2, .pitchRatio = { 2.0f, 3.0f }, .pitchGain = .4f, .pitchMode = PitchTwinkle, .pitchHp = 2500,
+    { .pitches = 2, .pitchRatio = { 2.0f, 3.0f }, .pitchGain = .55f, .pitchMode = PitchTwinkle, .pitchHp = 2500, .pitchLp = 9000,
       .smear = .6f, .smearMs = 80 },
 };
 }
