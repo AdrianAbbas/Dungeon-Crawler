@@ -26,6 +26,10 @@ enum P : std::size_t {
     Flicker, FlickerRate, Metal, MetalKind, MetalNote, MetalOctave, MetalDecay, Wind, Drips,
     // VIII. Signature: the one effect that belongs to a single place (Milestone 6).
     SigKind, SigAmount, SigTone, SigRate,
+    // IX. The Vault: convolution with generated impulse responses (Direction Update 2).
+    VaultKind, VaultMix, VaultShimmer, VaultTone, VaultDuck,
+    // X. Ensemble: chorus, rising phaser, tape echo, water drops (Direction Update 2).
+    EnsMix, EnsDepth, EnsRate, Spiral, SpiralRate, TapeMix, TapeTime, TapeFeedback, TapeTone, TapeWow, TapeAscend, Drops,
     Count
 };
 using Frame = std::array<float, Count>;
@@ -48,6 +52,13 @@ inline constexpr const char* signatureChoices =
     "|Valley Answer|Canyon Echoes|Icy Shimmer|Forge Resonance"
     "|Iron Groan|Reverse Swell|Hollow Tomb"
     "|Spiral Echoes|Paper Hush|Bubbling Alchemy|Starry Shimmer";
+
+// The Vault's spaces (IX), generated impulse responses; see Source/DSP/Vault.cpp.
+inline constexpr const char* vaultChoices =
+    "None|Black Vault|Ghost Swell|Open Hills|Canyon Walls|Ice Shards|Stone Hall|Crypt Swell|Grand Nave|Belfry"
+    "|Rock Mouth|Crystal Hall|Vast Cavern|Vaulted Hall|Golden Vault|Infernal Abyss|Stone Court|Great Hall"
+    "|Regal Hall|Small Chapel|Open Sky|Dark Wood|Breathing Grove|Murky Pool|Star Dome|Spiral Stair|Glass Room"
+    "|Old Cloister|Hut Glow|Dead Square|Forge Room|Tavern Room|Hush Room|Soft Green";
 
 // `neutral` is the transparent setting: every module at its neutral values leaves the
 // signal unchanged (the Abyss open, no drive, every wet layer at zero).
@@ -125,6 +136,25 @@ inline constexpr std::array<ModuleParamSpec, Count> moduleSpecs {{
     { "sigAmount", "Signature Amount", 0, 1, 0, Glide::Lin, "" },
     { "sigTone", "Signature Tone", -1, 1, 0, Glide::Lin, "" },
     { "sigRate", "Signature Rate", .25f, 4, 1, Glide::Log, "" },
+
+    { "vaultKind", "Vault Space", 0, 33, 0, Glide::Step, vaultChoices },
+    { "vaultMix", "Vault Mix", 0, 1, 0, Glide::Lin, "" },
+    { "vaultShimmer", "Vault Shimmer", 0, 1, 0, Glide::Lin, "" },
+    { "vaultTone", "Vault Tone", 300, 20000, 20000, Glide::Log, "" },
+    { "vaultDuck", "Vault Duck", 0, 1, 0, Glide::Lin, "" },
+
+    { "ensMix", "Ensemble", 0, 1, 0, Glide::Lin, "" },
+    { "ensDepth", "Ensemble Depth", .5f, 12, 3, Glide::Log, "" },
+    { "ensRate", "Ensemble Rate", .05f, 4, .4f, Glide::Log, "" },
+    { "spiral", "Rising Phaser", 0, 1, 0, Glide::Lin, "" },
+    { "spiralRate", "Phaser Rise Rate", .02f, 1, .1f, Glide::Log, "" },
+    { "tapeMix", "Tape Echo", 0, 1, 0, Glide::Lin, "" },
+    { "tapeTime", "Tape Time", 40, 1500, 380, Glide::Log, "" },
+    { "tapeFeedback", "Tape Feedback", 0, .9f, .4f, Glide::Lin, "" },
+    { "tapeTone", "Tape Tone", 600, 16000, 5000, Glide::Log, "" },
+    { "tapeWow", "Tape Wow", 0, 1, .2f, Glide::Lin, "" },
+    { "tapeAscend", "Tape Pitch", 0, 4, 0, Glide::Step, "Off|Rising semitone|Rising fifth|Rising octave|Falling fourth" },
+    { "drops", "Water Drops", 0, 1, 0, Glide::Lin, "" },
 }};
 
 inline Frame neutralFrame() noexcept {

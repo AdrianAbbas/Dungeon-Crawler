@@ -90,6 +90,68 @@ visual overhaul and reported three bugs. Handoff at the end of this file.
 - [x] H5. Painted style: checked, all 40 places and the map are already painted (nothing left)
 - [ ] H6. **Developer:** the GarageBand checks in MANUAL_TEST, "Hotfixes 1–3"
 
+**Session 6: sound redesign, Direction Update 2** (2026-11-01, unattended).
+[DIRECTION_UPDATE_2.md](DIRECTION_UPDATE_2.md) overrides the brief and Update 1. The
+global strength fix first, then every place; LIKE places kept (changed only where the
+notes say). Push with `[skip ci]` after each finished location, the session's last push
+without. Resume from the first unticked line. Details in "Session 6" below.
+
+- [x] G1. Strength check (tests, gated) + dry-vs-processed renders (guitar + synth) per place in the test-logs artifact
+- [x] G2. New DSP: IX. Vault (zero-latency convolution with generated IRs, reverse, bloom, shimmer) and X. Ensemble (chorus, rising phaser, tape ping-pong echo with ascent, realistic drops); LIKE places bit-exact (regression test)
+- [x] G3. Captures: inventory of `AdrianAbbas/Samples` (no pedal captures in it; decision recorded)
+- Necropolis
+  - [ ] Mausoleum (LIKE, unchanged)
+  - [ ] Gates (CHANGE)
+  - [ ] Graveyard (CHANGE)
+- Mountains
+  - [ ] Foothills (CHANGE)
+  - [ ] Mountain Pass (CHANGE)
+  - [ ] Frozen Peak (CHANGE)
+  - [ ] Dwarven Hall (LIKE the filter, CHANGE the space)
+- Cathedral
+  - [ ] Cloister (LIKE, boosted)
+  - [ ] Crypt (LIKE, + reverse reverb and dark swells)
+  - [ ] Nave (CHANGE)
+  - [ ] Bell Tower (CHANGE)
+- Caverns
+  - [ ] Underground Lake (LIKE, unchanged)
+  - [ ] Cave Mouth (CHANGE)
+  - [ ] Crystal Cavern (CHANGE)
+  - [ ] Dragon's Hoard (CHANGE)
+- Dungeon
+  - [ ] Corridors (LIKE, unchanged)
+  - [ ] Prison Cells (LIKE, water drops rebuilt)
+  - [ ] Entrance Hall (CHANGE, strengthened)
+  - [ ] Treasure Room (CHANGE)
+  - [ ] Final Boss Lair (CHANGE)
+- Castle
+  - [ ] Courtyard (CHANGE)
+  - [ ] Great Hall (CHANGE)
+  - [ ] Throne Room (CHANGE)
+  - [ ] Chapel (CHANGE)
+  - [ ] Tower Top (CHANGE)
+- Village
+  - [ ] Village Green (CHANGE)
+  - [ ] Tavern (CHANGE)
+  - [ ] Market Square (CHANGE)
+  - [ ] Blacksmith (CHANGE)
+- Haunted Forest
+  - [ ] Old Path (LIKE, unchanged)
+  - [ ] Witch's Hut (LIKE, + alluring shimmer/chorus)
+  - [ ] Forest Edge (CHANGE)
+  - [ ] Ancient Grove (CHANGE)
+- Swamp
+  - [ ] Bog (LIKE, unchanged)
+  - [ ] Sunken Ruins (LIKE, unchanged)
+  - [ ] Mire (CHANGE)
+- Wizard's Tower
+  - [ ] Alchemy Lab (LIKE, slower flanger + more effects)
+  - [ ] Stairwell (CHANGE)
+  - [ ] Library (CHANGE)
+  - [ ] Observatory (CHANGE)
+- [ ] F1. Trims recalibrated, full suite green, distinctness/musicality/levels, ten weakest places listed
+- [ ] F2. README, MANUAL_TEST, DEVLOG handoff; final push without `[skip ci]`
+
 ---
 
 ## Lessons carried over (from Worldbuilder's DEVLOG, read first)

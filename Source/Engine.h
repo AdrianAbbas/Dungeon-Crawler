@@ -70,7 +70,21 @@ private:
     Choir choir;
     Wraith wraith;
     Echoes echoes;
-    std::array<Slot, 5> slots;   // abyss, relics, choir, wraith, echoes (Blood runs always: it carries the latency)
+    Ensemble ensemble;
+    std::array<Slot, 6> slots;   // abyss, relics, choir, wraith, echoes, ensemble (Blood runs always: it carries the latency)
+    // The Vault (Direction Update 2): two instances. A journey to another space starts it
+    // clean in the other instance; the old one stops taking input and rings out.
+    static constexpr int vaultCount = 2;
+    void runVaults(float* l, float* r, int n, float eased) noexcept;
+    std::array<Vault, vaultCount> vaults;
+    std::array<bool, vaultCount> vaultIdle { true, true };
+    std::array<dsp::Smoothed, vaultCount> vaultSend;
+    std::array<int, vaultCount> vaultWarmUp {};
+    int activeVault = 0;
+    bool vaultCrossfade = false;
+    float vaultFromSend = 0;
+    dsp::Smoothed vaultDry;
+    std::array<std::array<float, maxChunk>, 2> vaultIn {}, vaultWet {}, vaultSum {};
     // Signatures: a pool of three instances. A journey to another kind starts the new
     // kind in an idle instance and lets the old one ring out (its tails continue);
     // quick successive journeys never have to cut a tail that still rings.

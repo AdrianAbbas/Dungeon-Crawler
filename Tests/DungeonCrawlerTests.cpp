@@ -6,12 +6,14 @@
 //   DungeonCrawlerTests --hotfix-snapshots dir    review images of the Journey badge, note and panels
 //   DungeonCrawlerTests --render f.wav location [seconds]   a test phrase through a location (listening aid)
 //   DungeonCrawlerTests --calibrate Source/World/LevelTrims.h  measure and write the per-place level trims
-//   DungeonCrawlerTests --listen dir         listening renders: guitar + synth phrase through every place
+//   DungeonCrawlerTests --listen dir         listening renders: guitar + synth phrase dry vs through every place
+//   DungeonCrawlerTests --strength [f.csv]   the strength table (Direction Update 2), report only
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 #include "UI/Scenes.h"
 #include "UI/Painted.h"
 #include "World/Presets.h"
+#include "DSP/Convolver.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_dsp/juce_dsp.h>
 #include <chrono>
@@ -953,6 +955,210 @@ void testMusicality(Suite& s) {
     s.metric("lowest coherence (" + lowestName + ")", lowest);
 }
 
+// Strength (Direction Update 2): how obviously a place transforms its input at the
+// default settings. The guitar phrase then the synth phrase (8 s) and 3 s of silence go
+// through the place; the output is compared with the latency-aligned input in 1/3-octave
+// bands of 43 ms frames (2048-point FFT, hop 512), after matching the overall levels.
+// Phase-insensitive (a filter's phase shift is not an effect), measured while the
+// instrument plays (0-8 s); the tail after the phrase is reported on its own:
+//   wet ratio  - the share of the output's band energy that the input did not have
+//                (added reverb, echoes, voices, resonance, smear), in dB: 0 dB = all
+//                new, -20 dB = 1 % new;
+//   spectral   - mean |difference| of the time-averaged band levels, dB (colour);
+//   motion     - mean |difference| of the frame-by-frame band levels after removing
+//                the colour, floored 50 dB below the loudest band, dB (smear, echoes,
+//                movement, swells);
+//   score      - spectral + motion + (wet ratio + 20) / 2, one number for ranking.
+struct Strength { double wetDb = -99, spectralDb = 0, temporalDb = 0, tailDb = -99, score = 0; };
+struct StrengthRender { std::vector<float> dryL, dryR, outL, outR; double sr = 48000; };
+
+StrengthRender strengthRender(int location, int sub, float intensity = 1.0f, double sr = 48000) {
+    const auto guitar = guitarPhrase(sr), synth = synthPhrase(sr);
+    Host h(sr);
+    h.go(location, sub);
+    h.set(dc::ids::intensity, intensity);
+    h.render(4.0, fromPhrase(guitar));
+    // The synth starts at its own beginning (not at sample 4 s of a loop).
+    const long long start = h.position;
+    h.render(4.0, [synth, start](int ch, long long n, double s) { return fromPhrase(synth)(ch, n - start, s); });
+    h.render(3.0, silence());
+    StrengthRender r;
+    r.sr = sr;
+    const auto latency = static_cast<std::size_t>(h.p->getLatencySamples());
+    const auto n = h.end() - latency;
+    r.outL.assign(h.outL.begin() + static_cast<long>(latency), h.outL.end());
+    r.outR.assign(h.outR.begin() + static_cast<long>(latency), h.outR.end());
+    r.dryL.assign(h.inL.begin(), h.inL.begin() + static_cast<long>(n));
+    // The right input is the left 19 samples later (fromPhrase).
+    r.dryR.assign(n, 0.0f);
+    for (std::size_t i = 19; i < n; ++i) r.dryR[i] = r.dryL[i - 19];
+    return r;
+}
+
+// Band powers (linear) per frame: [frame][band], 1/3 octaves 50 Hz - 16 kHz.
+std::vector<std::vector<double>> bandFrames(const std::vector<float>& a, const std::vector<float>& b, double sr) {
+    constexpr int order = 11, size = 1 << order, hop = size / 4;
+    juce::dsp::FFT fft(order);
+    std::vector<std::pair<int, int>> bins;
+    for (double centre = 50.0; centre <= 16000.0; centre *= std::pow(2.0, 1.0 / 3.0)) {
+        const int lo = std::max(1, int(std::lround(centre / std::pow(2.0, 1.0 / 6.0) * size / sr)));
+        const int hi = std::min(size / 2 - 1, std::max(lo, int(std::lround(centre * std::pow(2.0, 1.0 / 6.0) * size / sr)) - 1));
+        bins.push_back({ lo, hi });
+    }
+    std::vector<std::vector<double>> frames;
+    std::vector<float> work(2 * size);
+    for (int ch = 0; ch < 2; ++ch) {
+        const auto& x = ch == 0 ? a : b;
+        std::size_t f = 0;
+        for (std::size_t start = 0; start + size <= x.size(); start += hop, ++f) {
+            std::fill(work.begin(), work.end(), 0.0f);
+            for (int i = 0; i < size; ++i)
+                work[std::size_t(i)] = x[start + std::size_t(i)] * (0.5f - 0.5f * std::cos(2.0f * juce::MathConstants<float>::pi * float(i) / float(size)));
+            fft.performFrequencyOnlyForwardTransform(work.data());
+            if (frames.size() <= f) frames.emplace_back(bins.size(), 0.0);
+            for (std::size_t k = 0; k < bins.size(); ++k)
+                for (int j = bins[k].first; j <= bins[k].second; ++j) frames[f][k] += double(work[std::size_t(j)]) * work[std::size_t(j)];
+        }
+    }
+    return frames;
+}
+
+Strength measureStrength(const StrengthRender& r) {
+    Strength st;
+    const auto X = bandFrames(r.dryL, r.dryR, r.sr), Y = bandFrames(r.outL, r.outR, r.sr);
+    const std::size_t frames = std::min(X.size(), Y.size()), bands = X.front().size();
+    const auto playing = std::min(frames, static_cast<std::size_t>(8.0 * r.sr / 512.0));
+    double ex = 1.0e-30, ey = 1.0e-30;
+    for (std::size_t f = 0; f < playing; ++f) for (std::size_t k = 0; k < bands; ++k) { ex += X[f][k]; ey += Y[f][k]; }
+    const double g = ex / ey;   // output scaled to the input's level
+    double added = 0, peakDb = -300;
+    std::vector<double> meanX(bands, 1.0e-30), meanY(bands, 1.0e-30);
+    for (std::size_t f = 0; f < playing; ++f)
+        for (std::size_t k = 0; k < bands; ++k) {
+            const double y = Y[f][k] * g;
+            added += std::max(0.0, y - X[f][k]);
+            meanX[k] += X[f][k]; meanY[k] += y;
+            peakDb = std::max(peakDb, 10.0 * std::log10(std::max(X[f][k], 1.0e-30)));
+        }
+    st.wetDb = 10.0 * std::log10(std::max(1.0e-6, added / ex));
+    double spectral = 0;
+    std::vector<double> colour(bands);
+    for (std::size_t k = 0; k < bands; ++k) {
+        const double dx = std::max(10.0 * std::log10(meanX[k] / double(playing)), peakDb - 60.0);
+        const double dy = std::max(10.0 * std::log10(meanY[k] / double(playing)), peakDb - 60.0);
+        colour[k] = dy - dx;
+        spectral += std::abs(colour[k]);
+    }
+    st.spectralDb = spectral / double(bands);
+    const double floorDb = peakDb - 50.0;
+    double motion = 0;
+    for (std::size_t f = 0; f < playing; ++f)
+        for (std::size_t k = 0; k < bands; ++k) {
+            const double dx = std::max(10.0 * std::log10(std::max(X[f][k], 1.0e-30)), floorDb);
+            const double dy = std::max(10.0 * std::log10(std::max(Y[f][k] * g, 1.0e-30)) - colour[k], floorDb);
+            motion += std::abs(dy - dx);
+        }
+    st.temporalDb = motion / double(playing * bands);
+    double tail = 1.0e-30;
+    for (std::size_t f = playing + 4; f < frames; ++f) for (std::size_t k = 0; k < bands; ++k) tail += Y[f][k] * g;
+    st.tailDb = 10.0 * std::log10(tail / std::max<std::size_t>(1, frames - playing - 4) / (ex / double(playing)));
+    st.score = st.spectralDb + st.temporalDb + 0.5 * (st.wetDb + 20.0);
+    return st;
+}
+
+// The LIKE places to keep exactly (Direction Update 2): their sound must not move.
+// Tests/LikeGolden.inc holds the 100 ms RMS envelope (dB, both channels) of each one's
+// strength render, generated by the build before the redesign (`--golden-like`).
+const std::pair<int, int> keepExactly[] = { { dc::Necropolis, 2 }, { dc::Caverns, 2 }, { dc::Dungeon, 0 },
+                                            { dc::HauntedForest, 1 }, { dc::Swamp, 1 }, { dc::Swamp, 2 } };
+std::vector<double> goldenEnvelope(int l, int k) {
+    const auto r = strengthRender(l, k);
+    const auto frame = static_cast<std::size_t>(0.1 * r.sr);
+    std::vector<double> env;
+    for (int ch = 0; ch < 2; ++ch) {
+        const auto& y = ch == 0 ? r.outL : r.outR;
+        for (std::size_t s0 = 0; s0 + frame <= y.size(); s0 += frame) {
+            double sum = 0;
+            for (std::size_t i = s0; i < s0 + frame; ++i) sum += double(y[i]) * y[i];
+            env.push_back(std::max(-90.0, 10.0 * std::log10(std::max(1.0e-30, sum / double(frame)))));
+        }
+    }
+    return env;
+}
+int writeGoldenLike(const juce::String& path) {
+    juce::String text = "// Generated by `DungeonCrawlerTests --golden-like Tests/LikeGolden.inc` from the build\n"
+                        "// before Direction Update 2 (commit 0ab9269): the LIKE places kept exactly.\n";
+    for (const auto& [l, k] : keepExactly) {
+        text << "{ " << l << ", " << k << ", {";
+        for (double v : goldenEnvelope(l, k)) text << juce::String(v, 2) << ",";
+        text << "} },\n";
+    }
+    return juce::File(path).replaceWithText(text) ? 0 : 1;
+}
+struct GoldenEntry { int location, sub; std::vector<double> envelope; };
+const std::vector<GoldenEntry> likeGolden {
+#include "LikeGolden.inc"
+};
+void testLikeKept(Suite& s) {
+    s.section("like: the LIKE places kept exactly sound as before the redesign");
+    for (const auto& g : likeGolden) {
+        const auto env = goldenEnvelope(g.location, g.sub);
+        double worst = 0;
+        for (std::size_t i = 0; i < std::min(env.size(), g.envelope.size()); ++i)
+            if (g.envelope[i] > -60.0 || env[i] > -60.0) worst = std::max(worst, std::abs(env[i] - g.envelope[i]));
+        s.check(env.size() == g.envelope.size() && worst < 0.25, placeName(g.location, g.sub) + ": unchanged (100 ms envelope within 0.25 dB)",
+                "worst " + fmt(worst, 2) + " dB");
+    }
+}
+
+// Gates (Direction Update 2): at the defaults (Intensity 100 %, Mix 100 %) every place
+// transforms its input obviously; at Intensity 50 % it is still clearly audible.
+constexpr double strengthScoreGate = 18.0, halfScoreGate = 11.0;
+// Places whose redesign is finished (the gate applies); the others are reported while
+// the redesign is under way. Locations in the order of the Direction Update 2 checklist.
+bool strengthGated(int l, int k) {
+    static const std::set<std::pair<int, int>> done {
+        { dc::Necropolis, 2 }, { dc::Caverns, 2 }, { dc::Dungeon, 0 }, { dc::HauntedForest, 1 }, { dc::Swamp, 1 }, { dc::Swamp, 2 },
+    };
+    return done.count({ l, k }) > 0;
+}
+
+void testStrength(Suite& s) {
+    s.section("strength: every place obviously transforms its input at the defaults");
+    std::vector<std::pair<double, std::string>> ranking;
+    for (const auto& [l, k] : allPlaces()) {
+        const auto st = measureStrength(strengthRender(l, k));
+        const auto half = measureStrength(strengthRender(l, k, 0.5f));
+        const auto name = placeName(l, k);
+        ranking.push_back({ st.score, name });
+        std::cout << "  [metric] " << name << ": wet " << fmt(st.wetDb) << " dB, spectral " << fmt(st.spectralDb)
+                  << " dB, temporal " << fmt(st.temporalDb) << " dB, score " << fmt(st.score) << "; at 50 %: wet "
+                  << fmt(half.wetDb) << " dB, score " << fmt(half.score) << "\n";
+        if (!strengthGated(l, k)) { std::cout << "  (report only: redesign not finished) " << name << "\n"; continue; }
+        s.check(st.score > strengthScoreGate, name + ": obvious at the defaults (strength score > " + fmt(strengthScoreGate) + ")", fmt(st.score));
+        s.check(half.score > halfScoreGate, name + ": clearly audible at Intensity 50 % (score > " + fmt(halfScoreGate) + ")", fmt(half.score));
+    }
+    std::sort(ranking.begin(), ranking.end());
+    std::cout << "  weakest places (score):\n";
+    for (std::size_t i = 0; i < std::min<std::size_t>(10, ranking.size()); ++i)
+        std::cout << "    " << i + 1 << ". " << ranking[i].second << " " << fmt(ranking[i].first) << "\n";
+}
+
+// `--strength [csv]`: the table alone (report), optionally as CSV.
+int strengthReport(const juce::String& csvPath) {
+    juce::String csv = "place,wet_db,spectral_db,temporal_db,score,wet_db_at_50,score_at_50\n";
+    for (const auto& [l, k] : allPlaces()) {
+        const auto st = measureStrength(strengthRender(l, k));
+        const auto half = measureStrength(strengthRender(l, k, 0.5f));
+        std::cout << placeName(l, k) << ": wet " << fmt(st.wetDb) << " spectral " << fmt(st.spectralDb) << " motion "
+                  << fmt(st.temporalDb) << " tail " << fmt(st.tailDb) << " score " << fmt(st.score) << " | 50%: wet " << fmt(half.wetDb) << " score " << fmt(half.score) << std::endl;
+        csv << "\"" << placeName(l, k) << "\"," << fmt(st.wetDb, 2) << "," << fmt(st.spectralDb, 2) << "," << fmt(st.temporalDb, 2)
+            << "," << fmt(st.score, 2) << "," << fmt(half.wetDb, 2) << "," << fmt(half.score, 2) << "\n";
+    }
+    if (csvPath.isNotEmpty()) juce::File(csvPath).replaceWithText(csv);
+    return 0;
+}
+
 // Listening renders: the same guitar and synth phrase through every place (and the dry
 // phrase), 44.1 kHz 16-bit stereo, plus a journey through the designed places.
 bool writeWav(const juce::File& file, const Host& h) {
@@ -966,28 +1172,41 @@ bool writeWav(const juce::File& file, const Host& h) {
     return writer->writeFromAudioSampleBuffer(out, 0, out.getNumSamples());
 }
 
+bool writeWav(const juce::File& file, const std::vector<float>& l, const std::vector<float>& r, double sr) {
+    juce::AudioBuffer<float> out(2, static_cast<int>(l.size()));
+    for (std::size_t i = 0; i < l.size(); ++i) { out.setSample(0, int(i), l[i]); out.setSample(1, int(i), r[i]); }
+    file.deleteFile();
+    auto stream = std::make_unique<juce::FileOutputStream>(file);
+    std::unique_ptr<juce::AudioFormatWriter> writer(juce::WavAudioFormat().createWriterFor(stream.get(), sr, 2, 16, {}, 0));
+    if (writer == nullptr) return false;
+    stream.release();
+    return writer->writeFromAudioSampleBuffer(out, 0, out.getNumSamples());
+}
+
+// Direction Update 2: per place one A/B file, the phrase dry (guitar 4 s, synth 4 s,
+// 3 s of silence), 1 s of silence, then the same phrase through the place; and
+// strength.csv with the strength check's figures.
 int listen(const juce::String& directory) {
     const double sr = 44100;
-    const auto guitar = guitarPhrase(sr), synth = synthPhrase(sr);
+    const auto guitar = guitarPhrase(sr);
     juce::File dir(directory);
     dir.createDirectory();
-    const auto phrase = [&](Host& h) {
-        h.render(4.0, fromPhrase(guitar));
-        h.render(4.0, fromPhrase(synth));
-        h.render(3.0, silence());
-    };
     int failures = 0, index = 0;
-    { Host dry(sr); dry.set(dc::ids::mix, 0.0f); phrase(dry); failures += writeWav(dir.getChildFile("00-dry.wav"), dry) ? 0 : 1; }
+    juce::String csv = "place,wet_db,spectral_db,temporal_db,score\n";
     for (const auto& [l, k] : allPlaces()) {
-        Host h(sr);
-        h.go(l, k);
-        phrase(h);
+        const auto r = strengthRender(l, k, 1.0f, sr);
+        const auto st = measureStrength(r);
+        csv << "\"" << placeName(l, k) << "\"," << fmt(st.wetDb, 2) << "," << fmt(st.spectralDb, 2) << "," << fmt(st.temporalDb, 2) << "," << fmt(st.score, 2) << "\n";
+        std::vector<float> L(r.dryL), R(r.dryR);
+        L.resize(L.size() + static_cast<std::size_t>(sr), 0.0f); R.resize(L.size(), 0.0f);
+        L.insert(L.end(), r.outL.begin(), r.outL.end()); R.insert(R.end(), r.outR.begin(), r.outR.end());
         const auto name = juce::String(++index).paddedLeft('0', 2) + "-" + juce::String(placeName(l, k)).replace(" / ", "-")
-                          .replace("'", "").replace(" ", "") + ".wav";
-        failures += writeWav(dir.getChildFile(name), h) ? 0 : 1;
+                          .replace("'", "").replace(" ", "") + "-dry-vs-processed.wav";
+        failures += writeWav(dir.getChildFile(name), L, R, sr) ? 0 : 1;
     }
+    dir.getChildFile("strength.csv").replaceWithText(csv);
     // A journey: the guitar phrase on a loop, travelling (1.5 s) through all 40
-    // places, 4 s in each (Milestone 6: every place has its signature).
+    // places, 4 s in each.
     Host journey(sr);
     for (const auto& [l, k] : allPlaces()) {
         journey.go(l, k);
@@ -1044,6 +1263,89 @@ int calibrate(const juce::String& path) {
     if (!juce::File(path).replaceWithText(text)) return 1;
     std::cout << text;
     return 0;
+}
+
+// Direction Update 2: the Vault's convolver, its spaces, and the Ensemble.
+void testNewModules(Suite& s) {
+    s.section("modules: IX. the Vault (convolution) and X. Ensemble");
+    using namespace dc;
+    {
+        // The partitioned convolver against direct convolution, random host blocks.
+        dsp::Random random; random.seed(7);
+        std::vector<float> ir(40000), in(60000), out(in.size());
+        for (std::size_t i = 0; i < ir.size(); ++i) ir[i] = random.bipolar() * std::exp(-float(i) / 6000.0f);
+        for (auto& v : in) v = random.bipolar();
+        const auto spectra = conv::buildSpectra(ir.data(), int(ir.size()));
+        conv::Convolver c; c.prepare(spectra->length); c.setIr(spectra.get());
+        juce::Random blocks(3);
+        for (std::size_t done = 0; done < in.size();) {
+            const auto n = std::min<std::size_t>(in.size() - done, std::size_t(1 + blocks.nextInt(700)));
+            c.process(in.data() + done, out.data() + done, int(n));
+            done += n;
+        }
+        double err = 0, ref = 0;
+        for (std::size_t t = 30000; t < 30400; ++t) {
+            double y = 0;
+            for (std::size_t k = 0; k <= t && k < ir.size(); ++k) y += double(ir[k]) * in[t - k];
+            err += (y - out[t]) * (y - out[t]); ref += y * y;
+        }
+        s.check(toDb(std::sqrt(err / ref)) < -90.0, "the convolver matches direct convolution (zero latency, random blocks)", fmt(toDb(std::sqrt(err / ref))) + " dB");
+    }
+    {
+        // Every space: an impulse gives a finite, decaying, roughly unit-energy response.
+        for (int k = 1; k < Vault::kinds; ++k) {
+            Vault v; v.prepare(48000); v.setKind(k);
+            auto f = neutralFrame();
+            std::vector<float> l(48000 * 9), r(l.size());
+            l[0] = r[0] = 1.0f;
+            for (std::size_t i = 0; i < l.size(); i += maxChunk) v.process(&l[i], &r[i], &l[i], &r[i], maxChunk, f);
+            double e = 0, late = 0;
+            bool finite = true;
+            for (std::size_t i = 0; i < l.size(); ++i) { e += 0.5 * (double(l[i]) * l[i] + double(r[i]) * r[i]); finite = finite && std::isfinite(l[i]) && std::isfinite(r[i]); }
+            for (std::size_t i = l.size() - 4800; i < l.size(); ++i) late += std::abs(l[i]);
+            s.check(finite && std::abs(toDb(std::sqrt(e))) < 1.5 && late < 1.0e-6, std::string("Vault space ") + Vault::kindName(k) + ": finite, unit energy, ends",
+                    fmt(toDb(std::sqrt(e))) + " dB, " + fmt(Vault::kindSeconds(k), 1) + " s");
+        }
+    }
+    {
+        // Switching spaces after reset and processing never allocate.
+        Vault v; v.prepare(48000);
+        auto f = neutralFrame(); f[VaultShimmer] = 0.5f; f[VaultDuck] = 0.5f; f[VaultTone] = 4000;
+        std::array<float, maxChunk> l {}, r {};
+        allocationProbe::calls = 0; allocationProbe::enabled = true;
+        for (int k = 0; k < Vault::kinds * 4; ++k) {
+            v.reset(); v.setKind(k % Vault::kinds);
+            for (int b = 0; b < 40; ++b) { l.fill(0.1f); r.fill(-0.1f); v.process(l.data(), r.data(), l.data(), r.data(), maxChunk, f); }
+        }
+        Ensemble e; allocationProbe::enabled = false; e.prepare(48000); allocationProbe::enabled = true;
+        auto g = neutralFrame(); g[EnsMix] = 1; g[Spiral] = 1; g[TapeMix] = .5f; g[Drops] = 1; g[TapeAscend] = 2;
+        Context c;
+        for (int b = 0; b < 2000; ++b) { g[TapeTime] = b % 300 < 150 ? 200.0f : 700.0f; l.fill(0.2f); r.fill(0.2f); e.process(l.data(), r.data(), maxChunk, g, c); }
+        allocationProbe::enabled = false;
+        s.check(allocationProbe::calls == 0, "the Vault and the Ensemble never allocate while processing", std::to_string(allocationProbe::calls) + " allocations");
+    }
+    {
+        // Tape time changes crossfade (no click) on a held sine.
+        Ensemble e; e.prepare(48000);
+        auto g = neutralFrame(); g[TapeMix] = .6f; g[TapeFeedback] = .5f; g[TapeWow] = 0;
+        Context c;
+        std::vector<float> out;
+        std::array<float, maxChunk> l {}, r {};
+        long long t = 0;
+        for (int b = 0; b < 3000; ++b) {
+            g[TapeTime] = (b / 500) % 2 ? 250.0f : 610.0f;
+            for (int i = 0; i < maxChunk; ++i, ++t) l[std::size_t(i)] = r[std::size_t(i)] = 0.2f * float(std::min(1.0, double(t) / 2400.0) * std::sin(2.0 * dsp::pi * 220.0 * double(t) / 48000.0));
+            e.process(l.data(), r.data(), maxChunk, g, c);
+            out.insert(out.end(), l.begin(), l.end());
+        }
+        double worst = 0, typical = 0;
+        for (std::size_t i = 2; i < out.size(); ++i) {
+            const double step = std::abs(double(out[i]) - 2.0 * out[i - 1] + out[i - 2]);
+            worst = std::max(worst, step); typical += step;
+        }
+        typical /= double(out.size());
+        s.check(worst < 12.0 * typical, "tape time changes are click-free", fmt(worst / typical) + "x the typical step");
+    }
 }
 
 void testModules(Suite& s) {
@@ -2265,6 +2567,8 @@ int main(int argc, char** argv) {
         else if (arg == "--calibrate" && i + 1 < argc) return calibrate(argv[i + 1]);
         else if (arg == "--listen" && i + 1 < argc) return listen(argv[i + 1]);
         else if (arg == "--signatures") return signatureCheck();
+        else if (arg == "--golden-like" && i + 1 < argc) return writeGoldenLike(argv[i + 1]);
+        else if (arg == "--strength") return strengthReport(i + 1 < argc ? juce::String(argv[i + 1]) : juce::String());
         else if (arg == "--art" && i + 1 < argc) return renderArt(argv[i + 1], i + 2 < argc ? juce::String(argv[i + 2]).getIntValue() : 960);
         else if (arg == "--tail-debug") return tailDebug();
         else if (arg == "--painted-snapshots" && i + 1 < argc) return paintedSnapshots(argv[i + 1]);
@@ -2284,7 +2588,9 @@ int main(int argc, char** argv) {
     if (run("place")) testPlaceEngine(s);
     if (run("levels")) testLevels(s);
     if (run("musicality")) testMusicality(s);
-    if (run("modules")) testModules(s);
+    if (run("strength")) testStrength(s);
+    if (run("like")) testLikeKept(s);
+    if (run("modules")) { testModules(s); testNewModules(s); }
     if (run("rates")) testRates(s);
     if (run("extremes")) testExtremes(s);
     if (run("realtime")) testRealtime(s);

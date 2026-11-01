@@ -169,6 +169,81 @@ private:
 };
 
 //==============================================================================
+// IX. THE VAULT (Direction Update 2): zero-latency convolution with generated impulse
+// responses, one per space (Vault.cpp): huge halls with slow bloom and long pre-delay,
+// reversed swells, caverns with far distinct echoes and glints, small warm rooms.
+// The IRs are built once per sample rate and shared by every instance (not real-time:
+// in prepare()). Wet-only (the engine adds the dry), with an octave shimmer fed back
+// from the wet into the input and ducking under the playing.
+namespace conv { class Convolver; struct IrSpectra; }
+class Vault {
+public:
+    static constexpr int kinds = 34;   // 0 = none
+    Vault();
+    ~Vault();
+    void prepare(double sampleRate);
+    void reset();
+    // The space to use; changing it is only real-time safe right after reset().
+    void setKind(int kind) noexcept;
+    int kindNow() const noexcept { return kind; }
+    void process(const float* inL, const float* inR, float* wetL, float* wetR, int n, const Frame&) noexcept;
+    bool ringing() const noexcept { return tail > 1.0e-4f; }
+    float level() const noexcept { return tail; }
+    // Seconds of IR per kind (tests and the CPU report).
+    static double kindSeconds(int kind) noexcept;
+    static const char* kindName(int kind) noexcept;
+private:
+    double sr = 48000;
+    int kind = 0;
+    std::unique_ptr<conv::Convolver> left, right;
+    std::shared_ptr<const void> cache;   // keeps the shared IR set alive
+    const std::vector<std::array<const conv::IrSpectra*, 2>>* irs = nullptr;
+    dsp::Smoothed shimmer, toneHz, duck;
+    std::array<dsp::GranularShifter, 2> shifters;
+    std::array<float, 2> shimmerLp {}, toneState1 {}, toneState2 {};
+    std::array<std::array<float, maxChunk>, 2> feed {}, back {};
+    float envelope = 0, envAttack = 0, envRelease = 0, tail = 0, tailDecay = 0.999f;
+};
+
+//==============================================================================
+// X. ENSEMBLE (Direction Update 2): a lush three-voice chorus, a rising (barber-pole)
+// phaser, a tape echo that bounces between left and right with wow, darkening and
+// saturation in the loop (each repeat optionally rising or falling in pitch), and
+// realistic water drops (a resonant bubble that chirps upwards), very quiet.
+class Ensemble {
+public:
+    void prepare(double sampleRate);
+    void reset();
+    void process(float* l, float* r, int n, const Frame&, const Context&) noexcept;
+    bool ringing() const noexcept { return held > 1.0e-4f; }
+private:
+    static constexpr int voices = 3, phasers = 4, stages = 6;
+    double sr = 48000;
+    dsp::Smoothed mix, depth, rate, spiral, spiralRate, tapeMix, feedback, toneHz, wow, drops;
+    std::array<dsp::DelayLine, 2> chorusLine;
+    std::array<double, voices> chorusPhase {};
+    // Rising phaser: four staggered sweeps whose notch frequencies climb, each faded in
+    // and out by a window over its cycle (an endless upward spiral).
+    double spiralPhase = 0;
+    std::array<std::array<std::array<float, stages>, phasers>, 2> apState {};
+    std::array<std::array<float, phasers>, 2> phaserFb {};
+    // Tape: two heads crossfaded on time changes (no pitch glides), ping-pong cross.
+    std::array<dsp::DelayLine, 2> tape;
+    std::array<float, 2> tapeLp {}, tapeHp {}, tapeOut {};
+    float headA = 18000, headB = 18000, headFade = 1;
+    double wowPhase = 0, flutterPhase = 0;
+    std::array<dsp::GranularShifter, 2> ascend;
+    int ascendKind = 0;
+    float held = 0, heldDecay = 0.9999f;
+    // Drops.
+    struct Drop { float phase = 0, hz = 1000, chirp = 0, amp = 0, decay = 0.999f, pan = 0, click = 0; };
+    std::array<Drop, 4> dropPool;
+    int dropCountdown = 0;
+    float envelope = 0;
+    dsp::Random random;
+};
+
+//==============================================================================
 // III. THE CHOIR: 1-4 granular pitch-shifted voices with detune, movement and a
 // vowel formant bank, plus Drone: a sub-octave layer that holds after notes end.
 class Choir {

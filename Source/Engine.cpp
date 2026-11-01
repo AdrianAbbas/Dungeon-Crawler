@@ -91,7 +91,10 @@ void Engine::prepare(double sampleRate) {
     sr = sampleRate;
     context.sampleRate = sr;
     abyss.prepare(sr); blood.prepare(sr); relics.prepare(sr); choir.prepare(sr);
-    wraith.prepare(sr); echoes.prepare(sr);
+    wraith.prepare(sr); echoes.prepare(sr); ensemble.prepare(sr);
+    for (auto& v : vaults) v.prepare(sr);
+    for (auto& v : vaultSend) v.setTime(0.03, sr);
+    vaultDry.setTime(0.04, sr);
     for (auto& sig : signatures) sig.prepare(sr);
     for (auto& room : rooms) { room.prepare(sr); room.setWetOnly(true); }
     roomDry.setTime(0.04, sr);
@@ -105,7 +108,12 @@ void Engine::prepare(double sampleRate) {
 }
 
 void Engine::reset() {
-    abyss.reset(); blood.reset(); relics.reset(); choir.reset(); wraith.reset(); echoes.reset();
+    abyss.reset(); blood.reset(); relics.reset(); choir.reset(); wraith.reset(); echoes.reset(); ensemble.reset();
+    for (auto& v : vaults) v.reset();
+    vaultIdle.fill(true);
+    for (auto& v : vaultSend) v.snap(0.0f);
+    activeVault = 0; vaultCrossfade = false;
+    vaultDry.snap(1.0f);
     for (auto& sig : signatures) sig.reset();
     for (auto& slot : sigSlots) { slot.gain.value = 0; slot.idle = true; slot.warmUp = 0; }
     activeSig = 0; latestDeparting = -1; sigCrossfade = false; sigDeparting.fill(false);
@@ -147,6 +155,13 @@ void Engine::swapSignature() noexcept {
 
 void Engine::startTravel(double seconds) noexcept {
     if (current[SigKind] != to[SigKind]) swapSignature();
+    if (current[VaultKind] != to[VaultKind] && to[VaultKind] > 0.5f) {
+        // The new space starts clean in the other (quieter) instance.
+        vaultFromSend = vaultSend[static_cast<std::size_t>(activeVault)].target;
+        activeVault = 1 - activeVault;
+        vaultIdle[static_cast<std::size_t>(activeVault)] = true;
+        vaultCrossfade = true;
+    }
     from = current;
     trimFrom = trimDb;
     duration = std::max(minTravelSeconds, seconds);
@@ -251,6 +266,56 @@ void Engine::runRooms(float* l, float* r, int n, float eased) noexcept {
     }
 }
 
+void Engine::runVaults(float* l, float* r, int n, float eased) noexcept {
+    if (vaultCrossfade && travel >= 1.0f) vaultCrossfade = false;
+    const float m = dsp::clamp01(current[VaultMix]);
+    const int kindNow = static_cast<int>(std::lround(vaultCrossfade ? to[VaultKind] : current[VaultKind]));
+    bool any = false;
+    std::copy(l, l + n, vaultIn[0].begin());
+    std::copy(r, r + n, vaultIn[1].begin());
+    std::fill(vaultSum[0].begin(), vaultSum[0].begin() + n, 0.0f);
+    std::fill(vaultSum[1].begin(), vaultSum[1].begin() + n, 0.0f);
+    for (int k = 0; k < vaultCount; ++k) {
+        const auto K = static_cast<std::size_t>(k);
+        auto& v = vaults[K];
+        float send = 0;
+        if (k == activeVault) send = std::sqrt(vaultCrossfade ? dsp::clamp01(to[VaultMix]) * eased : m);
+        else if (vaultCrossfade) send = vaultFromSend * (1.0f - eased);
+        vaultSend[K].set(send);
+        if (send <= 1.0e-4f && vaultSend[K].value <= 1.0e-4f && (vaultIdle[K] || !v.ringing())) { vaultIdle[K] = true; continue; }
+        if (vaultIdle[K]) {
+            v.reset();
+            v.setKind(k == activeVault ? kindNow : v.kindNow());
+            vaultIdle[K] = false;
+            vaultWarmUp[K] = 0;
+            vaultSend[K].snap(0.0f);
+        }
+        if (k == activeVault && v.kindNow() != kindNow && kindNow > 0) { v.reset(); v.setKind(kindNow); }
+        auto& warm = vaultWarmUp[K];
+        for (int i = 0; i < n; ++i) {
+            float g = vaultSend[K].next();
+            if (warm < warmUpSamples) { g *= 0.5f - 0.5f * std::cos(dsp::twoPi * 0.5f * static_cast<float>(warm) / static_cast<float>(warmUpSamples)); ++warm; }
+            vaultWet[0][static_cast<std::size_t>(i)] = vaultIn[0][static_cast<std::size_t>(i)] * g;
+            vaultWet[1][static_cast<std::size_t>(i)] = vaultIn[1][static_cast<std::size_t>(i)] * g;
+        }
+        v.process(vaultWet[0].data(), vaultWet[1].data(), vaultWet[0].data(), vaultWet[1].data(), n, k == activeVault ? (vaultCrossfade ? to : current) : current);
+        for (int i = 0; i < n; ++i) {
+            vaultSum[0][static_cast<std::size_t>(i)] += vaultWet[0][static_cast<std::size_t>(i)];
+            vaultSum[1][static_cast<std::size_t>(i)] += vaultWet[1][static_cast<std::size_t>(i)];
+        }
+        any = true;
+    }
+    vaultDry.set(std::sqrt(1.0f - m));
+    if (!any && vaultDry.value == 1.0f && vaultDry.target == 1.0f) return;
+    for (int i = 0; i < n; ++i) {
+        const auto k = static_cast<std::size_t>(i);
+        float g = vaultDry.next();
+        if (std::abs(g - vaultDry.target) < 1.0e-6f) g = vaultDry.value = vaultDry.target;
+        l[i] = vaultIn[0][k] * g + vaultSum[0][k];
+        r[i] = vaultIn[1][k] * g + vaultSum[1][k];
+    }
+}
+
 void Engine::runSignatures(float* l, float* r, int n, float eased) noexcept {
     if (sigCrossfade && travel >= 1.0f) sigCrossfade = false;
     // Departing instances first (their serial part fading out, their tails ringing on),
@@ -325,19 +390,24 @@ void Engine::process(float* l, float* r, int n, const float* dryL, const float* 
     const bool abyssActive = p[Cutoff] < 19500.0f || p[HighPass] > 21.0f || p[Darkness] > 1.0e-3f || p[Tomb] > 1.0e-3f;
     const bool relicsActive = p[Flicker] > 1.0e-4f || p[Metal] > 1.0e-4f || p[Wind] > 1.0e-4f || p[Drips] > 1.0e-4f;
     const bool echoesActive = p[DelayMix] > 1.0e-4f || echoes.ringing();
+    const bool ensembleActive = p[EnsMix] > 1.0e-4f || p[Spiral] > 1.0e-4f || p[TapeMix] > 1.0e-4f || p[Drops] > 1.0e-4f || ensemble.ringing();
+    bool vaultActive = p[VaultMix] > 1.0e-4f || to[VaultMix] > 1.0e-4f;
+    for (const auto& v : vaults) vaultActive = vaultActive || v.ringing();
     bool cryptActive = p[ReverbMix] > 1.0e-4f;
     for (const auto& room : rooms) cryptActive = cryptActive || room.ringing();
     const bool wetActive = p[ChoirBlend] > 1.0e-4f || p[Drone] > 1.0e-4f || p[WraithMix] > 1.0e-4f
                         || echoesActive || cryptActive || p[BloodMix] > 1.0e-4f || relicsActive || p[SigAmount] > 1.0e-4f
-                        || anyDeparting() || to[SigAmount] > 1.0e-4f;
+                        || anyDeparting() || to[SigAmount] > 1.0e-4f || ensembleActive || vaultActive;
     runSlot(abyss, slots[0], abyssActive, l, r, n);
     blood.process(l, r, n, p, context);
     runSlot(relics, slots[1], relicsActive, l, r, n);
     runSlot(choir, slots[2], p[ChoirBlend] > 1.0e-4f || p[Drone] > 1.0e-4f, l, r, n);
     runSlot(wraith, slots[3], p[WraithMix] > 1.0e-4f, l, r, n);
     runSignatures(l, r, n, travel * travel * (3.0f - 2.0f * travel));
+    runSlot(ensemble, slots[5], ensembleActive, l, r, n);
     runSlot(echoes, slots[4], echoesActive, l, r, n);
     runRooms(l, r, n, travel * travel * (3.0f - 2.0f * travel));
+    if (vaultActive || vaultDry.value != 1.0f) runVaults(l, r, n, travel * travel * (3.0f - 2.0f * travel));
     if (!matching) return;
     trimGain.set(dsp::dbToGain(trimDb));
     for (int i = 0; i < n; ++i) { const float g = trimGain.next(); l[i] *= g; r[i] *= g; }
