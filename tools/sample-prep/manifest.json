@@ -984,7 +984,8 @@
                 0.0
             ],
             "maxSeconds": 4.0,
-            "partials": 3
+            "partials": 3,
+            "leadDb": 25.0
         },
         {
             "id": "banjo-muted",
@@ -1015,7 +1016,8 @@
             ],
             "takes": 1,
             "maxSeconds": 1.2,
-            "partials": 3
+            "partials": 3,
+            "leadDb": 25.0
         },
         {
             "id": "banjo-g5",
@@ -1037,7 +1039,12 @@
             "maxSeconds": 2.5,
             "gainGroup": "djembe",
             "highPass": 20,
-            "rangeDb": 55.0
+            "rangeDb": 55.0,
+            "layerStepsDb": [
+                -12.0,
+                -6.0,
+                0.0
+            ]
         },
         {
             "id": "djembe-big-tone",
@@ -1048,7 +1055,12 @@
             "maxSeconds": 1.5,
             "gainGroup": "djembe",
             "highPass": 20,
-            "rangeDb": 55.0
+            "rangeDb": 55.0,
+            "layerStepsDb": [
+                -12.0,
+                -6.0,
+                0.0
+            ]
         },
         {
             "id": "djembe-big-slap",
@@ -1059,7 +1071,12 @@
             "maxSeconds": 1.5,
             "gainGroup": "djembe",
             "highPass": 20,
-            "rangeDb": 55.0
+            "rangeDb": 55.0,
+            "layerStepsDb": [
+                -12.0,
+                -6.0,
+                0.0
+            ]
         },
         {
             "id": "djembe-big-mbass",
@@ -1070,7 +1087,12 @@
             "maxSeconds": 2.5,
             "gainGroup": "djembe",
             "highPass": 20,
-            "rangeDb": 55.0
+            "rangeDb": 55.0,
+            "layerStepsDb": [
+                -12.0,
+                -6.0,
+                0.0
+            ]
         },
         {
             "id": "djembe-big-mslap",
@@ -1081,7 +1103,12 @@
             "maxSeconds": 1.5,
             "gainGroup": "djembe",
             "highPass": 20,
-            "rangeDb": 55.0
+            "rangeDb": 55.0,
+            "layerStepsDb": [
+                -12.0,
+                -6.0,
+                0.0
+            ]
         },
         {
             "id": "djembe-small-bass",
@@ -1092,7 +1119,12 @@
             "maxSeconds": 2.5,
             "gainGroup": "djembe",
             "highPass": 20,
-            "rangeDb": 55.0
+            "rangeDb": 55.0,
+            "layerStepsDb": [
+                -12.0,
+                -6.0,
+                0.0
+            ]
         },
         {
             "id": "djembe-small-tone",
@@ -1103,7 +1135,12 @@
             "maxSeconds": 1.5,
             "gainGroup": "djembe",
             "highPass": 20,
-            "rangeDb": 55.0
+            "rangeDb": 55.0,
+            "layerStepsDb": [
+                -12.0,
+                -6.0,
+                0.0
+            ]
         },
         {
             "id": "djembe-small-slap",
@@ -1114,7 +1151,12 @@
             "maxSeconds": 1.5,
             "gainGroup": "djembe",
             "highPass": 20,
-            "rangeDb": 55.0
+            "rangeDb": 55.0,
+            "layerStepsDb": [
+                -12.0,
+                -6.0,
+                0.0
+            ]
         },
         {
             "id": "djembe-small-mbass",
@@ -1125,7 +1167,12 @@
             "maxSeconds": 2.5,
             "gainGroup": "djembe",
             "highPass": 20,
-            "rangeDb": 55.0
+            "rangeDb": 55.0,
+            "layerStepsDb": [
+                -12.0,
+                -6.0,
+                0.0
+            ]
         },
         {
             "id": "djembe-small-mslap",
@@ -1136,7 +1183,12 @@
             "maxSeconds": 1.5,
             "gainGroup": "djembe",
             "highPass": 20,
-            "rangeDb": 55.0
+            "rangeDb": 55.0,
+            "layerStepsDb": [
+                -12.0,
+                -6.0,
+                0.0
+            ]
         },
         {
             "id": "piano-soft",

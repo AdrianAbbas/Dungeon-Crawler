@@ -1,4 +1,5 @@
 #include "Modules.h"
+#include "../Instrument/SampleBank.h"
 
 namespace dc {
 using namespace dsp;
@@ -23,7 +24,10 @@ void Choir::prepare(double sampleRate) {
     for (std::size_t v = 0; v < voices.size(); ++v) voices[v].prepare(sr, 0.055 + 0.013 * static_cast<double>(v));
     droneShifter.prepare(sr, 0.09);
     capture.assign(static_cast<std::size_t>(droneCaptureSeconds * sr), 0.0f);
-    for (auto* s : { &blend, &detune, &movement, &droneLevel, &formant }) s->setTime(0.04, sr);
+    for (auto* s : { &blend, &detune, &movement, &droneLevel, &formant, &imprint }) s->setTime(0.04, sr);
+    powerCoefficient = static_cast<float>(1.0 - std::exp(-1.0 / (0.25 * sr)));
+    for (int k = 0; k < imprintBands; ++k)
+        for (auto& ch : imprintBank) ch[static_cast<std::size_t>(k)].bandPass(sr, 125.0 * std::exp2(k / 3.0), 4.3);
     reset();
 }
 
@@ -46,6 +50,11 @@ void Choir::reset() {
     counter = 0;
     ratios.fill(1);
     formantCached = -1;
+    for (auto& ch : imprintBank) for (auto& f : ch) f.clear();
+    imprintCached = -2;
+    genericPower = imprintPower = 0;
+    imprint.value = 0;
+    imprint.target = 0;
     blend.value = -1;   // not primed
 }
 
@@ -62,16 +71,35 @@ void Choir::updateFormants(float value) noexcept {
     for (auto& f : droneTone) { const auto z1 = f.z1, z2 = f.z2; f.highShelf(sr, 1400.0, -14.0); f.z1 = z1; f.z2 = z2; }
 }
 
+void Choir::updateImprint(float value) noexcept {
+    imprintCached = value;
+    imprintShaped = false;
+    const auto& bank = wb::samples::Bank::get();
+    const auto* ooh = bank.instrument("choir-ooh");
+    const auto* aah = bank.instrument("choir-aah");
+    if (ooh == nullptr || aah == nullptr || ooh->envelopeDb.size() != imprintBands || aah->envelopeDb.size() != imprintBands) return;
+    for (std::size_t k = 0; k < imprintBands; ++k)
+        imprintGain[k] = static_cast<float>(std::pow(10.0, lerp(ooh->envelopeDb[k], aah->envelopeDb[k], clamp01(value)) / 20.0));
+    imprintShaped = true;
+}
+
 void Choir::process(float* l, float* r, int n, const Frame& p, const Context&) noexcept {
     const auto interval = static_cast<std::size_t>(std::clamp(static_cast<int>(std::lround(p[Interval])), 0, 5));
     const int voiceCount = std::clamp(static_cast<int>(std::lround(p[Voices])), 1, 4);
-    blend.set(clamp01(p[ChoirBlend]));
+    // Voice Bloom: more of the choir, only where the developer's voice sings it.
+    const bool bloomReady = p[VoiceBloom] > 1.0e-4f && wb::samples::Bank::get().ready();
+    blend.set(clamp01(p[ChoirBlend] + (bloomReady ? p[VoiceBloom] : 0.0f)));
     detune.set(std::clamp(p[ChoirDetune], 0.0f, 100.0f));
     movement.set(clamp01(p[ChoirMovement]));
     droneLevel.set(clamp01(p[Drone]));
     formant.set(clamp01(p[Formant]));
-    if (blend.value < 0) for (auto* s : { &blend, &detune, &movement, &droneLevel, &formant }) s->snap(s->target);
+    // The imprint needs the recordings (without them the place's choir sings as before).
+    const bool voiceReady = p[VoiceImprint] > 1.0e-4f && wb::samples::Bank::get().ready();
+    (void) bloomReady;
+    imprint.set(voiceReady ? clamp01(p[VoiceImprint]) : 0.0f);
+    if (blend.value < 0) for (auto* s : { &blend, &detune, &movement, &droneLevel, &formant, &imprint }) s->snap(s->target);
     if (std::abs(formant.value - formantCached) > 0.004f) updateFormants(formant.value);
+    if (voiceReady && (!imprintShaped || std::abs(formant.value - imprintCached) > 0.004f)) updateImprint(formant.value);
     // Pitching up needs band-limiting first.
     const float largestRatio = std::exp2(std::max(0.0f, intervalSemitones[interval]) / 12.0f + 0.05f);
     inputLowpass.set(std::min(9000.0, sr * 0.42 / largestRatio), sr, 1.2f);
@@ -82,7 +110,7 @@ void Choir::process(float* l, float* r, int n, const Frame& p, const Context&) n
     const auto captureSize = capture.size();
 
     for (int i = 0; i < n; ++i) {
-        blend.next(); detune.next(); movement.next(); droneLevel.next(); formant.next();
+        blend.next(); detune.next(); movement.next(); droneLevel.next(); formant.next(); imprint.next();
         lfoPhase += (0.07 + 0.45 * movement.value) / sr;
         if (lfoPhase >= 1) lfoPhase -= 1;
         if (counter-- <= 0) {
@@ -108,10 +136,24 @@ void Choir::process(float* l, float* r, int n, const Frame& p, const Context&) n
         const float norm = 1.4f / std::sqrt(std::max(1.0f, active));
         wetL *= norm; wetR *= norm;
         float voiced[2] = { wetL, wetR };
+        const bool imprinting = imprint.value > 1.0e-4f && imprintShaped;
         for (int ch = 0; ch < 2; ++ch) {
             float f = 0;
             for (std::size_t k = 0; k < 3; ++k) f += formants[static_cast<std::size_t>(ch)][k].process(voiced[ch]) * formantGain[k];
-            voiced[ch] = choirTone[static_cast<std::size_t>(ch)].process(voiced[ch] * 0.35f + f * 1.6f);
+            if (imprinting) {
+                // The developer's voice: the choir through his spectral envelope, kept as
+                // loud as the generic formants (slow power followers), blended in.
+                float v = 0;
+                auto& bankCh = imprintBank[static_cast<std::size_t>(ch)];
+                for (std::size_t k = 0; k < imprintBands; ++k) v += bankCh[k].process(voiced[ch]) * imprintGain[k];
+                const float g = 1.6f * f + 0.35f * voiced[ch];
+                genericPower += powerCoefficient * (g * g - genericPower);
+                imprintPower += powerCoefficient * (v * v - imprintPower);
+                const float match = std::clamp(std::sqrt((genericPower + 1.0e-12f) / (imprintPower + 1.0e-12f)), 0.1f, 10.0f);
+                voiced[ch] = choirTone[static_cast<std::size_t>(ch)].process(lerp(g, v * match, imprint.value));
+            } else {
+                voiced[ch] = choirTone[static_cast<std::size_t>(ch)].process(voiced[ch] * 0.35f + f * 1.6f);
+            }
         }
 
         // Drone: capture the sub-octave while playing; afterwards grains keep playing

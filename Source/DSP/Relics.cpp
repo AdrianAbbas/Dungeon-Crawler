@@ -1,4 +1,5 @@
 #include "Modules.h"
+#include "../Instrument/SampleBank.h"
 
 namespace dc {
 using namespace dsp;
@@ -17,7 +18,7 @@ constexpr Kind kinds[3] = {
 
 void Relics::prepare(double sampleRate) {
     sr = sampleRate;
-    for (auto* s : { &flicker, &metal, &wind, &drips }) s->setTime(0.04, sr);
+    for (auto* s : { &flicker, &metal, &wind, &drips, &whispers }) s->setTime(0.04, sr);
     gainSmooth = timeCoefficient(0.008, sr);
     attack = timeCoefficient(0.02, sr);
     release = timeCoefficient(1.2, sr);
@@ -33,6 +34,10 @@ void Relics::reset() {
     dripCountdown = static_cast<int>(0.3 * sr);
     random.seed(0x52454c43u);
     configured = -1;
+    for (auto& w : whisperVoices) w = Whisper {};
+    whisperCountdown = static_cast<int>(0.4 * sr);
+    for (auto& f : whisperBand) f.clear();
+    whisperLevel = 0;
     flicker.value = -1;   // not primed
 }
 
@@ -63,8 +68,17 @@ void Relics::process(float* l, float* r, int n, const Frame& p, const Context&) 
     metal.set(clamp01(p[Metal]));
     wind.set(clamp01(p[Wind]));
     drips.set(clamp01(p[Drips]));
+    // Whispers need the developer's recordings; without them the place is as it was.
+    const wb::samples::Instrument* whisperTakes = nullptr;
+    if (p[Whispers] > 1.0e-4f && wb::samples::Bank::get().ready()) whisperTakes = wb::samples::Bank::get().instrument("voice-whispers");
+    whispers.set(whisperTakes != nullptr && !whisperTakes->zones.empty() ? clamp01(p[Whispers]) : 0.0f);
     if (flicker.value < 0)
-        for (auto* s : { &flicker, &metal, &wind, &drips }) s->snap(s->target);
+        for (auto* s : { &flicker, &metal, &wind, &drips, &whispers }) s->snap(s->target);
+    // The whisper band: the breath of the voice, no rumble, no hiss above it.
+    for (int side = 0; side < 2; ++side) {
+        whisperBand[static_cast<std::size_t>(2 * side)].set(500.0, sr, 0.7f);
+        whisperBand[static_cast<std::size_t>(2 * side + 1)].set(2800.0, sr, 1.0f);
+    }
     configure(static_cast<int>(std::lround(p[MetalKind])), static_cast<int>(std::lround(p[MetalNote])),
               static_cast<int>(std::lround(p[MetalOctave])), std::clamp(p[MetalDecay], 0.05f, 8.0f));
     const float rate = std::clamp(p[FlickerRate], 0.3f, 12.0f);
@@ -76,7 +90,7 @@ void Relics::process(float* l, float* r, int n, const Frame& p, const Context&) 
 
     float* io[] = { l, r };
     for (int i = 0; i < n; ++i) {
-        const float fl = flicker.next(), me = metal.next(), wi = wind.next(), dr = drips.next();
+        const float fl = flicker.next(), me = metal.next(), wi = wind.next(), dr = drips.next(), wh = whispers.next();
         const float x0 = finiteOr(l[i]), x1 = finiteOr(r[i]);
         const float level = std::max(std::abs(x0), std::abs(x1));
         envelope += (level > envelope ? attack : release) * (level - envelope);
@@ -127,6 +141,57 @@ void Relics::process(float* l, float* r, int n, const Frame& p, const Context&) 
         }
         drop = dr * 0.06f;
 
+        // Whispers: a few seconds of the developer's whispering from anywhere in one of
+        // his three takes, then another, never loud (they follow the bed: no playing, no
+        // whispers), panned apart, band-limited.
+        float whisperL = 0, whisperR = 0;
+        if (wh > 1.0e-4f && whisperTakes != nullptr) {
+            if (--whisperCountdown <= 0) {
+                whisperCountdown = static_cast<int>(sr * (0.5 + 1.8 * random.unit()));
+                for (auto& w : whisperVoices)
+                    if (!w.on) {
+                        const auto& z = whisperTakes->zones[static_cast<std::size_t>(random.unit() * 0.999f * static_cast<float>(whisperTakes->zones.size()))];
+                        const float span = static_cast<float>(1.6 + 1.8 * random.unit());
+                        const int need = static_cast<int>(span * whisperTakes->rate) + 8;
+                        if (z.length <= need) break;
+                        w.data = z.data;
+                        w.length = z.length;
+                        w.pos = static_cast<double>(random.unit()) * static_cast<double>(z.length - need);
+                        w.step = static_cast<float>(whisperTakes->rate / sr) * (0.96f + 0.08f * random.unit());
+                        w.age = 0;
+                        w.span = span;
+                        w.gain = 0.6f + 0.4f * random.unit();
+                        w.pan = 0.75f * random.bipolar();
+                        w.on = true;
+                        break;
+                    }
+            }
+            float wl = 0, wr = 0;
+            for (auto& w : whisperVoices) {
+                if (!w.on) continue;
+                const auto i0 = static_cast<int>(w.pos);
+                const float t = static_cast<float>(w.pos - i0);
+                const float x = (w.data[i0] + t * static_cast<float>(w.data[i0 + 1] - w.data[i0])) * (1.0f / 32768.0f);
+                const float edge = std::min({ 1.0f, w.age / 0.25f, (w.span - w.age) / 0.4f });
+                const float y = x * w.gain * edge * edge;
+                wl += y * (1.0f - w.pan) * 0.7071f;
+                wr += y * (1.0f + w.pan) * 0.7071f;
+                w.pos += w.step;
+                w.age += static_cast<float>(1.0 / sr);
+                if (w.age >= w.span || w.pos >= static_cast<double>(w.length - 2)) w.on = false;
+            }
+            // Per side: a high-pass (the filter's high output), then a gentle low-pass.
+            whisperLevel = wh * 0.32f * bed;
+            float out[2] = { wl, wr };
+            for (int side = 0; side < 2; ++side) {
+                float band = 0, high = 0, unused = 0;
+                whisperBand[static_cast<std::size_t>(2 * side)].process(out[side], band, high);
+                out[side] = whisperBand[static_cast<std::size_t>(2 * side + 1)].process(high, band, unused);
+            }
+            whisperL = out[0] * whisperLevel;
+            whisperR = out[1] * whisperLevel;
+        }
+
         float in[2] = { x0, x1 };
         for (int ch = 0; ch < 2; ++ch) {
             float y = in[ch];
@@ -139,6 +204,7 @@ void Relics::process(float* l, float* r, int n, const Frame& p, const Context&) 
                 y += me * 2.2f * softLimit(ring, 1.5f);
             }
             y = y * flickerGain + (ch == 0 ? windL + drop * dropL : windR + drop * dropR);
+            if (wh > 1.0e-4f) y += ch == 0 ? whisperL : whisperR;
             io[ch][i] = finiteOr(y);
         }
     }

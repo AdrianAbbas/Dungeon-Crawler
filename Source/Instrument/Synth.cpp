@@ -4,8 +4,8 @@ namespace dc::inst {
 
 //==============================================================================
 bool SampleVoice::start(const wb::samples::Instrument& inst, float noteMidi, float velocity, float pick, float sampleRate, float attackSeconds,
-                        float decaySeconds, float skipSeconds, float even, float courseCents, float courseLvl) {
-    const auto* z = inst.find(int(std::lround(noteMidi)), velocity, pick);
+                        float decaySeconds, float skipSeconds, float even, float courseCents, float courseLvl, int lookupKey) {
+    const auto* z = inst.find(lookupKey >= 0 ? lookupKey : int(std::lround(noteMidi)), velocity, pick);
     if (z == nullptr || z->length < 8) return false;
     rate = sampleRate;
     zone = z;
@@ -16,7 +16,22 @@ bool SampleVoice::start(const wb::samples::Instrument& inst, float noteMidi, flo
     tailPos = -1;
     tailMix = 0;
     // Evened toward the median loudness of the note's own layer (the layers keep their steps).
-    const float evenDb = std::clamp(even * (inst.medianDb(z->layer) - z->loudnessDb), -12.0f, 12.0f);
+    const auto evened = [&](const wb::samples::Zone& q) { return std::clamp(even * (inst.medianDb(q.layer) - q.loudnessDb), -12.0f, 12.0f); };
+    float evenDb = evened(*z);
+    if (smoothLayers && z->layer == 0 && z->hiVel > z->loVel) {
+        // The softest layer rises 6 dB across its range (its hits from barely touched up).
+        evenDb -= 6.0f * (1.0f - std::clamp((velocity - z->loVel) / (z->hiVel - z->loVel), 0.0f, 1.0f));
+    } else if (smoothLayers && z->layer > 0 && z->hiVel > z->loVel) {
+        // The take just below this layer (same key, same round-robin), as loud as it plays
+        // at the top of its own layer: at this layer's lowest velocity the level starts
+        // there and rises to this take's own by its highest.
+        const int key = lookupKey >= 0 ? lookupKey : int(std::lround(noteMidi));
+        if (const auto* below = inst.find(key, z->loVel - 0.001f, pick); below != nullptr && below->layer < z->layer) {
+            const float t = std::clamp((velocity - z->loVel) / (z->hiVel - z->loVel), 0.0f, 1.0f);
+            const float gap = (below->loudnessDb + evened(*below)) - (z->loudnessDb + evenDb);
+            evenDb += (1.0f - t) * std::clamp(gap, -24.0f, 0.0f);
+        }
+    }
     gain = d::dbToGain(evenDb);
     amp = attackSeconds > 0.0005f ? 0.0f : 1.0f;
     attackStep = attackSeconds > 0.0005f ? 1.0f / (attackSeconds * rate) : 1.0f;
@@ -38,6 +53,83 @@ bool SampleVoice::start(const wb::samples::Instrument& inst, float noteMidi, flo
     on = true;
     update();
     return true;
+}
+
+//==============================================================================
+bool VocalVoice::start(float noteMidi, float velocity, float random, float sampleRate, float attack, float skip, uint64_t seed) {
+    rate = sampleRate;
+    for (auto& rd : reader) rd.s.reset(), rd.used = false, rd.delay = 0;
+    readers = 0;
+    shiftAbove = 0;
+    const int key = int(std::lround(noteMidi));
+    // Velocity crossfades the soft take into the full one (the layers were levelled a few
+    // dB apart by the preparation, so the level rises smoothly with the timbre).
+    const float full = d::smoothstep(0.25f, 0.85f, velocity);
+    const int n = std::clamp(singers, 1, maxSingers);
+    const float norm = 1.0f / std::sqrt(1.0f + 0.7f * float(n - 1));
+    for (int v = 0; v < 2; ++v) {
+        const auto& src = vowel[std::size_t(v)];
+        if (src.lead == nullptr && src.ensemble == nullptr) continue;
+        for (int i = 0; i < n; ++i) {
+            const auto* inst = (i == 0 || src.ensemble == nullptr) ? (src.lead != nullptr ? src.lead : src.ensemble) : src.ensemble;
+            if (inst == nullptr || inst->zones.empty()) continue;
+            const int look = std::clamp(key, inst->lowKey, inst->highKey);
+            if (v == 0 && i == 0) shiftAbove = std::max(0.0f, noteMidi - inst->highRoot);
+            // Each singer: deterministic from the note's seed.
+            const uint64_t h = d::mix64(seed + uint64_t(i) * 0x9E3779B97F4A7C15ull + 17u);
+            const float u1 = d::unipolar(h), u2 = d::unipolar(d::mix64(h + 1)), u3 = d::unipolar(d::mix64(h + 2)), u4 = d::unipolar(d::mix64(h + 3));
+            const float cents = i == 0 ? 0.0f : detuneCents * (2.0f * u1 - 1.0f);
+            const int delay = i == 0 ? 0 : int(timingMs * 0.001f * rate * (0.25f + 0.75f * u2));
+            const float side = (i & 1) ? 1.0f : -1.0f;
+            const float pan = i == 0 ? 0.0f : side * spread * (0.4f + 0.6f * float((i + 1) / 2) / float(std::max(1, n / 2)));
+            const auto pg = d::panGains(std::clamp(pan, -1.0f, 1.0f));
+            const float pick = i == 0 ? random : random + 0.37f * float(i) + 0.11f * u3 - std::floor(random + 0.37f * float(i) + 0.11f * u3);
+            const float singerGain = (i == 0 ? 1.0f : 0.85f) * norm;
+            const bool layered = inst->layers > 1;
+            for (int layer = 0; layer < (layered ? 2 : 1); ++layer) {
+                const float wl = layered ? (layer == 0 ? 1.0f - full : full) : 1.0f;
+                if (wl < 0.02f || readers >= maxReaders - 1) continue;
+                auto& rd = reader[std::size_t(readers)];
+                const float vel = layered ? (layer == 0 ? 0.1f : 0.95f) : velocity;
+                const float a = i == 0 ? attack : attack * (1.0f + 0.6f * u4);
+                if (!rd.s.start(*inst, noteMidi, vel, pick, rate, a, 0.0f, skip + (i == 0 ? 0.0f : 0.06f * u3), 0.6f, 0, 0, look)) continue;
+                rd.used = true;
+                rd.vowel = v;
+                rd.weight = wl * singerGain;
+                rd.delay = delay;
+                rd.baseCents = cents;
+                rd.drift = i == 0 ? 0.5f * driftCents : driftCents;
+                rd.driftHz = 0.07f + 0.25f * u4;
+                rd.driftPhase = u1;
+                rd.l = pg.l;
+                rd.r = pg.r;
+                rd.s.cents = cents;
+                rd.s.update();
+                ++readers;
+            }
+        }
+    }
+    if (grit != nullptr && gritLevel > 0.0f && !grit->zones.empty() && readers < maxReaders) {
+        auto& rd = reader[std::size_t(readers)];
+        if (rd.s.start(*grit, noteMidi, velocity, random, rate, attack, 0.0f, skip, 0.8f, 0, 0, std::clamp(key, grit->lowKey, grit->highKey))) {
+            rd.used = true;
+            rd.vowel = 2;
+            rd.weight = gritLevel * norm;
+            rd.delay = 0;
+            rd.baseCents = 0;
+            rd.drift = driftCents;
+            rd.driftHz = 0.13f;
+            rd.l = rd.r = 0.7071f;
+            ++readers;
+        }
+    }
+    // Shifted up beyond the recordings: the formants rise with it; a gentle low-pass that
+    // falls an octave per octave of shift keeps the voice from turning thin and bright.
+    tameHz = shiftAbove > 0.05f ? std::min(0.45f * rate, 11000.0f * std::exp2(-shiftAbove / 12.0f)) : 0.0f;
+    tame.reset();
+    if (tameHz > 0.0f) tame.set(tameHz, 0.6f, rate);
+    morph = morphTarget;
+    return readers > 0;
 }
 
 namespace {
@@ -105,6 +197,7 @@ void Layer::reset() {
     strings.reset();
     organ.reset();
     sample.reset();
+    vocal.reset();
     bellBent = 0;
 }
 
@@ -122,6 +215,7 @@ bool Layer::active() const {
         case Model::Strings: return strings.active();
         case Model::Organ: return organ.active();
         case Model::Sample: return sample.active();
+        case Model::Vocal: return vocal.active();
         case Model::None: break;
     }
     return false;
@@ -139,6 +233,7 @@ void Layer::release(float seconds, float rate) {
         case Model::Strings: strings.release(seconds); break;
         case Model::Organ: organ.release(seconds); break;
         case Model::Sample: sample.release(seconds); break;
+        case Model::Vocal: vocal.release(seconds); break;
         case Model::Bell:
             // A struck bell or bar damped: its modes stop over `seconds` (the highs a little first).
             for (int k = 0; k < bell.modes; ++k) {
@@ -176,6 +271,7 @@ void Layer::update(float rate, float bendSemis, float vibrato) {
         case Model::Strings: strings.bend = bendSemis; strings.update(); break;
         case Model::Organ: organ.bend = bendSemis; organ.update(); break;
         case Model::Sample: sample.bend = bendSemis; sample.update(); break;
+        case Model::Vocal: vocal.update(bendSemis, float(d::chunk) / rate); break;
         case Model::None: break;
     }
     (void) vibrato;
@@ -202,6 +298,14 @@ void Layer::tick(const d::Stream& noise, float& l, float& r) {
         case Model::Strings: y = strings.tick(noise); break;
         case Model::Organ: y = organ.tick(noise); break;
         case Model::Sample: y = sample.tick(); break;
+        case Model::Vocal: {
+            // Stereo already (the ensemble's spread).
+            float a = 0, b = 0;
+            vocal.tick(a, b);
+            l += a * gain;
+            r += b * gain;
+            return;
+        }
         case Model::None: return;
     }
     y *= gain;
@@ -352,7 +456,7 @@ void Synth::noteOn(int key, float velocity) noexcept {
     // A sampled instrument playing its stand-in (no recordings): its own trim.
     if (usesRecordings(designNow)) {
         bool recorded = false;
-        for (const auto& L : v.layer) recorded |= L.model == Model::Sample;
+        for (const auto& L : v.layer) recorded |= L.model == Model::Sample || L.model == Model::Vocal;
         if (!recorded) v.gain = d::dbToGain(standInTrimDb(designNow));
     }
     // Velocity sets the level of the blown, bowed, sung and held sources (struck and
@@ -360,7 +464,7 @@ void Synth::noteOn(int key, float velocity) noexcept {
     const float velocityGain = 0.35f + 0.65f * std::pow(v.velocity, 1.3f);
     for (auto& L : v.layer)
         switch (L.model) {
-            case Model::Synth: case Model::Choir: case Model::Wind: case Model::Bowed: case Model::Strings: case Model::Organ: case Model::Fm: case Model::Sample:
+            case Model::Synth: case Model::Choir: case Model::Wind: case Model::Bowed: case Model::Strings: case Model::Organ: case Model::Fm: case Model::Sample: case Model::Vocal:
                 L.gain *= velocityGain;
                 break;
             default: break;

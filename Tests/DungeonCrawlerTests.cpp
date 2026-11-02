@@ -10,6 +10,7 @@
 //   DungeonCrawlerTests --strength [f.csv]   the strength table (Direction Update 2), report only
 //   DungeonCrawlerTests --calibrate-instruments Source/Instrument/Trims.h   the instruments' level trims
 //   DungeonCrawlerTests --listen-instruments dir   one melody on every instrument, dry then in its place
+//   DungeonCrawlerTests --listen-recordings dir    melody and chords on the instruments with the new recordings; the FX's voice places before/after
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 #include "UI/Scenes.h"
@@ -2617,6 +2618,7 @@ int qaDebug(int la, int ka, int lb, int kb) {
 }
 
 #include "InstrumentTests.inc"
+#include "RecordingsTests.inc"
 
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -2634,6 +2636,7 @@ int main(int argc, char** argv) {
         else if (arg == "--listen" && i + 1 < argc) return listen(argv[i + 1]);
         else if (arg == "--calibrate-instruments" && i + 1 < argc) return calibrateInstruments(argv[i + 1]);
         else if (arg == "--listen-instruments" && i + 1 < argc) return listenInstruments(argv[i + 1]);
+        else if (arg == "--listen-recordings" && i + 1 < argc) return listenRecordings(argv[i + 1]);
         else if (arg == "--signatures") return signatureCheck();
         else if (arg == "--qa-debug" && i + 4 < argc)
             return qaDebug(juce::String(argv[i + 1]).getIntValue(), juce::String(argv[i + 2]).getIntValue(), juce::String(argv[i + 3]).getIntValue(), juce::String(argv[i + 4]).getIntValue());
@@ -2672,6 +2675,7 @@ int main(int argc, char** argv) {
     if (run("workflow")) testWorkflow(s);
     if (run("instrument")) { testInstrumentEngine(s); testInstrumentPresets(s); }
     if (run("instruments")) testInstruments(s);
+    if (run("recordings")) testRecordings(s);
     if (run("instrumenteditor")) testInstrumentEditor(s, snapshot);
     if (only.contains("qa")) testQa(s);   // long (130 journeys): run explicitly
     if (only.contains("cpu")) { testCpu(s); testInstrumentCpu(s); }   // report only: run explicitly

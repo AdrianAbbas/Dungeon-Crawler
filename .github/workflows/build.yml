@@ -168,6 +168,11 @@ jobs:
       - name: Listening renders (one melody on every instrument, WAV)
         if: always()
         run: build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-instruments build/test-logs/instruments
+      # Session 8: melody and chords on every instrument with the new recordings (dry, in its
+      # place, then its stand-in), and the FX's voice places before vs after, as WAV.
+      - name: Listening renders (the new recordings, WAV)
+        if: always()
+        run: build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-recordings build/test-logs/recordings
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4

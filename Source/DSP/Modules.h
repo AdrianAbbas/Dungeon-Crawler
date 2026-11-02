@@ -87,7 +87,14 @@ private:
     std::array<float, partials> partialGain{};
     std::array<dsp::Svf, 2> windFilter;
     std::array<Drop, 4> dropsActive;
-    dsp::Smoothed flicker, metal, wind, drips;
+    dsp::Smoothed flicker, metal, wind, drips, whispers;
+    // Whispers (Session 8): two readers of the developer's whispering, each a few seconds
+    // from anywhere in one of his three takes, faded in and out.
+    struct Whisper { const int16_t* data = nullptr; int length = 0; double pos = 0; float step = 1, age = 0, span = 0, gain = 0, pan = 0; bool on = false; };
+    std::array<Whisper, 2> whisperVoices;
+    int whisperCountdown = 0;
+    std::array<dsp::Svf, 4> whisperBand;   // per side: a high-pass, then a low-pass
+    float whisperLevel = 0;
     float envelope = 0, attack = 0.01f, release = 0.0001f, gainSmooth = 0.01f;
     float flickerGain = 1, flickerTarget = 0, flickerValue = 0, flickerPhase = 0, windPhase = 0, configuredDecay = -1;
     int flickerCountdown = 0, dripCountdown = 0, configured = -1;
@@ -272,6 +279,15 @@ private:
     int counter = 0;
     float formantCached = -1;
     void updateFormants(float value) noexcept;
+    // Voice Imprint (Session 8): a bank of third-octave band-passes shaped by the
+    // spectral envelope of the developer's choir stacks (ooh to aah with Formant).
+    static constexpr int imprintBands = 19;
+    std::array<std::array<dsp::Biquad, imprintBands>, 2> imprintBank;
+    std::array<float, imprintBands> imprintGain{};
+    dsp::Smoothed imprint;
+    float imprintCached = -2, genericPower = 0, imprintPower = 0, powerCoefficient = 0.0005f;
+    bool imprintShaped = false;
+    void updateImprint(float formantValue) noexcept;
 };
 
 //==============================================================================

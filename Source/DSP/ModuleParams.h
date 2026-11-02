@@ -30,6 +30,12 @@ enum P : std::size_t {
     VaultKind, VaultMix, VaultShimmer, VaultTone, VaultDuck,
     // X. Ensemble: chorus, rising phaser, tape echo, water drops (Direction Update 2).
     EnsMix, EnsDepth, EnsRate, Spiral, SpiralRate, TapeMix, TapeTime, TapeFeedback, TapeTone, TapeWow, TapeAscend, Drops,
+    // Session 8: the developer's recorded voice in a few places. Voice Imprint sings the
+    // Choir (III) through his voice's spectral envelope instead of the generic vowel
+    // formants; Whispers (VII) is a faint bed of his unintelligible whispering that follows
+    // the playing; Voice Bloom adds a choir (blend) that exists only with the recordings.
+    // All three do nothing without the recordings (the place sounds as before).
+    VoiceImprint, Whispers, VoiceBloom,
     Count
 };
 using Frame = std::array<float, Count>;
@@ -155,6 +161,10 @@ inline constexpr std::array<ModuleParamSpec, Count> moduleSpecs {{
     { "tapeWow", "Tape Wow", 0, 1, .2f, Glide::Lin, "" },
     { "tapeAscend", "Tape Pitch", 0, 4, 0, Glide::Step, "Off|Rising semitone|Rising fifth|Rising octave|Falling fourth" },
     { "drops", "Water Drops", 0, 1, 0, Glide::Lin, "" },
+
+    { "voiceImprint", "Voice Imprint", 0, 1, 0, Glide::Lin, "" },
+    { "whispers", "Whispers", 0, 1, 0, Glide::Lin, "" },
+    { "voiceBloom", "Voice Bloom", 0, 1, 0, Glide::Lin, "" },
 }};
 
 inline Frame neutralFrame() noexcept {

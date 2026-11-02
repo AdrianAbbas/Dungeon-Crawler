@@ -148,12 +148,54 @@ void drum(Layer& L, int kind, float hz, float startBend, float decay, float amp,
 
 // A recorded instrument, or false (the caller plays its synthesised fallback).
 bool sample(Layer& L, const char* id, float hz, const Note& n, float attack, float decay, float skip, float even, float courseCents = 0, float courseLevel = 0,
-            float gain = 1, float pan = 0) {
+            float gain = 1, float pan = 0, bool smoothLayers = false) {
     const auto* inst = sampled(id);
     if (inst == nullptr) return false;
     L.use(M::Sample, gain, pan);
     L.hz = hz;
+    L.sample.smoothLayers = smoothLayers;
     if (!L.sample.start(*inst, midiOf(hz), n.velocity, n.random, n.rate, attack, decay, skip, even, courseCents, courseLevel)) return false;
+    return true;
+}
+
+// The developer's voice (Session 8) on a layer: two vowels (each a lead set for the first
+// singer and an ensemble set for the others, e.g. the choir stacks), `singers` voices.
+// nullptr without the recordings (the caller plays its stand-in). Configure, then
+// startVocal().
+VocalVoice* vocal(Layer& L, float hz, const char* a, const char* aEnsemble, const char* b, const char* bEnsemble, int singers, float gain = 1, float pan = 0) {
+    const auto* la = a != nullptr ? sampled(a) : nullptr;
+    const auto* lae = aEnsemble != nullptr ? sampled(aEnsemble) : nullptr;
+    if (la == nullptr && lae == nullptr) return nullptr;
+    L.use(M::Vocal, gain, pan);
+    L.hz = hz;
+    auto& v = L.vocal;
+    v.reset();
+    v.vowel[0] = { la, lae };
+    v.vowel[1] = { b != nullptr ? sampled(b) : nullptr, bEnsemble != nullptr ? sampled(bEnsemble) : nullptr };
+    v.singers = singers;
+    return &v;
+}
+bool startVocal(Layer& L, float hz, const Note& n, float attack, float velocity, float skip = 0.0f) {
+    if (!L.vocal.start(midiOf(hz), velocity, n.random, n.rate, attack, skip, n.noiseAt ^ uint64_t(hz * 1000.0f))) {
+        L.use(M::None);
+        return false;
+    }
+    return true;
+}
+// A one-shot piece of an unpitched recording (whispers, breaths): the take chosen by
+// `pick`, started `skip` seconds in, played at its own speed (`semis` away), dying over
+// `decay` seconds.
+bool texture(Layer& L, const char* id, const Note& n, float pick, float skip, float decay, float semis, float gain, float pan) {
+    const auto* inst = sampled(id);
+    if (inst == nullptr || inst->zones.empty()) return false;
+    L.use(M::Sample, gain, pan);
+    L.sample.smoothLayers = false;
+    const float root = inst->zones.front().root;
+    L.hz = 440.0f * std::exp2((root + semis - 69.0f) / 12.0f);
+    if (!L.sample.start(*inst, root + semis, 0.5f, pick, n.rate, 0.03f, decay, skip, 0.0f, 0, 0, int(std::lround(root)))) {
+        L.use(M::None);
+        return false;
+    }
     return true;
 }
 
@@ -312,11 +354,32 @@ void finalBossLair(Voice& v, const Note& n) {
     v.layer[1].synth.detuneCents = 6;
     v.layer[1].synth.cutoff = 600.0f * std::exp2(n.offset(0));
     v.layer[1].synth.formantHz = 420;
-    if (sig(n) > 0.02f) choir(v.layer[2], n.hz, 0.01f, 2.0f, 0.75f, 0.1f, 14, n, 0.9f * sig(n) * vel(n, 0.2f));
+    if (sig(n) > 0.02f) {
+        // The choir stab: the developer's full aah and ooh stacks shouted together, six
+        // voices tight in time, the gritty voice under them (stand-in: the formant choir).
+        if (auto* c = vocal(v.layer[2], n.hz, "voice-aah", "choir-aah", "voice-ooh", "choir-ooh", 6, 1.15f * sig(n) * vel(n, 0.2f))) {
+            c->morph = c->morphTarget = 0.35f;
+            c->detuneCents = 14;
+            c->timingMs = 18;
+            c->spread = 0.85f;
+            c->grit = sampled("voice-grit");
+            c->gritLevel = 0.35f;
+            startVocal(v.layer[2], n.hz, n, 0.012f, 0.95f, 0.02f);
+        } else {
+            choir(v.layer[2], n.hz, 0.01f, 2.0f, 0.75f, 0.1f, 14, n, 0.9f * sig(n) * vel(n, 0.2f));
+        }
+    }
+    // The doom piano: a low piano struck an octave below with the brass (Weight).
+    const float weight = d::clamp01(2.0f * n.macro[3]);
+    if (weight > 0.02f) sample(v.layer[3], "piano", n.hz * 0.5f, n, 0.0f, 3.0f * n.scale(2), 0.0f, 0.5f, 0, 0, 0.42f * weight, 0.1f, true);
 }
 void finalBossLairControl(Voice& v, const Note&, float) {
     // The stab: the choir lets go after a moment, the brass stays.
-    if (v.layer[2].model == M::Choir && v.age > 0.28f && v.layer[2].choir.env.stage != d::Env::Release) v.layer[2].choir.release(0.35f, v.note.rate);
+    if (v.age > 0.28f && v.state[0] == 0.0f) {
+        if (v.layer[2].model == M::Choir && v.layer[2].choir.env.stage != d::Env::Release) v.layer[2].choir.release(0.35f, v.note.rate);
+        if (v.layer[2].model == M::Vocal) v.layer[2].vocal.release(0.3f);
+        v.state[0] = 1.0f;
+    }
 }
 
 // ======================================================================================
@@ -409,6 +472,23 @@ void towerTop(Voice& v, const Note& n) {
 // Cloister: a soft choir, two sections a little apart (Vowel: oo .. ah).
 void cloister(Voice& v, const Note& n) {
     const float a = 0.45f * n.scale(1);
+    // The developer's soft choir: his soft ooh and aah (the first voice) and the choir
+    // stacks (the others: other takes), four voices; Vowel morphs ooh to aah. Above the
+    // highest recorded note the formant choir takes over.
+    if (auto* c = vocal(v.layer[0], n.hz, "voice-ooh", "choir-ooh", "voice-aah", "choir-aah", 4, 1.0f)) {
+        c->morph = c->morphTarget = sig(n);
+        c->detuneCents = 7;
+        c->timingMs = 45;
+        c->spread = 0.7f;
+        // Started past the onset of each sung note (where he scoops up to the pitch), the
+        // attack fading it in.
+        if (startVocal(v.layer[0], n.hz, n, std::max(a, 0.08f), 0.15f + 0.55f * n.velocity, 0.3f)) {
+            const float synthBlend = d::smoothstep(1.0f, 6.0f, v.layer[0].vocal.shiftAbove);
+            v.layer[0].gain *= 1.0f - 0.7f * synthBlend;
+            if (synthBlend > 0.01f) choir(v.layer[1], n.hz, a, 0.2f + 1.8f * sig(n), 0.32f + 0.3f * n.offset(0), 0.14f, 9, n, synthBlend, 0.2f);
+            return;
+        }
+    }
     const float vowel = 0.2f + 1.8f * sig(n);
     choir(v.layer[0], n.hz, a, vowel, 0.32f + 0.3f * n.offset(0), 0.14f, 9, n, 1.0f, -0.25f);
     choir(v.layer[1], n.hz * std::exp2(6.0f / 1200.0f), a * 1.2f, vowel + 0.3f, 0.3f + 0.3f * n.offset(0), 0.12f, 12, n, 0.7f, 0.3f);
@@ -443,6 +523,25 @@ void nave(Voice& v, const Note& n) {
 // (Vowel: oo .. oh).
 void crypt(Voice& v, const Note& n) {
     const float a = 0.3f * n.scale(1);
+    // The developer's monk chant (sounding an octave below the key): his low hummed drone
+    // and his gravelly "ooh" drone for the low notes (recorded on G2, never shifted beyond
+    // a fifth), his hummed and "oh" sweeps above; three monks a little apart. Vowel: hum
+    // to chant. A faint formant choir an octave below is the basso profundo.
+    const bool low = n.key - 12 <= 50;
+    const float hz = 0.5f * n.hz;
+    if (auto* c = vocal(v.layer[0], hz, low ? "drone-hum" : "voice-mm", nullptr, low ? "drone-chant" : "voice-oh", nullptr, 3, 1.0f, -0.05f)) {
+        c->morph = c->morphTarget = sig(n);
+        c->detuneCents = 5;
+        c->timingMs = 70;
+        c->spread = 0.45f;
+        c->driftCents = 3;
+        // Into the held drone (its first second slides onto the pitch), faded in.
+        if (startVocal(v.layer[0], hz, n, std::max(a, 0.12f), n.velocity, 1.0f)) {
+            choir(v.layer[1], hz, a * 1.3f, 0.1f + 1.2f * sig(n), 0.12f + 0.2f * n.offset(0), 0.05f, 5, n, 0.22f, 0.1f);
+            v.layer[1].choir.vibratoDepth = 0.03f;
+            return;
+        }
+    }
     const float vowel = 0.1f + 1.2f * sig(n);
     choir(v.layer[0], n.hz, a, vowel, 0.18f + 0.25f * n.offset(0), 0.06f, 6, n, 1.0f, -0.1f);
     v.layer[0].choir.vibratoDepth = 0.04f;
@@ -594,6 +693,19 @@ void oldPathControl(Voice& v, const Note& n, float dt) {
 void witchsHut(Voice& v, const Note& n) {
     tine(v.layer[0], n.hz, 2.0f * n.scale(2), 0.8f + 0.2f * n.offset(0), n);
     tine(v.layer[1], n.hz * std::exp2((4.0f + 16.0f * sig(n)) / 1200.0f), 1.6f * n.scale(2), 0.7f, n, 0.5f, 0.3f);
+    // The developer humming the lullaby softly under the box (his soft "mmm", at the key:
+    // the box sounds an octave above it), rising slowly and fading with the box.
+    if (auto* h = vocal(v.layer[2], n.hz * 0.5f, "voice-mm", nullptr, nullptr, nullptr, 1, 0.3f, -0.15f)) {
+        h->driftCents = 5;
+        startVocal(v.layer[2], n.hz * 0.5f, n, 0.18f * n.scale(1), 0.12f, 0.3f);
+    }
+}
+void witchsHutControl(Voice& v, const Note& n, float) {
+    // The hum follows the box down: let go with it, even while the key is held.
+    if (v.layer[2].model == M::Vocal && v.age > 1.6f * n.scale(2) && v.state[0] == 0.0f) {
+        v.layer[2].vocal.release(0.9f);
+        v.state[0] = 1.0f;
+    }
 }
 
 // Ancient Grove: an ancient harp, and a breath whispering the note (Whispers).
@@ -605,15 +717,26 @@ void ancientGrove(Voice& v, const Note& n) {
     sh.pickNoise = 0.07f;
     pluck(v.layer[0], n.hz, 3.6f * n.scale(2), 0.45f + 0.3f * n.offset(0), vel(n), sh, n);
     if (sig(n) > 0.02f) {
+        // The breathy whisper: a moment of the developer's unintelligible whispering (one
+        // of three voices, from anywhere in it) or one of his slow breaths, as the string
+        // is plucked (stand-in: a breath of noise at the octave).
         auto& L = v.layer[1];
-        wind(L, n.hz * 2.0f, 0.12f, 0, 0, 0, 0, 0.9f, 0.0f, n, 0.6f * sig(n), 0.4f * (n.random - 0.5f));
-        L.wind.tone = 0;
-        L.wind.breathQ = 7;
-        L.wind.air = 0.25f;
+        const float r2 = d::unipolar(d::mix64(n.noiseAt + 3));
+        const bool whisper = n.random < 0.65f;
+        const float pan = 0.5f * (r2 - 0.5f) * 2.0f;
+        const bool rec = whisper ? texture(L, "voice-whispers", n, r2, 0.5f + 17.0f * d::unipolar(d::mix64(n.noiseAt + 5)), 1.1f, 0.0f, 0.55f * sig(n) * 2.0f, pan)
+                                 : texture(L, "voice-breaths", n, r2, 0.0f, 1.3f, 0.0f, 0.5f * sig(n) * 2.0f, pan);
+        if (!rec) {
+            wind(L, n.hz * 2.0f, 0.12f, 0, 0, 0, 0, 0.9f, 0.0f, n, 0.6f * sig(n), 0.4f * (n.random - 0.5f));
+            L.wind.tone = 0;
+            L.wind.breathQ = 7;
+            L.wind.air = 0.25f;
+        }
     }
 }
 void ancientGroveControl(Voice& v, const Note&, float) {
     if (v.layer[1].model == M::Wind && v.age > 0.5f && v.layer[1].wind.env.stage != d::Env::Release) v.layer[1].wind.release(0.8f, v.note.rate);
+    if (v.layer[1].model == M::Sample && v.age > 0.6f && !v.layer[1].sample.releasing) v.layer[1].sample.release(0.6f);
 }
 
 // ======================================================================================
@@ -622,6 +745,25 @@ void ancientGroveControl(Voice& v, const Note&, float) {
 // Mire: a detuned banjo: bright steel strings over a drum head, its paired strings badly
 // out of tune with each other (Detune). (The Samples repository has no banjo: modelled.)
 void mire(Voice& v, const Note& n) {
+    // The developer's banjo (open G, through the SSL): soft, medium and hard sweeps as
+    // velocity layers; round-robins from the three hits per dynamic of the open fifth
+    // string around G4, elsewhere from the neighbouring recorded notes (a minor third
+    // away, so no two repeats are the same take); a second string badly out of tune with
+    // it (Detune), murky.
+    const float detune = 8.0f + 30.0f * sig(n);
+    const bool fifth = n.key >= 65 && n.key <= 69 && sampled("banjo-g5") != nullptr;
+    if (fifth) {
+        if (sample(v.layer[0], "banjo-g5", n.hz, n, 0.0f, 1.4f * n.scale(2), 0.0f, 0.5f, detune, 0.55f, 1, 0, true)) return;
+    } else if (const auto* inst = sampled("banjo")) {
+        const int rr = std::min(2, int(n.random * 3.0f));
+        const int look = std::clamp(n.key + (rr == 1 ? -3 : (rr == 2 ? 3 : 0)), inst->lowKey, inst->highKey);
+        auto& L = v.layer[0];
+        L.use(M::Sample);
+        L.hz = n.hz;
+        L.sample.smoothLayers = true;
+        if (L.sample.start(*inst, midiOf(n.hz), n.velocity, n.random, n.rate, 0.0f, 1.4f * n.scale(2), 0.0f, 0.5f, detune, 0.55f, look)) return;
+        L.use(M::None);
+    }
     d::Pluck::Shape sh;
     sh.position = 0.09f;
     sh.loss = 0.16f - 0.1f * n.offset(0);
@@ -675,7 +817,35 @@ void foothills(Voice& v, const Note& n) {
 
 // Mountain Pass: war drums: big skins tuned to the note, struck with heavy sticks, a slap
 // on the rim (Rim).
+// The developer's two djembes, pitched down and huge: each stroke has its own keys, low to
+// high (the big drum's bass at the bottom, its muted bass, tone, slap and muted slap,
+// then the small drum's), pitched further down the lower the key within its stroke; the
+// three hits per dynamic are round-robins, the dynamics velocity layers.
+struct Stroke { int top; const char* id; float shift; };
+constexpr Stroke strokes[] { { 47, "djembe-big-bass", -9 }, { 52, "djembe-big-mbass", -7 }, { 57, "djembe-big-tone", -6 }, { 62, "djembe-big-slap", -5 },
+                             { 66, "djembe-big-mslap", -5 }, { 71, "djembe-small-bass", -6 }, { 75, "djembe-small-tone", -4 }, { 79, "djembe-small-slap", -4 },
+                             { 83, "djembe-small-mbass", -3 }, { 127, "djembe-small-mslap", -3 } };
+bool warDrum(Layer& L, int key, const Note& n, float gain, float decayScale) {
+    const auto& st = *std::find_if(std::begin(strokes), std::end(strokes), [&](const Stroke& s) { return key <= s.top; });
+    const auto* inst = sampled(st.id);
+    if (inst == nullptr || inst->zones.empty()) return false;
+    const float root = inst->zones.front().root;
+    const float semis = st.shift + 0.4f * float(std::max(key - st.top, -30));
+    L.use(M::Sample, gain);
+    L.hz = 440.0f * std::exp2((root + semis - 69.0f) / 12.0f);
+    L.sample.smoothLayers = true;
+    if (!L.sample.start(*inst, root + semis, n.velocity, n.random, n.rate, 0.0f, 2.2f * decayScale, 0.0f, 0.35f, 0, 0, int(std::lround(root)))) {
+        L.use(M::None);
+        return false;
+    }
+    return true;
+}
 void mountainPass(Voice& v, const Note& n) {
+    if (warDrum(v.layer[0], n.key, n, 1.0f, n.scale(2))) {
+        // Rim: the small drum's slap cracking over the stroke.
+        if (sig(n) > 0.02f && n.key <= 71) warDrum(v.layer[1], 77, n, 0.5f * sig(n) * 2.0f, 0.5f);
+        return;
+    }
     auto& L = v.layer[0];
     L.use(M::Drum);
     L.hz = n.hz;
@@ -700,6 +870,26 @@ void frozenPeak(Voice& v, const Note& n) {
 // (Brass).
 void dwarvenHall(Voice& v, const Note& n) {
     const float a = 0.12f * n.scale(1);
+    // The developer's dwarven chant (an octave below the key): his gravelly "ooh" drone
+    // (G2) on the low notes turning into his "aah" drone (A3) above, the grungy voice under
+    // them, three dwarves; the low brass an octave below (Brass).
+    if (auto* c = vocal(v.layer[0], n.hz, "drone-chant", nullptr, "drone-aah", nullptr, 3, 1.0f)) {
+        c->morph = c->morphTarget = d::smoothstep(46.0f, 54.0f, float(n.key));
+        c->detuneCents = 10;
+        c->timingMs = 50;
+        c->spread = 0.5f;
+        c->grit = sampled("voice-grit");
+        c->gritLevel = 0.22f;
+        if (startVocal(v.layer[0], n.hz, n, std::max(a, 0.1f), n.velocity, 1.0f)) {
+            if (sig(n) > 0.02f) {
+                synth(v.layer[1], d::SynthBrass, n.hz * 0.5f, a, 1.0f, 1.0f, n, 0.7f * sig(n) * 2.0f);
+                v.layer[1].synth.cutoff = 520.0f * std::exp2(n.offset(0));
+                v.layer[1].synth.formantHz = 420;
+                v.layer[1].synth.detuneCents = 7;
+            }
+            return;
+        }
+    }
     choir(v.layer[0], n.hz, a, 1.1f, 0.3f + 0.25f * n.offset(0), 0.07f, 10, n, 1.0f);
     v.layer[0].choir.vibratoDepth = 0.05f;
     if (sig(n) > 0.02f) {
@@ -717,6 +907,32 @@ void dwarvenHall(Voice& v, const Note& n) {
 // analog breath of a pad (Pad).
 void gates(Voice& v, const Note& n) {
     const float a = 0.9f * n.scale(1);
+    // The developer's full chest choir stacks (aah, a little ooh), six voices spread wide
+    // and slow, and three more an octave below them; dark (the post), the dark hall behind.
+    if (auto* c = vocal(v.layer[0], n.hz, "voice-aah", "choir-aah", "voice-ooh", "choir-ooh", 6, 1.0f)) {
+        c->morph = c->morphTarget = 0.35f;
+        c->detuneCents = 12;
+        c->timingMs = 90;
+        c->spread = 1.0f;
+        c->driftCents = 6;
+        if (startVocal(v.layer[0], n.hz, n, a, std::max(0.8f, n.velocity), 0.35f)) {
+            if (auto* lo = vocal(v.layer[1], n.hz * 0.5f, "choir-aah", nullptr, "choir-ooh", nullptr, 3, 0.55f)) {
+                lo->morph = lo->morphTarget = 0.5f;
+                lo->detuneCents = 9;
+                lo->timingMs = 120;
+                lo->spread = 0.9f;
+                startVocal(v.layer[1], n.hz * 0.5f, n, a * 1.3f, 0.9f, 0.35f);
+            }
+            if (sig(n) > 0.02f) {
+                synth(v.layer[2], d::SynthAnalog, n.hz, a * 1.5f, 1.0f, 1.0f, n, 0.22f * sig(n) * 2.0f);
+                v.layer[2].synth.cutoff = 380.0f * std::exp2(n.offset(0));
+                v.layer[2].synth.envOctaves = 0.8f;
+                v.layer[2].synth.detuneCents = 12;
+                v.layer[2].synth.subLevel = 0.3f;
+            }
+            return;
+        }
+    }
     choir(v.layer[0], n.hz, a, 0.4f, 0.14f + 0.2f * n.offset(0), 0.1f, 14, n, 1.0f, -0.3f);
     choir(v.layer[1], n.hz * 0.5f, a * 1.3f, 0.6f, 0.1f + 0.2f * n.offset(0), 0.08f, 12, n, 0.5f, 0.3f);
     if (sig(n) > 0.02f) {
@@ -752,6 +968,8 @@ void mausoleum(Voice& v, const Note& n) {
     ex.beatHz = 0.8f;
     ex.variation = 0.15f;
     bell(v.layer[0], n.hz, 6.0f * n.scale(2), hardness(n, 0.55f), 0.5f * vel(n), d::bellRatios.data(), bellDecays, bellGains, 8, n, ex);
+    // The developer's piano struck low under the toll (its held notes, an octave below).
+    sample(v.layer[2], "piano-long", n.hz * 0.5f, n, 0.0f, 4.0f * n.scale(2), 0.0f, 0.5f, 0, 0, 0.32f * vel(n, 0.4f), -0.1f);
     if (sig(n) > 0.02f) {
         auto& o = organ(v.layer[1], n.hz * 0.5f, 0.5f * sig(n) * 2.0f);
         o.addRank(1.0f, 1.0f);
@@ -893,7 +1111,7 @@ const std::array<Design, instrumentCount>& table() {
         { "Cello Harmonics", M5("Tone", "Bow", "Release", "Body", "Creak"), "Vibrato", ModWheel::Vibrato, 6, 0.5f, 0, true,
           stringPost(0.45f, 7000, 0.5f), oldPath, oldPathControl },
         { "Music Box", M5("Tone", "Pluck", "Ring", "Body", "Wear"), "Vibrato", ModWheel::Vibrato, 12, 0.8f, 12, false,
-          withBody(plainPost(9000, 150), { { 900, 1.2f, 0.3f } }), witchsHut, nullptr },
+          withBody(plainPost(9000, 150), { { 900, 1.2f, 0.3f } }), witchsHut, witchsHutControl },
         { "Ancient Harp", M5("Tone", "Pluck", "Ring", "Body", "Whispers"), "Vibrato", ModWheel::Vibrato, 12, 0.7f, 0, false,
           bodyPost(d::BodyHarp, 8000, 0.8f, 40), ancientGrove, ancientGroveControl },
         // Caverns
@@ -978,7 +1196,10 @@ float designTrimDb(int index) noexcept { return trims[std::size_t(std::clamp(ind
 float standInTrimDb(int index) noexcept { return standInTrims[std::size_t(std::clamp(index, 0, instrumentCount - 1))]; }
 bool usesRecordings(int index) noexcept {
     const int l = locationOf(index), k = subOf(index);
-    return (l == Castle && k == 0) || (l == Caverns && k == 2) || (l == Village && (k == 1 || k == 2)) || (l == Necropolis && k == 1) || (l == WizardsTower && k == 3);
+    return (l == Castle && k == 0) || (l == Caverns && k == 2) || (l == Village && (k == 1 || k == 2)) || (l == Necropolis && k == 1) || (l == WizardsTower && k == 3)
+           // Session 8: the voice, the banjo, the djembes and the piano.
+           || (l == Dungeon && k == 4) || (l == Cathedral && (k == 0 || k == 2)) || (l == HauntedForest && (k == 2 || k == 3)) || (l == Swamp && k == 0)
+           || (l == Mountains && (k == 1 || k == 3)) || (l == Necropolis && (k == 0 || k == 2));
 }
 float placeTrimDb(int location, int sub) noexcept { return placeTrims[std::size_t(designFor(location, sub))]; }
 

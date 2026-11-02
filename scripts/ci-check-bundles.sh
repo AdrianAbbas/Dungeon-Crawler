@@ -2,7 +2,8 @@
 # CI gate for the built macOS bundles of both plug-ins: both architecture slices
 # present, AU identity (the instrument aumu/Dgci, the effect aufx/Dgcr) and sandboxSafe
 # in Info.plist, minimum macOS version reported, the painted art inside every bundle
-# (Contents/Resources/Painted), the recorded samples inside the instrument's.
+# (Contents/Resources/Painted), the recorded samples inside the instrument's, the voice
+# sets inside the effect's (Session 8).
 # Usage: scripts/ci-check-bundles.sh <build dir> [config]
 set -euo pipefail
 build="$1"
@@ -39,6 +40,20 @@ for entry in "DungeonCrawler aumu Dgci DungeonCrawlerInstAUFactory" "DungeonCraw
                 echo "::error::missing the recorded samples in $bundle (Contents/Resources/Samples)"; status=1
             else
                 echo "    samples: none (no SAMPLES_TOKEN: the sampled instruments play their stand-ins)"
+            fi
+        else
+            # Session 8: the effect ships the developer's voice for its places (whispers,
+            # the choir stacks' imprint), and nothing else.
+            samples="$bundle/Contents/Resources/Samples"
+            if [[ -f "$samples/index.json" ]]; then
+                printf '    voice samples: %s sets, %s\n' "$(find "$samples" -maxdepth 1 -name '*.json' ! -name index.json | wc -l | tr -d ' ')" "$(du -sh "$samples" | cut -f1)"
+                for set in voice-whispers choir-ooh choir-aah; do
+                    [[ -f "$samples/$set.json" ]] || { echo "::error::$bundle lacks the voice set $set"; status=1; }
+                done
+            elif [[ "${DC_REQUIRE_SAMPLES:-0}" == 1 ]]; then
+                echo "::error::missing the voice samples in $bundle (Contents/Resources/Samples)"; status=1
+            else
+                echo "    voice samples: none (no SAMPLES_TOKEN: the voice places sound as before)"
             fi
         fi
     done

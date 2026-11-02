@@ -576,7 +576,7 @@ def pick(cands, x, bowed, partials, sequence):
     return chosen, [c for c in scored if c not in chosen]
 
 
-def slice_note(x, onset_frame, next_frame, env, floor, max_seconds, bowed):
+def slice_note(x, onset_frame, next_frame, env, floor, max_seconds, bowed, lead_db=40.0):
     start = max(0, onset_frame * ENV_HOP - int((0.03 if bowed else 0.006) * RATE))
     stop_limit = len(x) if next_frame is None else next_frame * ENV_HOP - int(0.02 * RATE)
     stop_limit = min(stop_limit, start + int(max_seconds * RATE))
@@ -588,11 +588,12 @@ def slice_note(x, onset_frame, next_frame, env, floor, max_seconds, bowed):
         if sm[i] < floor + 5:
             end = min(stop_limit, (i + 20) * ENV_HOP)
             break
-    # Leading near-silence (a slow bow's onset walked back too far): start 10 ms before
-    # the level first comes within 40 dB of the note's peak.
+    # Leading near-silence (a slow bow's onset walked back too far, a finger settling on a
+    # string before the pluck): start 10 ms before the level first comes within `lead_db`
+    # (40 dB; a plucked set can ask for less) of the note's peak.
     env_note = envelope(x[start:end])
     if len(env_note):
-        first = int(np.argmax(env_note >= env_note.max() - 40.0))
+        first = int(np.argmax(env_note >= env_note.max() - lead_db))
         start += max(0, first * ENV_HOP - int(0.01 * RATE))
     y = x[start:end].copy()
     # Fades: a short one in (the attack stays), a longer cosine one out.
@@ -677,7 +678,7 @@ def process_set(spec, source, room, out_dir, report):
                 report["problems"].append(f"{sid}/{layer['name']}: note at {c['start'] * ENV_HOP / RATE:.2f}s has no pitch; skipped")
                 continue
             onset = c["start"] * ENV_HOP
-            y, start = slice_note(x, c["start"], nxt, env, floor, spec.get("maxSeconds", 6.0), bowed)
+            y, start = slice_note(x, c["start"], nxt, env, floor, spec.get("maxSeconds", 6.0), bowed, spec.get("leadDb", 40.0))
             midi, _ = pitch_of(x, onset, bowed, partials, near=label)
             note = {"label": name_of(label), "at": round(start / RATE, 2), "seconds": round(len(y) / RATE, 2)}
             where = f"{sid}/{layer['name']} {name_of(label)} at {start / RATE:.2f}s"
@@ -972,6 +973,17 @@ def process_hits(spec, source, room, report):
         if moved:
             report["warnings"].append(f"{sid}: velocity layers assigned by loudness, not as recorded: {', '.join(moved)}")
             entry["reordered"] = moved
+    # "layerStepsDb": the dynamics set that far apart (mean loudness per layer, around the
+    # hardest), each hit keeping its own tone. The djembes' soft hits were played 15-20 dB
+    # under the medium ones: 6 dB steps let the velocity rise evenly across the layers.
+    steps = spec.get("layerStepsDb")
+    if steps and len(steps) == len(layers) and len(zones) == count:
+        mean = {li: float(np.mean([note_loudness(z["audio"]) for z in zones if z["layer"] == li])) for li in range(len(layers))}
+        top = mean[len(layers) - 1]
+        trims = {li: float(np.clip(top + steps[li] - mean[li], -18.0, 18.0)) for li in mean}
+        for z in zones:
+            z["audio"] = z["audio"] * 10 ** (trims[z["layer"]] / 20)
+        entry["layerTrimsDb"] = {layers[li]: round(t, 1) for li, t in trims.items()}
     # The dynamics should rise: soft < medium < hard (mean loudness per layer).
     means = [float(np.mean([note_loudness(z["audio"]) for z in zones if z["layer"] == li] or [-120])) for li in range(len(layers))]
     entry["layerLoudness"] = [round(m, 1) for m in means]

@@ -53,9 +53,10 @@ DungeonCrawlerProcessor::DungeonCrawlerProcessor(PluginKind k)
         instLock = parameters.getRawParameterValue(dc::ids::instLock);
         for (std::size_t m = 0; m < instMacros.size(); ++m) instMacros[m] = parameters.getRawParameterValue(dc::ids::instMacros[m]);
         bendRange = parameters.getRawParameterValue(dc::ids::bendRange);
-        // The developer's recordings load on a background thread (once per process).
-        wb::samples::Bank::get().load();
     }
+    // The developer's recordings load on a background thread (once per process). The FX
+    // ships the voice it uses in its places (Session 8); without them it sounds as before.
+    wb::samples::Bank::get().load();
     markPresetBaseline();   // a new instance is "Init", unmodified
 }
 
@@ -361,11 +362,10 @@ void DungeonCrawlerProcessor::prepareToPlay(double sampleRate, int) {
     rate = std::isfinite(sampleRate) ? juce::jlimit(8000.0, 384000.0, sampleRate) : 48000.0;
     world.prepare(rate);
     atmosphere.prepare(rate);
-    if (isInstrument()) {
-        // The first notes should already be sampled: wait briefly for the recordings.
-        wb::samples::Bank::get().waitUntilLoaded(3000);
-        synth.prepare(rate);
-    }
+    // The first notes should already be sampled (and the FX's places already have the
+    // voice): wait briefly for the recordings.
+    wb::samples::Bank::get().waitUntilLoaded(3000);
+    if (isInstrument()) synth.prepare(rate);
     limiter.prepare(rate);
     latency = world.latencySamples();
     for (auto& d : dryDelay) d.prepare(static_cast<std::size_t>(latency + 8));

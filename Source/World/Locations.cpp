@@ -59,7 +59,9 @@ std::vector<LocationDesign> buildWorld() {
                                  { TapeMix, .28f }, { TapeTime, 820 }, { TapeFeedback, .3f }, { TapeTone, 1800 }, { TapeWow, .3f }, { TapeAscend, 4 },
                                  { DelayTime, 760 }, { Feedback, .45f }, { DelayDamping, .65f }, { Descent, 1 }, { Diffusion, .5f }, { DelayMix, .16f },
                                  { Character, 3 }, { Space, .95f }, { Decay, 6 }, { Damping, .55f }, { PreDelay, 60 }, { ReverbMix, .18f },
-                                 { VaultKind, 15 }, { VaultMix, .66f } } },
+                                 { VaultKind, 15 }, { VaultMix, .66f },
+                                 // Session 8: the sub-octave choir sings with the developer's voice.
+                                 { VoiceImprint, .85f } } },
         },
         {
           { "Depth", { { Space, -.35f, .35f }, { Decay, -1, 1 }, { PreDelay, -12, 30 }, { ReverbMix, -.15f, .15f } } },
@@ -102,7 +104,9 @@ std::vector<LocationDesign> buildWorld() {
                         { Voices, 2 }, { Interval, 0 }, { ChoirBlend, .18f }, { Formant, .55f }, { ChoirMovement, .4f }, { Drone, .08f }, { DroneHold, 3 },
                         { DelayMix, 0 },
                         { Character, 0 }, { Space, .4f }, { Decay, 2.5f }, { Damping, .7f }, { PreDelay, 12 }, { Shimmer, 0 }, { ReverbMix, .2f },
-                        { VaultKind, 19 }, { VaultMix, .6f }, { VaultShimmer, 0 } } },
+                        { VaultKind, 19 }, { VaultMix, .6f }, { VaultShimmer, 0 },
+                        // Session 8: the choir below the instrument is the developer's voice.
+                        { VoiceImprint, .8f } } },
           // On the battlements: open, looking out over the world ahead. A wide, airy
           // open sky (almost no reflections), long distant echoes, bright, the wind.
           { "Tower Top", { { HighPass, 200 }, { Cutoff, 15000 }, { Darkness, 0 }, { Wind, .28f }, { EnsMix, 0 },
@@ -125,7 +129,10 @@ std::vector<LocationDesign> buildWorld() {
         { { Cutoff, 9000 }, { Darkness, .12f }, { Wind, .1f },
           { DelayTime, 92 }, { Feedback, .55f }, { Diffusion, .7f }, { DelayDamping, .4f }, { Spread, .6f }, { DelayMix, .34f },
           { Character, 1 }, { Space, .6f }, { Decay, 4.5f }, { Damping, .5f }, { PreDelay, 28 }, { Shimmer, .14f }, { ReverbMix, .5f },
-          { VaultKind, 27 }, { VaultMix, .5f } },
+          { VaultKind, 27 }, { VaultMix, .5f },
+          // Session 8: a faint choir of the developer's voice an octave above, blooming in
+          // the arches (only with his recordings: without them the cloister is as it was).
+          { Voices, 2 }, { Interval, 4 }, { Formant, .45f }, { ChoirMovement, .5f }, { ChoirDetune, 10 }, { VoiceImprint, 1 }, { VoiceBloom, .09f } },
         {
           // The nave (CHANGE): the longest, most majestic space in the plug-in. Huge,
           // smooth stone, a long pre-delay and a slow bloom (Grand Nave, 7.5 s), the
@@ -140,7 +147,9 @@ std::vector<LocationDesign> buildWorld() {
                        { Tomb, .32f }, { TombNote, 2 }, { TombOctave, 1 }, { Drive, 3 }, { Age, .15f }, { BloodMix, .2f },
                        { Voices, 1 }, { Interval, 0 }, { ChoirBlend, .15f }, { Formant, .1f }, { DelayMix, 0 },
                        { Character, 2 }, { Space, .3f }, { Decay, 2 }, { Damping, .85f }, { PreDelay, 6 }, { Shimmer, 0 }, { ReverbMix, .45f },
-                       { VaultKind, 7 }, { VaultMix, .3f } } },
+                       { VaultKind, 7 }, { VaultMix, .3f },
+                       // Session 8: faint whispers in the dark (the developer's own).
+                       { Whispers, .3f } } },
           // The belfry (CHANGE): you strike a bell. Tuned bell partials (hum, prime,
           // tierce, quint, nominal) ring with every attack (signature and the bell
           // resonators), the ringing fed back through a tape loop, a slow metallic swirl
@@ -202,7 +211,9 @@ std::vector<LocationDesign> buildWorld() {
                                { Tomb, .32f }, { TombNote, 9 }, { TombOctave, 1 }, { TombRing, .8f },
                                { DelayMix, .06f },
                                { Character, 3 }, { Space, .65f }, { Decay, 4.5f }, { Damping, .45f }, { PreDelay, 40 }, { Shimmer, .15f }, { ReverbMix, .25f },
-                               { VaultKind, 22 }, { VaultMix, .74f }, { VaultShimmer, .3f } } },
+                               { VaultKind, 22 }, { VaultMix, .74f }, { VaultShimmer, .3f },
+                               // Session 8: the grove whispers (the developer's voice).
+                               { Whispers, .32f } } },
         },
         {
           { "Mist", { { WraithMix, -.12f, .3f }, { Blur, -.3f, .2f }, { Drift, -.2f, .3f } } },
@@ -401,7 +412,9 @@ std::vector<LocationDesign> buildWorld() {
                            { TapeMix, .3f }, { TapeTime, 610 }, { TapeFeedback, .32f }, { TapeTone, 2600 }, { TapeWow, .9f },
                            { DelayTime, 760 }, { Feedback, .25f }, { DelayDamping, .6f }, { Diffusion, .35f }, { DelayMix, .1f },
                            { Character, 0 }, { Space, .6f }, { Decay, 3.6f }, { Damping, .2f }, { PreDelay, 40 }, { ReverbMix, .22f },
-                           { VaultKind, 2 }, { VaultMix, .6f }, { VaultTone, 20000 }, { VaultDuck, 0 } } },
+                           { VaultKind, 2 }, { VaultMix, .6f }, { VaultTone, 20000 }, { VaultDuck, 0 },
+                           // Session 8: faint unintelligible whispers among the graves.
+                           { Whispers, .5f } } },
           // The mausoleum (LIKE, kept exactly): a tight, sealed stone tomb, hollow and
           // muffled. Everything the Gates' redesign added is pinned back to before.
           { "Mausoleum", { { HighPass, 50 }, { Cutoff, 4500 }, { Darkness, .35f }, { Wind, 0 }, { Drips, .12f },

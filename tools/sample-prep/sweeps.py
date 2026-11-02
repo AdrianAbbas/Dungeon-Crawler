@@ -536,6 +536,11 @@ def chromatic_notes(spec, source, report):
         stop = min(stop, c["start"] + int(spec.get("maxSeconds", 6.0) * RATE / HOP))
         start = max(0, c["start"] * HOP - int(0.004 * RATE))
         end = note_end(env, c["start"], stop, floor)
+        # The hammer: 5 ms before the level first comes within 30 dB of the note's peak (a
+        # candidate can start on the damper or a key's noise before it).
+        head = P.envelope(x[start:min(end * HOP, start + int(1.5 * RATE))])
+        if len(head):
+            start += max(0, int(np.argmax(head >= head.max() - 30.0)) * HOP - int(0.005 * RATE))
         y = x[start:end * HOP].copy()
         seg = y[int(0.06 * RATE):int(0.06 * RATE) + int(0.7 * RATE)]
         f0, b = piano_pitch(seg, label) if len(seg) > 4096 else (None, None)

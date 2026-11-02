@@ -220,12 +220,12 @@ from `AdrianAbbas/Samples` into the instrument (and the FX's voice places). Push
 Resume from the first unticked line. Details in "Session 8" at the end of this file.
 
 - [x] S1. Sample prep: recursive discovery (subfolders, WAV), voice / hits / piano kinds, pitch detected per note, "Prepared: N notes" per set in the CI log
-- [ ] S2. Voice sampler (vowel layers soft/full, loops, vowel morph, choir ensemble 1..full, above E4 shifted + synthesis)
-- [ ] S3. Voice instruments: Cloister, Crypt, Gates, Dwarven Hall, Final Boss Lair, Ancient Grove whispers, Witch's Hut hum
-- [ ] S4. FX places: recorded voice in the Boss Lair sub-octave choir, Cloister/Chapel bloom; whispers in Graveyard, Ancient Grove, Crypt (+ Atmosphere)
-- [ ] S5. Banjo: Mire (velocity layers, 3 round-robins, murky and detuned)
-- [ ] S6. Djembe: Mountain Pass war drums (strokes across the keyboard, round-robins), optional low hand drum
-- [ ] S7. Piano: where a dark piano fits (Mausoleum, Witch's Hut, Final Boss Lair)
+- [x] S2. Voice sampler (vowel layers soft/full, loops, vowel morph, choir ensemble 1..full, above E4 shifted + synthesis)
+- [x] S3. Voice instruments: Cloister, Crypt, Gates, Dwarven Hall, Final Boss Lair, Ancient Grove whispers, Witch's Hut hum
+- [x] S4. FX places: recorded voice in the Boss Lair sub-octave choir, Cloister/Chapel bloom; whispers in Graveyard, Ancient Grove, Crypt (+ Atmosphere)
+- [x] S5. Banjo: Mire (velocity layers, 3 round-robins, murky and detuned)
+- [x] S6. Djembe: Mountain Pass war drums (strokes across the keyboard, round-robins); the optional hand-drum layer not added (why: Session 8)
+- [x] S7. Piano: where a dark piano fits: the Mausoleum (low under the toll) and the Final Boss Lair (doom strike); not the Witch's Hut (why: Session 8)
 - [ ] S8. Tests (cents report, velocity smoothness, clicks, levels, distinct; FX strength/distinctness), listening renders, trims
 - [ ] S9. DEVLOG (which instruments use which recordings, bad notes to re-record), final push, CI green
 

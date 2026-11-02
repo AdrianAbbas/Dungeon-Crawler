@@ -217,6 +217,12 @@ bool Bank::loadInstrument(const juce::File& map, Instrument& into, std::vector<i
     into.rate = float(double(json["rate"]));
     if (!(into.rate > 1000.0f)) into.rate = 44100.0f;
     into.layers = std::max(1, json["layers"].getArray() != nullptr ? json["layers"].getArray()->size() : 1);
+    if (const auto* hz = json["envelopeHz"].getArray())
+        if (const auto* level = json["envelopeDb"].getArray(); level != nullptr && level->size() == hz->size())
+            for (int k = 0; k < hz->size(); ++k) {
+                into.envelopeHz.push_back(float(double((*hz)[k])));
+                into.envelopeDb.push_back(float(double((*level)[k])));
+            }
     // One buffer for the instrument, sized from the mapping before anything points into it.
     std::size_t need = 0;
     for (const auto& z : *zones) need += std::size_t(int(z["length"])) + padBefore + padAfter;

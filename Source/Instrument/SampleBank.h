@@ -49,6 +49,9 @@ public:
     // The median loudness of each velocity layer's notes: notes are evened out within
     // their own layer, so the layers keep their steps.
     std::array<float, 8> layerMedianDb {};
+    // A sung set's spectral envelope (Session 8; empty for others): dB per band at
+    // `envelopeHz` (thirds of an octave), the loudest band 0 dB.
+    std::vector<float> envelopeHz, envelopeDb;
     float medianDb(int layer) const { return layerMedianDb[std::size_t(std::clamp(layer, 0, int(layerMedianDb.size()) - 1))]; }
 
     // The zone for a key and velocity (0..1); `pick` (0..1) chooses among the

@@ -39,12 +39,17 @@ private:
         dsp::Svf filter, filter2;
         dsp::Random random;
         bool active = false;
+        // A recorded whisper (Session 8): a moment of the developer's whispering.
+        const std::int16_t* data = nullptr;
+        double pos = 0;
+        float step = 1;
     };
     void start(AtmosSound, std::uint32_t hash, float level) noexcept;
     float render(Voice&) noexcept;
     double sr = 48000;
     std::array<Voice, voiceCount> voices;
     long long lastSlot = -1;
+    bool recordedWhispers = false;   // this place whispers with the developer's voice
     float duck = 1, envelope = 0, attack = 0, release = 0, smoothLevel = 0;
 };
 }

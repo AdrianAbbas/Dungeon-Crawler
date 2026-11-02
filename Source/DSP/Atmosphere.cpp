@@ -1,5 +1,6 @@
 #include "Atmosphere.h"
 #include "../World/Journey.h"
+#include "../Instrument/SampleBank.h"
 
 namespace dc {
 using namespace dsp;
@@ -15,7 +16,7 @@ constexpr AtmosSet sets[LocationCount][placesPerLocation] = {
     { { { S::Wind, S::Owl, S::Drip }, 3 }, { { S::BellToll, S::Whisper, S::Drip }, 3 }, { { S::Drip, S::Whisper, S::Chains }, 3 },
       { { S::BellToll, S::Wind, S::Crow }, 3 }, {} },                                                                                          // Cathedral
     { { { S::Owl, S::Wind, S::Crow }, 3 }, { { S::Owl, S::Whisper, S::Crow }, 3 }, { { S::Bubbles, S::FireCrackle, S::Crow }, 3 },
-      { { S::Owl, S::Tinkle, S::Wind }, 3 }, {} },                                                                                             // Haunted Forest
+      { { S::Owl, S::Whisper, S::Wind }, 3 }, {} },                                                                                            // Haunted Forest (the grove whispers: Session 8)
     { { { S::Drip, S::Wind, S::WaterLap }, 3 }, { { S::Tinkle, S::Drip, S::Drip }, 2 }, { { S::WaterLap, S::Drip, S::Drip }, 2 },
       { { S::Growl, S::Tinkle, S::Drip }, 3 }, {} },                                                                                           // Caverns
     { { { S::Crow, S::Wind, S::Murmur }, 3 }, { { S::Murmur, S::FireCrackle, S::Clink }, 3 }, { { S::Murmur, S::Clink, S::Crow }, 3 },
@@ -91,7 +92,24 @@ void Atmosphere::start(AtmosSound sound, std::uint32_t h, float) noexcept {
         case S::Rustle: v.length = 0.5; bp(v.filter, 4200 * v.pitch, 0.7f); break;
         case S::Tinkle: v.length = 0.9; v.count = 3 + static_cast<int>(unit(h, 24) * 3.0f); v.state = 2400.0f * v.pitch; break;
         case S::WaterLap: v.length = 0.9; bp(v.filter, 420 * v.pitch, 0.7f); break;
-        case S::Whisper: v.length = 1.8; bp(v.filter, 900, 3.0f); break;
+        case S::Whisper:
+            v.length = 1.8;
+            bp(v.filter, 900, 3.0f);
+            // In the Graveyard, the Crypt and the Ancient Grove the whisper is the
+            // developer's own (a moment from anywhere in one of his three takes).
+            if (recordedWhispers) {
+                const auto& bank = wb::samples::Bank::get();
+                if (const auto* takes = bank.ready() ? bank.instrument("voice-whispers") : nullptr; takes != nullptr && !takes->zones.empty()) {
+                    const auto& z = takes->zones[static_cast<std::size_t>(unit(h, 24) * 0.999f * static_cast<float>(takes->zones.size()))];
+                    const int need = static_cast<int>(v.length * takes->rate) + 8;
+                    if (z.length > need) {
+                        v.data = z.data;
+                        v.pos = static_cast<double>(unit(h, 4)) * static_cast<double>(z.length - need);
+                        v.step = static_cast<float>(takes->rate / sr) * v.pitch;
+                    }
+                }
+            }
+            break;
         default: v.active = false; break;
     }
 }
@@ -214,6 +232,13 @@ float Atmosphere::render(Voice& v) noexcept {
         case S::Rustle: y = v.filter.bandPass(v.random.bipolar()) * bell * 0.35f; break;
         case S::WaterLap: y = v.filter.low(v.random.bipolar()) * bell * bell * 0.6f; break;
         case S::Whisper: {
+            if (v.data != nullptr) {
+                const auto i0 = static_cast<int>(v.pos);
+                const float f = static_cast<float>(v.pos - i0);
+                y = (v.data[i0] + f * static_cast<float>(v.data[i0 + 1] - v.data[i0])) * (1.0f / 32768.0f) * bell * 0.9f;
+                v.pos += v.step;
+                break;
+            }
             v.filter.set(700.0 + 1800.0 * u, sr, 0.35f);
             y = v.filter.bandPass(v.random.bipolar()) * bell * bell * 0.4f;
             break;
@@ -233,6 +258,7 @@ void Atmosphere::process(float* l, float* r, int n, double beats, double beatsPe
     const long long first = slotAt(beats), last = slotAt(beats + beatsPerSample * n);
     if (lastSlot < 0 || first < lastSlot || first - lastSlot > 64) lastSlot = first - 1;   // a jump in position
     const float chance = clamp01(density) * 0.3f;
+    recordedWhispers = (location == Necropolis && sub == 1) || (location == Cathedral && sub == 2) || (location == HauntedForest && sub == 3);
     const auto set = atmosphereOf(location, sub);
     for (long long slot = lastSlot + 1; slot <= last && level > 1.0e-4f && set.count > 0; ++slot) {
         const auto h = roamHash(static_cast<std::uint32_t>(seed) * 977u + 13u, slot, static_cast<std::uint32_t>(location * 8 + sub + 101));

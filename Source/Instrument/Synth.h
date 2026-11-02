@@ -28,7 +28,7 @@ inline constexpr int instrumentCount = 40;   // one per place (ten locations, th
 inline constexpr int maxVoices = 24;         // slots (some fading out after a steal)
 inline constexpr int macroCount = 5;         // Tone, Attack, Release, Body, the signature
 
-enum class Model : uint8_t { None, Synth, Pluck, Bell, Drum, Fm, Tine, Choir, Wind, Bowed, Strings, Organ, Sample };
+enum class Model : uint8_t { None, Synth, Pluck, Bell, Drum, Fm, Tine, Choir, Wind, Bowed, Strings, Organ, Sample, Vocal };
 // What the mod wheel does on an instrument.
 enum class ModWheel : uint8_t { Vibrato, Brightness, Tremolo, Growl, Swell };
 
@@ -112,11 +112,17 @@ struct SampleVoice {
     float midi = 60, amp = 1, attackStep = 1, fade = 1, fadeMul = 1, releaseMul = 1;
     float tailMix = 0, tailStep = 0, gain = 1, bend = 0, cents = 0, vibratoDepth = 0, vibratoHz = 5, vibratoPhase = 0, age = 0, rate = 48000;
     bool on = false, releasing = false, recordedTail = true;
+    // Set before start() (Session 8): a one-shot velocity layer glides from the layer below's
+    // level up to its own across its velocity range, so the level never jumps at a layer
+    // boundary (each layer keeps its own tone).
+    bool smoothLayers = false;
     bool active() const { return on; }
     void reset() { on = false; zone = courseZone = nullptr; }
     // skipSeconds: start that far into the recording; decaySeconds > 0: die away faster.
+    // lookupKey >= 0: the zone is chosen for that key (not folded by octaves) and pitched
+    // from there to noteMidi (the voice's top and bottom shifted instead of folded).
     bool start(const wb::samples::Instrument& inst, float noteMidi, float velocity, float pick, float sampleRate, float attackSeconds,
-               float decaySeconds, float skipSeconds, float even, float courseCents, float courseLvl);
+               float decaySeconds, float skipSeconds, float even, float courseCents, float courseLvl, int lookupKey = -1);
     void release(float seconds) {
         if (!on || releasing) return;
         releasing = true;
@@ -142,6 +148,95 @@ struct SampleVoice {
     float tick();
 };
 
+// The developer's voice (Session 8): a sung sampler. Every singer reads the recordings
+// (SampleVoice readers): the soft and the full take crossfaded by velocity (no step as the
+// velocity rises), two vowels morphed while the note sounds (`morph` 0 = the first), the
+// sustain looped and the recorded release tail on note off. An ensemble: one voice up to
+// a full choir, each singer another take of the choir stacks where there are several,
+// detuned, drifting slowly, entering a little late, spread across the stereo field. Keys
+// beyond the recorded range are not folded by octaves: the nearest note is shifted (its
+// brightness tamed as it rises), and the instrument blends its synthesis in up there.
+struct VocalVoice {
+    static constexpr int maxSingers = 6;
+    static constexpr int maxReaders = maxSingers * 4 + 1;   // singers x vowels x (soft, full), + grit
+    struct Source { const wb::samples::Instrument* lead = nullptr; const wb::samples::Instrument* ensemble = nullptr; };
+    struct Reader {
+        SampleVoice s;
+        float weight = 0, l = 0.7071f, r = 0.7071f, baseCents = 0, drift = 0, driftPhase = 0, driftHz = 0.2f;
+        int vowel = 0, delay = 0;
+        bool used = false;
+    };
+    // Set before start().
+    std::array<Source, 2> vowel {};
+    const wb::samples::Instrument* grit = nullptr;   // a rough voice under the note (its pieces are takes)
+    float gritLevel = 0;
+    int singers = 1;
+    float detuneCents = 8, timingMs = 30, spread = 0.7f, driftCents = 4, morph = 0, morphTarget = 0, morphGlide = 0.002f;
+    // Read after start(): how far the note is shifted beyond the recordings (semitones,
+    // > 0 above the highest recorded note), for the instrument's synthesis blend.
+    float shiftAbove = 0;
+    std::array<Reader, maxReaders> reader {};
+    int readers = 0;
+    d::Svf tame;
+    float tameHz = 0, rate = 48000;
+    bool active() const {
+        for (int k = 0; k < readers; ++k)
+            if (reader[std::size_t(k)].used && (reader[std::size_t(k)].s.active() || reader[std::size_t(k)].delay > 0)) return true;
+        return false;
+    }
+    void reset() {
+        for (auto& rd : reader) rd.s.reset(), rd.used = false, rd.delay = 0;
+        readers = 0;
+        tame.reset();
+        vowel = {};
+        grit = nullptr;
+        gritLevel = 0;
+        singers = 1;
+        morph = morphTarget = 0;
+        shiftAbove = 0;
+    }
+    bool start(float noteMidi, float velocity, float random, float sampleRate, float attack, float skip, uint64_t seed);
+    void release(float seconds) {
+        for (int k = 0; k < readers; ++k) reader[std::size_t(k)].s.release(seconds);
+    }
+    void update(float bendSemis, float chunkSeconds) {
+        for (int k = 0; k < readers; ++k) {
+            auto& rd = reader[std::size_t(k)];
+            if (!rd.used || !rd.s.active()) continue;
+            rd.driftPhase += rd.driftHz * chunkSeconds;
+            rd.driftPhase -= std::floor(rd.driftPhase);
+            rd.s.bend = bendSemis;
+            rd.s.cents = rd.baseCents + rd.drift * d::sinCycles(rd.driftPhase);
+            rd.s.update();
+        }
+    }
+    void tick(float& l, float& r) {
+        morph += morphGlide * (morphTarget - morph);
+        const float w[2] = { 1.0f - morph, morph };
+        float sl = 0, sr = 0;
+        for (int k = 0; k < readers; ++k) {
+            auto& rd = reader[std::size_t(k)];
+            if (!rd.used) continue;
+            if (rd.delay > 0) {
+                --rd.delay;
+                continue;
+            }
+            if (!rd.s.active()) continue;
+            const float y = rd.s.tick() * rd.weight * (rd.vowel < 2 ? w[rd.vowel] : 1.0f);
+            sl += y * rd.l;
+            sr += y * rd.r;
+        }
+        if (tameHz > 0.0f) {
+            // One low-pass on the mid keeps the image (as the post does).
+            const float m = tame.tick(0.5f * (sl + sr)).lp, side = 0.5f * (sl - sr);
+            sl = m + side;
+            sr = m - side;
+        }
+        l += sl;
+        r += sr;
+    }
+};
+
 // One sound source of a voice: whichever model the instrument chose for it.
 struct Layer {
     Model model = Model::None;
@@ -160,6 +255,7 @@ struct Layer {
     d::StringVoice strings;
     OrganVoice organ;
     SampleVoice sample;
+    VocalVoice vocal;
     d::PanGains panGains { 0.7071f, 0.7071f };
     float bellBent = 0;
     void prepare(float rate);
@@ -235,7 +331,7 @@ struct CaptureSend { int capture = CaptureNone; float send = 0; };
 CaptureSend captureOf(int index) noexcept;
 
 struct Voice {
-    std::array<Layer, 3> layer;
+    std::array<Layer, 4> layer;
     int designIndex = 0, key = -1, order = 0;
     bool on = false, keyDown = false, sustained = false, releasing = false, killing = false;
     float velocity = 0.8f, gain = 1, killGain = 1, killStep = 0, age = 0;

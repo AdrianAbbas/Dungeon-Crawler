@@ -1,4 +1,5 @@
 #include "Engine.h"
+#include "Instrument/SampleBank.h"
 #include <cmath>
 #include <cstring>
 
@@ -388,20 +389,22 @@ void Engine::process(float* l, float* r, int n, const float* dryL, const float* 
     // keep running while their tails ring after their mix went to zero.
     const auto& p = current;
     const bool abyssActive = p[Cutoff] < 19500.0f || p[HighPass] > 21.0f || p[Darkness] > 1.0e-3f || p[Tomb] > 1.0e-3f;
-    const bool relicsActive = p[Flicker] > 1.0e-4f || p[Metal] > 1.0e-4f || p[Wind] > 1.0e-4f || p[Drips] > 1.0e-4f;
+    const bool relicsActive = p[Flicker] > 1.0e-4f || p[Metal] > 1.0e-4f || p[Wind] > 1.0e-4f || p[Drips] > 1.0e-4f || p[Whispers] > 1.0e-4f;
     const bool echoesActive = p[DelayMix] > 1.0e-4f || echoes.ringing();
     const bool ensembleActive = p[EnsMix] > 1.0e-4f || p[Spiral] > 1.0e-4f || p[TapeMix] > 1.0e-4f || p[Drops] > 1.0e-4f || ensemble.ringing();
     bool vaultActive = p[VaultMix] > 1.0e-4f || to[VaultMix] > 1.0e-4f;
     for (const auto& v : vaults) vaultActive = vaultActive || v.ringing();
     bool cryptActive = p[ReverbMix] > 1.0e-4f;
     for (const auto& room : rooms) cryptActive = cryptActive || room.ringing();
-    const bool wetActive = p[ChoirBlend] > 1.0e-4f || p[Drone] > 1.0e-4f || p[WraithMix] > 1.0e-4f
+    // Voice Bloom (Session 8) sings only with the developer's recordings.
+    const bool bloom = p[VoiceBloom] > 1.0e-4f && wb::samples::Bank::get().ready();
+    const bool wetActive = p[ChoirBlend] > 1.0e-4f || bloom || p[Drone] > 1.0e-4f || p[WraithMix] > 1.0e-4f
                         || echoesActive || cryptActive || p[BloodMix] > 1.0e-4f || relicsActive || p[SigAmount] > 1.0e-4f
                         || anyDeparting() || to[SigAmount] > 1.0e-4f || ensembleActive || vaultActive;
     runSlot(abyss, slots[0], abyssActive, l, r, n);
     blood.process(l, r, n, p, context);
     runSlot(relics, slots[1], relicsActive, l, r, n);
-    runSlot(choir, slots[2], p[ChoirBlend] > 1.0e-4f || p[Drone] > 1.0e-4f, l, r, n);
+    runSlot(choir, slots[2], p[ChoirBlend] > 1.0e-4f || bloom || p[Drone] > 1.0e-4f, l, r, n);
     runSlot(wraith, slots[3], p[WraithMix] > 1.0e-4f, l, r, n);
     runSignatures(l, r, n, travel * travel * (3.0f - 2.0f * travel));
     runSlot(ensemble, slots[5], ensembleActive, l, r, n);

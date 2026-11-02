@@ -645,7 +645,7 @@ int calibrateInstruments(const juce::String& path) {
     for (int k = 0; k < dc::inst::instrumentCount; ++k) {
         const auto r = renderMelody(k, false, 0.5);
         levels.push_back(loudness(r.l, r.r, r.sr));
-        const auto p = renderMelody(k, true, 0.5);
+        const auto p = renderMelody(k, true, 3.0);   // the tail the in-place check measures (a swell can peak after the melody)
         placed.push_back(loudness(p.l, p.r, p.sr));
     }
     const bool recordings = wb::samples::Bank::get().ready();

@@ -55,6 +55,20 @@ else()
     set(DC_SAMPLES_DIR "")
     message(STATUS "DUNGEON CRAWLER: no prepared samples (DC_SAMPLES_DIR); sampled instruments use their synthesised fallbacks")
 endif()
+# The effect's voice sets (index-fx.json, written by prepare.py).
+set(DC_FX_SAMPLE_SETS "")
+if(DC_SAMPLES_DIR AND EXISTS "${DC_SAMPLES_DIR}/index-fx.json")
+    file(READ "${DC_SAMPLES_DIR}/index-fx.json" dc_fx_json)
+    string(JSON dc_fx_count LENGTH "${dc_fx_json}" instruments)
+    if(dc_fx_count GREATER 0)
+        math(EXPR dc_fx_last "${dc_fx_count} - 1")
+        foreach(dc_i RANGE ${dc_fx_last})
+            string(JSON dc_fx_set GET "${dc_fx_json}" instruments ${dc_i})
+            list(APPEND DC_FX_SAMPLE_SETS "${dc_fx_set}")
+        endforeach()
+    endif()
+    message(STATUS "DUNGEON CRAWLER FX: shipping its voice sets ${DC_FX_SAMPLE_SETS}")
+endif()
 
 function(dc_add_plugin target)
     cmake_parse_arguments(P "" "NAME;CODE;BUNDLE;PREFIX;DESCRIPTION;SYNTH;AUTYPE;VST3CAT" "" ${ARGN})
@@ -108,7 +122,21 @@ function(dc_add_plugin target)
                 add_custom_command(TARGET ${dc_target} POST_BUILD
                     COMMAND ${CMAKE_COMMAND} -E rm -rf "${dc_res}/Samples"
                     COMMAND ${CMAKE_COMMAND} -E copy_directory "${DC_SAMPLES_DIR}" "${dc_res}/Samples"
-                    COMMAND ${CMAKE_COMMAND} -E rm -f "${dc_res}/Samples/report.json"
+                    COMMAND ${CMAKE_COMMAND} -E rm -f "${dc_res}/Samples/report.json" "${dc_res}/Samples/index-fx.json"
+                    VERBATIM)
+            elseif(DC_SAMPLES_DIR AND DC_FX_SAMPLE_SETS)
+                # The effect ships only the voice it uses in its places (Session 8): the
+                # sets listed in index-fx.json, which becomes its index.json.
+                set(dc_fx_copy)
+                foreach(dc_set IN LISTS DC_FX_SAMPLE_SETS)
+                    list(APPEND dc_fx_copy
+                        COMMAND ${CMAKE_COMMAND} -E copy_directory "${DC_SAMPLES_DIR}/${dc_set}" "${dc_res}/Samples/${dc_set}"
+                        COMMAND ${CMAKE_COMMAND} -E copy "${DC_SAMPLES_DIR}/${dc_set}.json" "${dc_res}/Samples/${dc_set}.json")
+                endforeach()
+                add_custom_command(TARGET ${dc_target} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E rm -rf "${dc_res}/Samples"
+                    ${dc_fx_copy}
+                    COMMAND ${CMAKE_COMMAND} -E copy "${DC_SAMPLES_DIR}/index-fx.json" "${dc_res}/Samples/index.json"
                     VERBATIM)
             endif()
         endif()
