@@ -2124,5 +2124,6 @@ renders: dry vs processed per place, and one melody on all 40 instruments, as WA
 
 **Still not done**: nobody has listened on a Mac yet; the renders are there to be heard.
 Note for that listen: the samples log maps e.g. "static-y bassy synth *long* hit sweep.wav"
-to `mlg-staticbass-short` (and the short file to `-long`), the same for every pair; check
-whether the Samples repo's file names or the manifest are the swapped side.
+to `mlg-staticbass-short` and the *short* file to `-long` (only this pair; the cyberpunk,
+pulse, soft pad and square pairs map long to long). Check whether the file names or the
+manifest are the swapped side; nothing was changed here.
