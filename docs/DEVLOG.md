@@ -2129,7 +2129,8 @@ frame" (34.9, 38.4 ms; limit 33). Both are wall-clock checks in the `workflow` a
 groups, which ran inside the parallel shards; Direction Update 3 added a seventh concurrent
 shard (`instruments`) on a 4-core runner. `scripts/run-tests-parallel.sh` now runs
 `editor,workflow` alone after the shards (log `8-timed.txt`), as `cpu` already was. The
-checks and their limits are unchanged.
+checks and their limits are unchanged, and they stay gates: run 41374219256 passed with
+them strict (macOS and Linux green), so no report-only fallback was needed.
 
 **Still not done**: nobody has listened on a Mac yet; the renders are there to be heard.
 Note for that listen: the samples log maps e.g. "static-y bassy synth *long* hit sweep.wav"
