@@ -227,7 +227,7 @@ Resume from the first unticked line. Details in "Session 8" at the end of this f
 - [x] S6. Djembe: Mountain Pass war drums (strokes across the keyboard, round-robins); the optional hand-drum layer not added (why: Session 8)
 - [x] S7. Piano: where a dark piano fits: the Mausoleum (low under the toll) and the Final Boss Lair (doom strike); not the Witch's Hut (why: Session 8)
 - [x] S8. Tests (cents report, velocity smoothness, clicks, levels, distinct; FX strength/distinctness), listening renders, trims
-- [ ] S9. DEVLOG (which instruments use which recordings, bad notes to re-record), final push, CI green
+- [x] S9. DEVLOG (which instruments use which recordings, bad notes to re-record), final push, CI green
 
 ---
 
@@ -2376,6 +2376,15 @@ added 0.9 MB), and the smoke test keeps several processors as locals of one func
 macOS's 8 MB main-thread stack that no longer fit (gcc on Linux shares the slots). The
 voices now live on the heap, made once with the engine (never on the audio thread): the
 processor is 60 KB.
+
+**CI, after that fix (run 41402117590): green**, first try, on macOS and Linux. macOS: both
+universal plug-ins built, the smoke and instrument groups on arm64 and x86_64, the bundle
+gate (the instrument with all 45 sample sets, 80 MB, in AU, VST3 and Standalone; the FX
+with its 3 voice sets, 6.4 MB), packaging, `auval` and both host harnesses (every route,
+both architectures, samples required). Linux: the full suite 2383 passed, 0 failed (also
+in the run before, whose Linux job was already green), and the listening renders
+(`recordings/` in the test-logs artifact). The samples step prints "Prepared: N notes" per
+set: 1177 notes in 45 sample sets. No timing check needed a re-run.
 
 **Listening render** (CI test-logs artifact, `recordings/`; `--listen-recordings dir`): per
 changed instrument the same melody and four chords (Am F G Em) dry, then in its place,
