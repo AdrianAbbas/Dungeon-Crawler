@@ -2619,6 +2619,8 @@ int qaDebug(int la, int ka, int lb, int kb) {
 
 #include "InstrumentTests.inc"
 #include "RecordingsTests.inc"
+#include "WindowTests.inc"
+#include "EffectsTests.inc"
 
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -2646,6 +2648,7 @@ int main(int argc, char** argv) {
         else if (arg == "--tail-debug") return tailDebug();
         else if (arg == "--painted-snapshots" && i + 1 < argc) return paintedSnapshots(argv[i + 1]);
         else if (arg == "--hotfix-snapshots" && i + 1 < argc) return hotfixSnapshots(argv[i + 1]);
+        else if (arg == "--panel-snapshots" && i + 1 < argc) return panelSnapshots(argv[i + 1]);
         else if (arg == "--render" && i + 2 < argc)
             return renderToFile(argv[i + 1], juce::String(argv[i + 2]).getIntValue(), i + 3 < argc ? juce::String(argv[i + 3]).getDoubleValue() : 8.0);
     }
@@ -2677,6 +2680,8 @@ int main(int argc, char** argv) {
     if (run("instruments")) testInstruments(s);
     if (run("recordings")) testRecordings(s);
     if (run("instrumenteditor")) testInstrumentEditor(s, snapshot);
+    if (run("window")) testWindow(s);       // Session 9
+    if (run("effects")) testEffectsRoller(s);   // Session 9
     if (only.contains("qa")) testQa(s);   // long (130 journeys): run explicitly
     if (only.contains("cpu")) { testCpu(s); testInstrumentCpu(s); }   // report only: run explicitly
     std::cout << "\n" << s.passed << " passed, " << s.failed << " failed" << std::endl;

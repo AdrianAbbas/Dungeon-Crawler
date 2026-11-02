@@ -221,7 +221,8 @@ void testInstrumentEngine(Suite& s) {
                 "the effect has none of the instrument's parameters (its IDs are as before)");
         s.check(instrument.parameters.getParameter(dc::ids::instrument) != nullptr && instrument.parameters.getParameter(dc::ids::instMacros[4]) != nullptr,
                 "the instrument has Instrument, Lock and five macros");
-        s.check(fx.getParameters().size() + 8 == instrument.getParameters().size(), "the instrument adds exactly eight parameters",
+        // Eight since Direction Update 3, three more in Session 9 (Level, Vowel, Ensemble).
+        s.check(fx.getParameters().size() + 11 == instrument.getParameters().size(), "the instrument adds exactly eleven parameters",
                 std::to_string(fx.getParameters().size()) + " / " + std::to_string(instrument.getParameters().size()));
         // Every place has its own instrument, and back.
         std::set<int> seen;
@@ -721,26 +722,28 @@ int listenInstruments(const juce::String& directory) {
     return 0;
 }
 
-// The instrument's editor: the Instrument button, its slide-up panel, the macros named
-// for the instrument, Lock and the chooser, the keyboard lit by notes and playable.
+// The instrument's editor: its panel under the world (Session 9: LIGHT SEEKER's layout),
+// the macros named for the instrument, Lock and the chooser, the keyboard lit by notes and
+// playable, the wheels and the pedal.
 void testInstrumentEditor(Suite& s, const juce::String& snapshot) {
     s.section("instrument editor");
     {
         DungeonCrawlerProcessor fx;
         fx.prepareToPlay(48000, 512);
         std::unique_ptr<juce::AudioProcessorEditor> base(fx.createEditor());
-        auto& view = dynamic_cast<DungeonCrawlerEditor*>(base.get())->view();
-        s.check(view.instrumentPanelForTest() == nullptr && !view.instrumentButton().isVisible(), "the FX editor has no instrument panel or button");
+        auto* fxEditor = dynamic_cast<DungeonCrawlerEditor*>(base.get());
+        s.check(fxEditor->instrumentPanel() == nullptr && fxEditor->getHeight() == DungeonCrawlerEditor::defaultHeight,
+                "the FX editor has no instrument panel (960 x 560)");
     }
     InstHost h;
     std::unique_ptr<juce::AudioProcessorEditor> base(h.p->createEditor());
     auto* wrapper = dynamic_cast<DungeonCrawlerEditor*>(base.get());
     if (!s.check(wrapper != nullptr, "the instrument's editor is created")) return;
     auto& view = wrapper->view();
-    auto* panel = view.instrumentPanelForTest();
-    if (!s.check(panel != nullptr && view.instrumentButton().isVisible(), "the instrument's editor has the Instrument button")) return;
-    nav::click(view.instrumentButton());
-    s.check(view.instrumentOpen(), "the Instrument button opens the panel");
+    auto* panel = wrapper->instrumentPanel();
+    if (!s.check(panel != nullptr && panel->isVisible(), "the instrument's editor shows its panel")) return;
+    s.check(wrapper->getHeight() == DungeonCrawlerEditor::defaultHeight + dc::ui::InstrumentPanel::panelHeight
+            && panel->getY() == DungeonCrawlerEditor::defaultHeight, "the panel sits under the world (960 x 756)");
     h.render(0.05);
     panel->pollForTest();
     s.check(panel->titleText() == dc::inst::design(0).name, "the panel names the instrument", panel->titleText().toStdString());
@@ -805,13 +808,12 @@ void testInstrumentEditor(Suite& s, const juce::String& snapshot) {
     if (snapshot.isNotEmpty()) {
         view.settleForTest();
         auto image = view.createComponentSnapshot(view.getLocalBounds(), true, 1.0f);
+        image = wrapper->createComponentSnapshot(wrapper->getLocalBounds(), true, 1.0f);
         juce::File file(juce::File(snapshot).getSiblingFile(juce::File(snapshot).getFileNameWithoutExtension() + "-instrument.png"));
         file.deleteFile();
         juce::FileOutputStream stream(file);
         juce::PNGImageFormat().writeImageToStream(image, stream);
     }
-    // Esc closes it.
-    s.check(view.pressEscapeForTest() && !view.instrumentOpen(), "Esc closes the panel");
 }
 
 // Report only: four instrument instances, each a four-note chord held in its place.

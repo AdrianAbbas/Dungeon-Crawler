@@ -46,9 +46,16 @@ inline constexpr const char* instrument = "instrument";
 inline constexpr const char* instLock = "instLock";
 inline constexpr std::array<const char*, 5> instMacros { "instMacro1", "instMacro2", "instMacro3", "instMacro4", "instMacro5" };
 inline constexpr const char* bendRange = "bendRange";
+// Session 9 (appended, so existing parameters keep their places): the Effects roller (both
+// plug-ins) and the instrument's Level, Vowel and Ensemble.
+inline constexpr const char* effects = "effects";
+inline constexpr const char* instLevel = "instLevel";
+inline constexpr const char* instVowel = "instVowel";
+inline constexpr const char* instEnsemble = "instEnsemble";
 }
 
 namespace dc {
+inline constexpr float effectsMax = 1.5f;   // the Effects roller's top (150 %)
 // Travel Sync choices: Free (Travel Time in seconds) or a length in beats.
 inline constexpr std::array<double, 6> travelSyncBeats { 0, 1, 2, 4, 8, 16 };
 inline constexpr const char* travelSyncChoices = "Free|1/4|1/2|1 bar|2 bars|4 bars";
@@ -173,7 +180,18 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
             juce::AudioParameterIntAttributes().withLabel("st")
                 .withStringFromValueFunction([](int v, int) { return juce::String(v) + " st"; })
                 .withAutomatable(false)));
+        // Session 9: Level (dB) and the voices' Vowel and Ensemble (50 %: as designed).
+        layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::instLevel, 1 }, "Instrument Level",
+                                                               juce::NormalisableRange<float>(-24.0f, 12.0f), 0.0f, decibels));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::instVowel, 1 }, "Vowel",
+                                                               juce::NormalisableRange<float>(0.0f, 1.0f), 0.5f, macroText));
+        layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::instEnsemble, 1 }, "Ensemble",
+                                                               juce::NormalisableRange<float>(0.0f, 1.0f), 0.5f, macroText));
     }
+    // Session 9: the Effects roller. 100 % is the place as designed (and what a session
+    // saved before it existed opens at); 0 % nearly the dry signal; 150 % stronger.
+    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::effects, 1 }, "Effects",
+                                                           juce::NormalisableRange<float>(0.0f, effectsMax), 1.0f, percent));
     return layout;
 }
 }

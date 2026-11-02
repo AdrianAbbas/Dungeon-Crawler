@@ -1,46 +1,63 @@
 #pragma once
-// DUNGEON CRAWLER's instrument panel (Direction Update 3): a drawer that slides up over
-// the painted place, in the same dark style. The instrument's name and its place, Lock
-// instrument, a chooser for any of the forty, its five macros (their names follow the
-// instrument), Intensity (how strongly the place's effects apply) and Space (the place's
-// mix), the pitch bend range, the wheels and the pedal as they arrive, and an on-screen
-// keyboard that lights up with incoming notes and can be played.
+// DUNGEON CRAWLER's instrument panel (Session 9: LIGHT SEEKER's layout, in this plug-in's
+// dark painted style). Always shown under the world, as in LIGHT SEEKER (the window is
+// 960 x 756 at 100 %): the instrument of the place (where it belongs, its name, step to
+// the previous or next, choose any of the forty, Lock instrument, the pitch-bend range),
+// its five macros (their names follow the instrument), Vowel and Ensemble (on the
+// instruments that sing with the recorded voice; dimmed on the others), Level, Intensity,
+// the Effects roller, the pitch-bend and mod wheels, the sustain pedal and an on-screen
+// keyboard lit by the notes the host plays. Dark stone and iron, one crimson accent.
 //
-// Drawing: nothing animates on its own. A 15 Hz check (only while the panel is shown)
-// compares what the audio thread last saw with what is drawn and repaints only the
-// keyboard or the wheel strip when it changed; the rest is static.
+// Drawing: nothing animates on its own. A 15 Hz check compares what the audio thread last
+// saw with what is drawn and repaints only the keyboard, a wheel or the pedal when it
+// changed; the background is two gradients and a few lines.
 #include "../PluginProcessor.h"
 #include "EngravedLookAndFeel.h"
+#include "EffectsRoller.h"
+#include "Hover.h"
 
 namespace dc::ui {
 
 class InstrumentPanel final : public juce::Component, private juce::Timer {
 public:
+    static constexpr int panelHeight = 196;
     explicit InstrumentPanel(DungeonCrawlerProcessor&);
     ~InstrumentPanel() override;
     void paint(juce::Graphics&) override;
     void resized() override;
     void visibilityChanged() override;
-    juce::Button& closeButton() { return close; }
-    std::function<void()> onClose;
-    // Re-reads the instrument (name, place, macro labels, lock).
+    // Stale hovers cleared on every mouse move, enter and exit (Session 9).
+    void mouseMove(const juce::MouseEvent& e) override { sweepHover(*this, e.getScreenPosition().toFloat()); }
+    void mouseEnter(const juce::MouseEvent& e) override { sweepHover(*this, e.getScreenPosition().toFloat()); }
+    void mouseExit(const juce::MouseEvent& e) override { sweepHover(*this, e.getScreenPosition().toFloat()); }
+    // Re-reads the instrument (name, place, macro labels, lock, the voice controls).
     void refresh();
     // Tests.
     juce::String titleText() const { return shownTitle; }
     juce::String placeText() const { return shownPlace; }
-    juce::String macroLabel(int k) const { return macros[std::size_t(k)].label.getText(); }
+    juce::String macroLabel(int k) const { return macroLabels[std::size_t(k)].getText(); }
+    bool voiceControlsEnabled() const { return sliders[vowelSlot].isEnabled() && sliders[ensembleSlot].isEnabled(); }
+    juce::Slider& sliderForTest(int k) { return sliders[std::size_t(k)]; }
     juce::ToggleButton& lockButton() { return lock; }
     juce::ComboBox& chooser() { return choose; }
+    juce::Button& nextButton() { return next; }
+    juce::Button& previousButton() { return previous; }
+    juce::Button& sustainButton() { return sustain; }
+    EffectsRoller& effectsRoller() { return effects; }
+    EffectsRoller& bendWheel() { return bend; }
+    EffectsRoller& modWheel() { return mod; }
     juce::Component& keyboardForTest() { return keyboard; }
     void pollForTest() { timerCallback(); }
     int keyRepaints() const noexcept { return keyboard.repaints; }
-    // How often the 15 Hz check asked for a repaint (of the keyboard or the wheels).
+    // How often the 15 Hz check asked for a repaint (of the keyboard, the wheels, the pedal).
     int repaintRequestCount() const noexcept { return repaintRequests; }
+    // The sliders, left to right: the five macros, Vowel, Ensemble, Level, Intensity.
+    static constexpr std::size_t vowelSlot = 5, ensembleSlot = 6, levelSlot = 7, intensitySlot = 8, sliderCount = 9;
 
     // The on-screen keyboard: C2..C7.
     class Keyboard final : public juce::Component {
     public:
-        explicit Keyboard(DungeonCrawlerProcessor& p) : processor(p) {}
+        explicit Keyboard(DungeonCrawlerProcessor& p) : processor(p) { setOpaque(true); }
         static constexpr int lowest = 36, highest = 96;
         void paint(juce::Graphics&) override;
         void mouseDown(const juce::MouseEvent&) override;
@@ -58,33 +75,27 @@ public:
     };
 
 private:
-    struct Fader {
-        juce::Slider slider { juce::Slider::LinearVertical, juce::Slider::TextBoxBelow };
-        juce::Label label;
-        std::unique_ptr<juce::SliderParameterAttachment> attachment;
-    };
-    // The wheels and the pedal.
-    class Wheels final : public juce::Component {
-    public:
-        void paint(juce::Graphics&) override;
-        float bend = 0, mod = 0;
-        bool pedal = false;
-    };
-    void setUpFader(Fader&, const juce::String& id, const juce::String& name, const juce::String& tip);
     void timerCallback() override;
+    void step(int direction);
 
     DungeonCrawlerProcessor& processor;
-    juce::TextButton close;
-    juce::ToggleButton lock { "Lock instrument" };
+    EngravedLookAndFeel look;   // the panel sits under the view, outside its look
+    juce::Label place, name, status;
+    juce::TextButton previous, next;
     juce::ComboBox choose, bendRange;
+    juce::ToggleButton lock { "Lock instrument" };
     std::unique_ptr<juce::ComboBoxParameterAttachment> bendAttachment;
-    juce::Label bendLabel;
-    std::array<Fader, dc::inst::macroCount> macros;
-    Fader intensity, space;
-    Wheels wheels;
+    juce::Label bendRangeLabel;
+    std::array<juce::Slider, sliderCount> sliders;
+    std::array<juce::Label, sliderCount> macroLabels;
+    std::array<std::unique_ptr<juce::SliderParameterAttachment>, sliderCount> attachments;
+    EffectsRoller effects, bend, mod;
+    juce::Label bendLabel, modLabel;
+    juce::TextButton sustain { "Sustain" };
     Keyboard keyboard;
-    juce::String shownTitle, shownPlace, shownWheel;
+    juce::String shownTitle, shownPlace;
     int shownInstrument = -1, shownPlaceCode = -1, repaintRequests = 0;
-    bool shownLock = false;
+    bool shownLock = false, shownPedal = false;
+    float shownBend = 0, shownMod = 0;
 };
 }

@@ -10,6 +10,8 @@ namespace dc {
 // Everything the host controls that shapes the sound, read once per block.
 struct Controls {
     int location = 0, sub = 0;
+    // 0 neutral, 1 the place as designed; up to Engine::maxIntensity stronger (Intensity
+    // times the Effects roller).
     float intensity = 1;
     std::array<float, macroCount> macros { 0.5f, 0.5f, 0.5f, 0.5f };
     // The Advanced drawer: for Lin/Log parameters an offset (-1..1 of the range; Log in
@@ -52,6 +54,9 @@ public:
     // 1 as designed). Choices keep the place's value at any intensity.
     static Frame targetFrame(const Controls&) noexcept;
     static Frame targetFrame(int location, float intensity) noexcept;
+    // Intensity above 1 (the Effects roller over 100 %, up to maxIntensity): stronger.
+    static constexpr float maxIntensity = 1.5f;
+    static void strengthen(Frame&, const Frame& place, float t) noexcept;
     static Frame interpolate(const Frame& a, const Frame& b, float t) noexcept;
     // Layers whose choices cannot morph: during a journey that changes one, the layer
     // dips out, the choice switches while it is silent, and the layer returns.

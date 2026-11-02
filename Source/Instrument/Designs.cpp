@@ -176,6 +176,20 @@ VocalVoice* vocal(Layer& L, float hz, const char* a, const char* aEnsemble, cons
     return &v;
 }
 bool startVocal(Layer& L, float hz, const Note& n, float attack, float velocity, float skip = 0.0f) {
+    // Session 9: the panel's Vowel and Ensemble (0.5 leaves the design exactly as it was).
+    // Vowel moves the morph towards the first vowel (0) or the second (1), where the layer
+    // has two; Ensemble thins the choir to one singer (0) or fills it (1).
+    auto& v = L.vocal;
+    if (n.vowel != 0.5f && v.vowel[1].lead != nullptr) {
+        const float o = std::clamp((n.vowel - 0.5f) * 2.0f, -1.0f, 1.0f);
+        const float m = o > 0.0f ? v.morphTarget + o * (1.0f - v.morphTarget) : v.morphTarget * (1.0f + o);
+        v.morph = v.morphTarget = std::clamp(m, 0.0f, 1.0f);
+    }
+    if (n.ensemble != 0.5f) {
+        const float e = std::clamp(n.ensemble, 0.0f, 1.0f);
+        const float singers = e < 0.5f ? 1.0f + float(v.singers - 1) * e * 2.0f : float(v.singers) + float(VocalVoice::maxSingers - v.singers) * (e - 0.5f) * 2.0f;
+        v.singers = std::clamp(int(std::lround(singers)), 1, VocalVoice::maxSingers);
+    }
     if (!L.vocal.start(midiOf(hz), velocity, n.random, n.rate, attack, skip, n.noiseAt ^ uint64_t(hz * 1000.0f))) {
         L.use(M::None);
         return false;
@@ -1097,11 +1111,11 @@ const std::array<Design, instrumentCount>& table() {
         { "Heroic Horn", M5("Tone", "Attack", "Release", "Body", "Bell Up"), "Vibrato", ModWheel::Vibrato, 6, 0.3f, 0, true,
           plainPost(6500, 40), towerTop, nullptr },
         // Cathedral
-        { "Soft Choir", M5("Tone", "Attack", "Release", "Breath", "Vowel"), "Vibrato", ModWheel::Vibrato, 8, 0.6f, 0, true,
+        { "Soft Choir", M5("Tone", "Attack", "Release", "Breath", "Open"), "Vibrato", ModWheel::Vibrato, 8, 0.6f, 0, true,
           plainPost(9000, 70, 0, 0.4f), cloister, nullptr },
         { "Pipe Organ", M5("Tone", "Speech", "Release", "Body", "Reeds"), "Swell", ModWheel::Swell, 10, 0.3f, 0, true,
           plainPost(10000, 25, 0, 0.1f), nave, nullptr },
-        { "Monk Chant", M5("Tone", "Attack", "Release", "Breath", "Vowel"), "Vibrato", ModWheel::Vibrato, 6, 0.6f, 0, true,
+        { "Monk Chant", M5("Tone", "Attack", "Release", "Breath", "Open"), "Vibrato", ModWheel::Vibrato, 6, 0.6f, 0, true,
           plainPost(5000, 35, 0, 0.4f), crypt, nullptr },
         { "Church Bells", M5("Tone", "Strike", "Ring", "Body", "Clapper"), "Brightness", ModWheel::Brightness, 8, 4.0f, 0, false,
           plainPost(9000, 40), bellTower, nullptr },
@@ -1213,5 +1227,16 @@ CaptureSend captureOf(int index) noexcept {
     if (l == Caverns && k == 2) return { CaptureChorusVerb, 0.22f };    // Water Kalimba: rippling
     if (l == Swamp && k == 2) return { CaptureChorusVerb, 0.25f };      // Drowned Bells
     return {};
+}
+}
+
+namespace dc::inst {
+// The instruments that sing with the recorded voice (their start functions use vocal()):
+// the panel shows Vowel and Ensemble for these (dimmed for the others).
+bool designUsesVoice(int index) noexcept {
+    const auto start = design(index).start;
+    for (auto* f : { &finalBossLair, &cloister, &crypt, &witchsHut, &dwarvenHall, &gates })
+        if (start == f) return true;
+    return false;
 }
 }

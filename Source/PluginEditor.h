@@ -18,6 +18,8 @@
 #include "UI/EngravedLookAndFeel.h"
 #include "UI/SceneCache.h"
 #include "UI/InstrumentPanel.h"
+#include "UI/Hover.h"
+#include "UI/EffectsRoller.h"
 
 class DungeonCrawlerView final : public juce::Component, private juce::Timer, private juce::AudioProcessorParameter::Listener {
 public:
@@ -31,11 +33,35 @@ public:
     // Panels close on Esc and on a click outside them (Hotfix 2).
     bool keyPressed(const juce::KeyPress&) override;
     void mouseDown(const juce::MouseEvent&) override;
+    // Every mouse move, enter and exit in the window (its children too) sweeps stale hovers.
+    void mouseMove(const juce::MouseEvent& e) override { dc::ui::sweepHover(*this, e.getScreenPosition().toFloat()); }
+    void mouseEnter(const juce::MouseEvent& e) override { dc::ui::sweepHover(*this, e.getScreenPosition().toFloat()); }
+    void mouseExit(const juce::MouseEvent& e) override { dc::ui::sweepHover(*this, e.getScreenPosition().toFloat()); }
     int shownLocation() const noexcept { return shown; }
     int shownSubLocation() const noexcept { return shownSub; }
     juce::Button& locationButton(int index) { return *landmarks[static_cast<std::size_t>(index)]; }
     juce::Button& subLocationButton(int index) { return *subs[static_cast<std::size_t>(index)]; }
     juce::Button& hotspotButton(int index) { return *hotspots[static_cast<std::size_t>(index)]; }
+    // Tests (Session 9, hover): what each place-list entry, hotspot and landmark shows; a
+    // sweep with the mouse at a screen point.
+    bool placeHoverShown(int index) const { return subs[static_cast<std::size_t>(index)]->hot(); }
+    bool hotspotHoverShown(int index) const { return hotspots[static_cast<std::size_t>(index)]->hot(); }
+    bool landmarkHoverShown(int index) const { return landmarks[static_cast<std::size_t>(index)]->hot(); }
+    int hoveredLandmark() const noexcept { return hovered; }
+    int sweepHoverForTest(juce::Point<float> screen) { return dc::ui::sweepHover(*this, screen); }
+    // Tests: the frame the view paints from (the last scene image that was ready), and
+    // forgetting every rendered scene (as if the window's pixel size had just changed).
+    const juce::Image& frameForTest() const noexcept { return frame; }
+    void forgetScenesForTest() { cache.clearForTest(); }
+    void closePanelsForTest() { closePanels(); }
+    bool controlsShownForTest() const noexcept { return controlsShown; }
+    // Session 9: the window's state into the processor (also on every change).
+    void storeViewState();
+    // The window's scale changed (the editor's transform): the art at the new pixel size.
+    void scaleChanged();
+    juce::Viewport* drawerViewportForTest() { return drawer.viewportForTest(); }
+    juce::Viewport* journeyViewportForTest() { return journeyPanel.viewportForTest(); }
+    dc::ui::EffectsRoller& effectsRollerForTest() { return effectsRoller; }
     juce::Button& advancedButton() { return advancedToggle; }
     juce::Button& mapButton() { return mapCrumb; }
     juce::Button& journeyButton() { return journeyToggle; }
@@ -49,11 +75,6 @@ public:
     juce::Component& journeyPanelForTest() { return journeyPanel; }
     juce::Component& drawerForTest() { return drawer; }
     juce::Button& controlsButton() { return controlsToggle; }
-    // DUNGEON CRAWLER (the instrument): the Instrument button and its slide-up panel
-    // (null in the FX).
-    juce::Button& instrumentButton() { return instrumentToggle; }
-    dc::ui::InstrumentPanel* instrumentPanelForTest() { return instrumentPanel.get(); }
-    bool instrumentOpen() const { return instrumentPanel != nullptr && instrumentPanel->isVisible(); }
     juce::String placeCrumbText() const { return placeCrumb.getText(); }
     // Tests: what a mouse-down on a component (anywhere in the window) does to the panels.
     void pointerDownForTest(juce::Component& c) { pointerDown(&c); }
@@ -108,17 +129,25 @@ private:
     };
     // A landmark on the map: an invisible button over the engraved landmark that rings
     // when hovered.
-    class LandmarkButton final : public juce::Button {
+    class LandmarkButton final : public dc::ui::HoverButton {
     public:
-        LandmarkButton(const juce::String& name) : juce::Button(name) {}
-        void paintButton(juce::Graphics&, bool highlighted, bool down) override;
+        LandmarkButton(const juce::String& name) : dc::ui::HoverButton(name) {}
+        void paintHover(juce::Graphics&, bool hover, bool down) override;
     };
     // A point of interest inside a scene: a small engraved ring, red for the place you
     // are in, its name on hover.
-    class HotspotButton final : public juce::Button {
+    class HotspotButton final : public dc::ui::HoverButton {
     public:
-        HotspotButton() : juce::Button({}) {}
-        void paintButton(juce::Graphics&, bool highlighted, bool down) override;
+        HotspotButton() : dc::ui::HoverButton(juce::String()) {}
+        void paintHover(juce::Graphics&, bool hover, bool down) override;
+    };
+    // An entry of the place list (top right): the selected place a crimson diamond, its
+    // name in full ivory and a crimson rule under it (stable); a hovered one a soft glow,
+    // cleared the moment the mouse leaves (Session 9, from LIGHT SEEKER).
+    class PlaceButton final : public dc::ui::HoverButton {
+    public:
+        PlaceButton() : dc::ui::HoverButton(juce::String()) {}
+        void paintHover(juce::Graphics&, bool hover, bool down) override;
     };
     // The Advanced drawer: one row per module parameter, grouped by module.
     class Drawer final : public juce::Component {
@@ -128,6 +157,9 @@ private:
         void resized() override;
         juce::Button& closeButton() { return close; }
         std::function<void()> onClose;
+        juce::Viewport* viewportForTest() { return &viewport; }
+        int scroll() const { return viewport.getViewPositionY(); }
+        void setScroll(int y) { viewport.setViewPosition(0, y); }
     private:
         juce::TextButton close;
         struct Row {
@@ -155,6 +187,9 @@ private:
         juce::Button& clearButton() { return clear; }
         juce::Button& closeButton() { return close; }
         std::function<void()> onClose;
+        juce::Viewport* viewportForTest() { return &viewport; }
+        int scroll() const { return viewport.getViewPositionY(); }
+        void setScroll(int y) { viewport.setViewPosition(0, y); }
     private:
         // The panel's contents scroll under its title row (it ends above the controls).
         struct Body final : juce::Component {
@@ -200,8 +235,6 @@ private:
     // Hotfix 2: the panels and how they close.
     void closePanels();
     void pointerDown(juce::Component*);
-    void showInstrumentPanel(bool);
-    juce::Rectangle<int> instrumentPanelBounds() const;
     int instrumentShownInCrumb = -1;
     // A small plate, top centre, while a Journey or Roam runs: what runs and Stop.
     struct SteerBadge final : juce::Component {
@@ -271,6 +304,12 @@ private:
     int pathFrom = -1, pathTo = -1;
     double pathEnded = 0;
     int hovered = -1;
+    // The frame the view paints from (Session 9, LIGHT SEEKER's double buffer): the shown
+    // scene at rest, kept until the next one is ready. A repaint of any region (an ember's,
+    // a button's) draws it again from here, never a fill: if the art at a new pixel size is
+    // still rendering, the previous frame is scaled meanwhile.
+    juce::Image frame;
+    void refreshFrame();
     std::vector<dc::art::LightSource> lights;
     bool animateLife = true;
     int lifeTick = 0;
@@ -283,7 +322,7 @@ private:
 
     std::array<std::unique_ptr<LandmarkButton>, dc::LocationCount> landmarks;
     std::array<std::unique_ptr<HotspotButton>, dc::placesPerLocation> hotspots;
-    std::array<std::unique_ptr<juce::TextButton>, dc::placesPerLocation> subs;
+    std::array<std::unique_ptr<PlaceButton>, dc::placesPerLocation> subs;
     juce::TextButton mapCrumb { juce::String::fromUTF8("\xe2\x80\xb9  Map") }, locationCrumb;
     juce::Label placeCrumb;
     std::unique_ptr<juce::ParameterAttachment> locationAttachment, subLocationAttachment;
@@ -297,8 +336,8 @@ private:
     juce::ComboBox travelSync;
     std::unique_ptr<juce::SliderParameterAttachment> travelTimeAttachment;
     std::unique_ptr<juce::ComboBoxParameterAttachment> travelSyncAttachment;
-    juce::TextButton bypass { "Bypass" }, advancedToggle { "Advanced" }, controlsToggle, journeyToggle { "Journey" }, instrumentToggle { "Instrument" };
-    std::unique_ptr<dc::ui::InstrumentPanel> instrumentPanel;
+    juce::TextButton bypass { "Bypass" }, advancedToggle { "Advanced" }, controlsToggle, journeyToggle { "Journey" };
+    dc::ui::EffectsRoller effectsRoller;   // the FX's (the instrument's is on its panel)
     juce::TextButton presetButton, prevPreset, nextPreset, slotA { "A" }, slotB { "B" }, copySlot, undoButton, redoButton, settingsButton;
     std::unique_ptr<juce::ButtonParameterAttachment> bypassAttachment;
     bool controlsShown = true;
@@ -314,7 +353,9 @@ private:
 };
 
 // The plug-in window: the view at 960 x 560, scaled to the window (resizable, fixed
-// aspect; the size menu offers 75-200 %). The scale is saved with the state.
+// aspect; the size menu offers 75-200 %). The scale is saved with the state. The
+// instrument (DUNGEON CRAWLER) adds its panel under the view (960 x 756 at 100 %), laid out
+// as LIGHT SEEKER's (Session 9).
 class DungeonCrawlerEditor final : public juce::AudioProcessorEditor {
 public:
     static constexpr int defaultWidth = DungeonCrawlerView::defaultWidth, defaultHeight = DungeonCrawlerView::defaultHeight;
@@ -323,8 +364,11 @@ public:
     void paint(juce::Graphics&) override {}
     DungeonCrawlerView& view() noexcept { return content; }
     void setScale(float);
+    int baseHeight() const noexcept { return defaultHeight + (panel != nullptr ? dc::ui::InstrumentPanel::panelHeight : 0); }
+    dc::ui::InstrumentPanel* instrumentPanel() noexcept { return panel.get(); }
 private:
     DungeonCrawlerProcessor& processor;
     DungeonCrawlerView content;
+    std::unique_ptr<dc::ui::InstrumentPanel> panel;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DungeonCrawlerEditor)
 };

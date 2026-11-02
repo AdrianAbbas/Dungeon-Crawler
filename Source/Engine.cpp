@@ -51,7 +51,31 @@ Frame Engine::targetFrame(const Controls& c) noexcept {
     // inaudible), so Intensity never flips a chamber or an interval half-way.
     for (std::size_t i = 0; i < Count; ++i)
         if (moduleSpecs[i].glide == Glide::Step) f[i] = place[i];
+    if (c.intensity > 1.0f) strengthen(f, place, std::min(c.intensity, maxIntensity));
     return f;
+}
+
+// The Effects roller above 100 % (Session 9): the place's wet amounts, sends, character
+// amounts and tails go further along the way from neutral to the place (t > 1); times,
+// rates, pitches, filters and choices stay as designed. Bounded: feedback stays below
+// where the echoes would build up, decays below 1.6 times the place's own.
+void Engine::strengthen(Frame& f, const Frame& place, float t) noexcept {
+    static constexpr P amounts[] = { Darkness, FilterMovement, Tomb, Drive, Age, Dust, Instability, BloodMix, ChoirBlend, Drone,
+                                     Ghost, WraithMix, DelayMix, Shimmer, ReverbMix, Flicker, Metal, Wind, Drips, SigAmount,
+                                     VaultMix, VaultShimmer, EnsMix, Spiral, TapeMix, Drops, VoiceImprint, Whispers, VoiceBloom };
+    const auto neutral = neutralFrame();
+    const auto further = [&](P id, float limit) {
+        const auto& spec = moduleSpecs[id];
+        const float a = neutral[id], b = place[id];
+        float v = spec.glide == Glide::Log ? a * std::pow(b / a, t) : a + (b - a) * t;
+        v = std::clamp(v, spec.min, std::max(std::min(limit, spec.max), std::min(b, spec.max)));
+        f[id] = std::clamp(v, spec.min, spec.max);
+    };
+    for (P id : amounts) further(id, moduleSpecs[id].max);
+    further(Space, 1.0f);
+    further(Feedback, 0.85f);
+    further(TapeFeedback, 0.8f);
+    further(Decay, place[Decay] * 1.6f);
 }
 
 Frame Engine::targetFrame(int location, float intensity) noexcept {

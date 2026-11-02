@@ -291,6 +291,8 @@ struct Note {
     float random = 0.5f;       // 0..1, per note (round robins, small variations), deterministic
     // The macros (0.5 = as designed): tone, attack (strike), release (ring), body, signature.
     std::array<float, macroCount> macro { 0.5f, 0.5f, 0.5f, 0.5f, 0.5f };
+    // The voices' Vowel and Ensemble (Session 9; 0.5 = as designed, only the sung layers).
+    float vowel = 0.5f, ensemble = 0.5f;
     float rate = 48000;
     double bpm = 120;
     uint64_t noiseAt = 0;
@@ -313,6 +315,8 @@ struct Design {
     void (*control)(Voice&, const Note&, float chunkSeconds);   // optional, once per chunk while the voice sounds
 };
 const Design& design(int index) noexcept;
+// Whether the instrument sings with the recorded voice (its panel shows Vowel and Ensemble).
+bool designUsesVoice(int index) noexcept;
 // The instrument of a place (location, sub-location 0..4) and back.
 int designFor(int location, int sub) noexcept;
 int locationOf(int design) noexcept;
@@ -370,6 +374,8 @@ public:
     void setBendRange(float semitones) noexcept { bendRange = semitones; }
     void setTempo(double bpm) noexcept { tempo = bpm; }
     void setLevel(float gain) noexcept { level = gain; }
+    // The voices' Vowel and Ensemble (0.5 = as designed), for notes that start from now.
+    void setVoiceControls(float vowel, float ensemble) noexcept { voiceVowel = vowel; voiceEnsemble = ensemble; }
 
     // MIDI, at a sample position within the block being rendered.
     void noteOn(int key, float velocity) noexcept;
@@ -406,6 +412,7 @@ private:
     std::array<float, macroCount> macros { 0.5f, 0.5f, 0.5f, 0.5f, 0.5f };
     Performance perf;
     float rate = 48000, bendRange = 2, level = 1, bendNow = 0, modNow = 0;
+    float voiceVowel = 0.5f, voiceEnsemble = 0.5f;
     double tempo = 120;
     int designNow = 0, counter = 0, orderCounter = 0;
     uint64_t noteCount = 0;

@@ -427,6 +427,8 @@ void Synth::noteOn(int key, float velocity) noexcept {
     ++noteCount;
     n.random = d::unipolar(d::mix64(noteCount * 0x9E3779B97F4A7C15ull + uint64_t(key)));
     n.macro = macros;
+    n.vowel = voiceVowel;
+    n.ensemble = voiceEnsemble;
     n.rate = rate;
     n.bpm = tempo;
     n.noiseAt = d::mix64(noteCount + 77) << 8;

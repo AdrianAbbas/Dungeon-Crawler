@@ -78,6 +78,10 @@ private:
     std::atomic<float>* instLock = nullptr;
     std::array<std::atomic<float>*, dc::inst::macroCount> instMacros {};
     std::atomic<float>* bendRange = nullptr;
+    std::atomic<float>* instLevel = nullptr;
+    std::atomic<float>* instVowel = nullptr;
+    std::atomic<float>* instEnsemble = nullptr;
+    std::atomic<float>* effects = nullptr;
 
 public:
     juce::AudioProcessorValueTreeState parameters;
@@ -112,6 +116,23 @@ public:
 
     // Milestone 11 (message thread). The window's scale (saved with the state).
     std::atomic<float> editorScale { 1.0f };
+    // The window as it was left (Session 9, LIGHT SEEKER's fix copied): which view (the map
+    // or a place's scene), the controls strip, the Advanced drawer and the Journey panel
+    // (open, scrolled to). Kept here so a closed and reopened window comes back exactly as
+    // it was, and saved with the session (a project reopens it too). The instrument, the
+    // place and the window's size are already kept (parameters, editorScale).
+    struct ViewState {
+        bool valid = false;            // an editor has stored it (else: the defaults)
+        bool place = false;            // a place's scene; false: the world map
+        int location = 0, sub = 0;     // the scene shown then (the place follows the parameters)
+        bool controls = true, advanced = false, journey = false;
+        int advancedScroll = 0, journeyScroll = 0;
+        bool operator==(const ViewState&) const = default;
+    };
+    ViewState viewState() const;
+    void updateViewState(const std::function<void(ViewState&)>&);
+    // The Effects roller (0..1.5; 1 = the place as designed).
+    float effectsAmount() const noexcept;
     int qualityMode() const noexcept;
     // Presets: factory (the effect: favourite spots, journeys; the instrument: instrument
     // presets, instruments elsewhere, journeys) and user presets (state files).
@@ -154,6 +175,10 @@ public:
     const dc::inst::Synth& instrumentEngine() const noexcept { return synth; }
     // The panel's keyboard (message thread): notes into the next audio block, lock-free.
     void keyboardNote(int key, float velocity);   // velocity 0: note off
+    // The panel's wheels and pedal (message thread), into the next audio block.
+    void panelBend(float bipolar);
+    void panelMod(float unit);
+    void panelSustain(bool down);
     // The wheels and pedal as the audio thread last saw them (for the panel).
     std::atomic<float> shownBend { 0 }, shownMod { 0 };
     std::atomic<bool> shownSustain { false };
@@ -163,6 +188,10 @@ private:
     void renderInstrument(juce::AudioBuffer<float>&, int outputs, juce::MidiBuffer* midi);
     void handleMidi(const juce::MidiMessage&) noexcept;
     dc::inst::Synth synth;
+    void postPanel(int packed);
+    mutable juce::SpinLock viewLock;
+    ViewState view;
+    dc::dsp::Smoothed instGain;   // the instrument's Level
     juce::AbstractFifo keyFifo { 256 };
     std::array<int, 256> keyQueue {};
     static constexpr float neutralIntensity = 1.0e-4f;   // at or below: the dry path

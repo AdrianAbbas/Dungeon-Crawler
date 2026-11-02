@@ -48,11 +48,15 @@ DungeonCrawlerProcessor::DungeonCrawlerProcessor(PluginKind k)
     atmosDensity = parameters.getRawParameterValue(dc::ids::atmosDensity);
     atmosSeed = parameters.getRawParameterValue(dc::ids::atmosSeed);
     quality = parameters.getRawParameterValue(dc::ids::quality);
+    effects = parameters.getRawParameterValue(dc::ids::effects);
     if (isInstrument()) {
         instrumentChoice = parameters.getRawParameterValue(dc::ids::instrument);
         instLock = parameters.getRawParameterValue(dc::ids::instLock);
         for (std::size_t m = 0; m < instMacros.size(); ++m) instMacros[m] = parameters.getRawParameterValue(dc::ids::instMacros[m]);
         bendRange = parameters.getRawParameterValue(dc::ids::bendRange);
+        instLevel = parameters.getRawParameterValue(dc::ids::instLevel);
+        instVowel = parameters.getRawParameterValue(dc::ids::instVowel);
+        instEnsemble = parameters.getRawParameterValue(dc::ids::instEnsemble);
     }
     // The developer's recordings load on a background thread (once per process). The FX
     // ships the voice it uses in its places (Session 8); without them it sounds as before.
@@ -87,11 +91,37 @@ void DungeonCrawlerProcessor::chooseInstrument(int index) {
 }
 
 void DungeonCrawlerProcessor::keyboardNote(int key, float velocity) {
-    if (!isInstrument() || key < 0 || key > 127) return;
+    if (key < 0 || key > 127) return;
+    postPanel(key | (juce::jlimit(0, 127, juce::roundToInt(velocity * 127.0f)) << 8));
+}
+
+void DungeonCrawlerProcessor::panelBend(float bipolar) {
+    postPanel((1 << 24) | juce::jlimit(0, 16383, juce::roundToInt((juce::jlimit(-1.0f, 1.0f, bipolar) + 1.0f) * 8191.5f)));
+}
+void DungeonCrawlerProcessor::panelMod(float unit) { postPanel((2 << 24) | juce::jlimit(0, 127, juce::roundToInt(unit * 127.0f))); }
+void DungeonCrawlerProcessor::panelSustain(bool down) { postPanel((3 << 24) | (down ? 1 : 0)); }
+
+void DungeonCrawlerProcessor::postPanel(int packed) {
+    if (!isInstrument()) return;
     const auto scope = keyFifo.write(1);
     if (scope.blockSize1 + scope.blockSize2 < 1) return;   // full: dropped
-    const int packed = key | (juce::jlimit(0, 127, juce::roundToInt(velocity * 127.0f)) << 8);
     keyQueue[static_cast<std::size_t>(scope.blockSize1 > 0 ? scope.startIndex1 : scope.startIndex2)] = packed;
+}
+
+DungeonCrawlerProcessor::ViewState DungeonCrawlerProcessor::viewState() const {
+    const juce::SpinLock::ScopedLockType sl(viewLock);
+    return view;
+}
+
+void DungeonCrawlerProcessor::updateViewState(const std::function<void(ViewState&)>& change) {
+    const juce::SpinLock::ScopedLockType sl(viewLock);
+    change(view);
+    view.valid = true;
+}
+
+float DungeonCrawlerProcessor::effectsAmount() const noexcept {
+    const float v = effects->load();
+    return std::isfinite(v) ? juce::jlimit(0.0f, dc::effectsMax, v) : 1.0f;
 }
 
 bool DungeonCrawlerProcessor::journeyRunning() const noexcept {
@@ -316,6 +346,7 @@ bool DungeonCrawlerProcessor::loadUserPreset(const juce::File& file) {
     pushUndo();
     const int keepQuality = qualityMode();
     const float keepScale = editorScale.load();
+    const auto keepView = viewState();
     juce::MemoryBlock data;
     copyXmlToBinary(*xml, data);
     {
@@ -325,6 +356,7 @@ bool DungeonCrawlerProcessor::loadUserPreset(const juce::File& file) {
     // Presets carry sounds, not the window or the quality setting.
     if (auto* q = parameters.getParameter(dc::ids::quality)) q->setValueNotifyingHost(q->convertTo0to1(static_cast<float>(keepQuality)));
     editorScale.store(keepScale);
+    if (keepView.valid) updateViewState([&keepView](ViewState& v) { v = keepView; });
     presetName = xml->getStringAttribute("presetName", file.getFileNameWithoutExtension());
     presetIndex = -1;
     manualEpoch.fetch_add(1, std::memory_order_acq_rel);
@@ -378,7 +410,9 @@ void DungeonCrawlerProcessor::prepareToPlay(double sampleRate, int) {
     bypassRamp.prepare(0.025, rate);
     bypassRamp.value = bypass->load() >= 0.5f ? 1.0f : 0.0f;
     neutralRamp.prepare(0.03, rate);
-    neutralRamp.value = intensity->load() <= neutralIntensity ? 1.0f : 0.0f;
+    neutralRamp.value = intensity->load() * effectsAmount() <= neutralIntensity ? 1.0f : 0.0f;
+    instGain.setTime(0.03, rate);
+    instGain.snap(instLevel != nullptr ? dc::dsp::dbToGain(juce::jlimit(-24.0f, 12.0f, instLevel->load())) : 1.0f);
     setLatencySamples(latency);
     inputLevel = 0;
     outputLevel = 0;
@@ -446,6 +480,13 @@ void DungeonCrawlerProcessor::renderInstrument(juce::AudioBuffer<float>& buffer,
     {
         const auto scope = keyFifo.read(keyFifo.getNumReady());
         const auto play = [this](int packed) {
+            // The panel: a key (kind 0), the bend and mod wheels and the pedal (kinds 1-3).
+            switch (packed >> 24) {
+                case 1: synth.setPitchBend(static_cast<float>((packed & 0x3fff) - 8192) / 8192.0f); return;
+                case 2: synth.setModWheel(static_cast<float>(packed & 0x7f) / 127.0f); return;
+                case 3: synth.setSustain((packed & 1) != 0); return;
+                default: break;
+            }
             const int key = packed & 0xff, velocity = (packed >> 8) & 0x7f;
             if (velocity > 0) synth.noteOn(key, static_cast<float>(velocity) / 127.0f);
             else synth.noteOff(key);
@@ -515,7 +556,9 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
     const bool stereoInput = inputs > 1;
 
     const auto finiteOr = [](float v, float fallback) { return std::isfinite(v) ? v : fallback; };
-    const float amount = juce::jlimit(0.0f, 1.0f, finiteOr(intensity->load(), 1));
+    // The Effects roller (Session 9) scales Intensity: 0 nearly dry, 1 as designed, up to
+    // 1.5 stronger (Engine::strengthen). The engine's trims and level matcher keep the level.
+    const float amount = juce::jlimit(0.0f, 1.0f, finiteOr(intensity->load(), 1)) * effectsAmount();
     controls.location = locationIndex();
     controls.sub = juce::jlimit(0, dc::maxSubLocations, static_cast<int>(std::lround(finiteOr(subLocation->load(), 0))));
     // Journeys, roaming and MIDI travel steer the place (Milestone 9). The position is
@@ -572,8 +615,23 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
         synth.setMacros(m);
         synth.setBendRange(static_cast<float>(juce::jlimit(1, 24, static_cast<int>(std::lround(finiteOr(bendRange->load(), 2))))));
         synth.setTempo(bpm);
-        placeGain.set(dc::dsp::dbToGain(dc::inst::placeTrimDb(controls.location, controls.sub)));
+        synth.setVoiceControls(juce::jlimit(0.0f, 1.0f, finiteOr(instVowel->load(), 0.5f)), juce::jlimit(0.0f, 1.0f, finiteOr(instEnsemble->load(), 0.5f)));
+        instGain.set(dc::dsp::dbToGain(juce::jlimit(-24.0f, 12.0f, finiteOr(instLevel->load(), 0.0f))));
+        // The place's correction (its build-up on sustained and ringing notes) follows the
+        // Effects roller: towards 0 % the place adds nothing, so the instrument meets its dry
+        // self without a level step; above 100 % the stronger place builds up more and the
+        // correction grows with it. At 100 %: exactly as designed.
+        placeGain.set(dc::dsp::dbToGain(dc::inst::placeTrimDb(controls.location, controls.sub) * effectsAmount()));
         renderInstrument(buffer, outputs, midi);
+        // Level (Session 9): the instrument into its place, smoothed (no zipper, no click).
+        auto* il = buffer.getWritePointer(0);
+        auto* ir = outputs > 1 ? buffer.getWritePointer(1) : nullptr;
+        if (instGain.value != 1.0f || instGain.target != 1.0f)
+            for (int i = 0; i < numSamples; ++i) {
+                const float g = instGain.next();
+                il[i] *= g;
+                if (ir != nullptr) ir[i] *= g;
+            }
     }
     inputGain.set(dc::dsp::dbToGain(juce::jlimit(-24.0f, 24.0f, finiteOr(input->load(), 0))));
     outputGain.set(dc::dsp::dbToGain(juce::jlimit(-24.0f, 12.0f, finiteOr(output->load(), 0))));
@@ -661,6 +719,19 @@ void DungeonCrawlerProcessor::getStateInformation(juce::MemoryBlock& data) {
     // How many recorded notes the instrument has loaded (information only: the AU harness
     // reads it to see that the samples ship in the bundle).
     if (isInstrument()) state.setProperty("samples", wb::samples::Bank::get().zoneCount(), nullptr);
+    // The window as it was left (Session 9, from LIGHT SEEKER): a child older versions ignore.
+    if (const auto v = viewState(); v.valid) {
+        juce::ValueTree w("EditorView");
+        w.setProperty("place", v.place, nullptr);
+        w.setProperty("location", v.location, nullptr);
+        w.setProperty("sub", v.sub, nullptr);
+        w.setProperty("controls", v.controls, nullptr);
+        w.setProperty("advanced", v.advanced, nullptr);
+        w.setProperty("journey", v.journey, nullptr);
+        w.setProperty("advancedScroll", v.advancedScroll, nullptr);
+        w.setProperty("journeyScroll", v.journeyScroll, nullptr);
+        state.appendChild(w, nullptr);
+    }
     if (auto xml = state.createXml()) copyXmlToBinary(*xml, data);
 }
 
@@ -691,6 +762,19 @@ void DungeonCrawlerProcessor::setStateInformation(const void* data, int size) {
         if (std::isfinite(scale)) editorScale.store(juce::jlimit(0.5f, 2.0f, scale));
     }
     if (incoming.hasProperty("presetName")) presetName = incoming.getProperty("presetName").toString();
+    // The window as it was left (Session 9), when the state has it; a preset never has it.
+    if (const auto w = incoming.getChildWithName("EditorView"); w.isValid()) {
+        updateViewState([&w](ViewState& v) {
+            v.place = static_cast<bool>(w.getProperty("place", false));
+            v.location = juce::jlimit(0, dc::LocationCount - 1, static_cast<int>(w.getProperty("location", 0)));
+            v.sub = juce::jlimit(0, dc::maxSubLocations, static_cast<int>(w.getProperty("sub", 0)));
+            v.controls = static_cast<bool>(w.getProperty("controls", true));
+            v.advanced = static_cast<bool>(w.getProperty("advanced", false));
+            v.journey = static_cast<bool>(w.getProperty("journey", false)) && !v.advanced;
+            v.advancedScroll = juce::jlimit(0, 100000, static_cast<int>(w.getProperty("advancedScroll", 0)));
+            v.journeyScroll = juce::jlimit(0, 100000, static_cast<int>(w.getProperty("journeyScroll", 0)));
+        });
+    }
     // The journey route (version 3); older states have none.
     std::vector<dc::Stop> stops;
     for (const auto& token : juce::StringArray::fromTokens(incoming.getProperty("route").toString(), ",", ""))

@@ -28,6 +28,8 @@ public:
     // Prepares synchronously on the calling thread (tests and snapshots only).
     juce::Image renderNow(SceneId, int width, int height);
     std::size_t bytesHeld() const;
+    // Tests: drop every prepared scene.
+    void clearForTest() { const juce::ScopedLock sl(lock); entries.clear(); queue.clear(); }
 
 private:
     struct Key {
