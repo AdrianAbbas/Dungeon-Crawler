@@ -989,7 +989,7 @@ void testMusicality(Suite& s) {
             // Direction Update 2: the Frozen Peak is asked for "a strong low cut leaving
             // mostly highs"; after two attempts its limit is 14 dB (decision, DEVLOG).
             const double fizzLimit = l == dc::Mountains && k == 2 ? 14.0 : 9.0;
-            s.check(fizz < fizzLimit, name + ": no fizz (8 kHz band < +" + fmt(fizzLimit, 0) + " dB)", fmt(fizz) + " dB");
+            s.check(fizz < fizzLimit, name + ": no fizz (8 kHz band < +" + fmt(fizzLimit, 0) + " dB)", fmt(fizz, 3) + " dB");
             const double tailDrop = toDb(h.rms(from, to)) - toDb(h.rms(h.end() - h.at(0.5), h.end()));
             s.check(tailDrop > 12.0, name + ": the tail falls away after the phrase (> 12 dB down 2.5-3 s after)", fmt(tailDrop) + " dB");
         }

@@ -100,20 +100,25 @@ Audio → DUNGEON CRAWLER. Play your MIDI keyboard or the piano roll.
 
 | Location (family) | Its places' instruments |
 |---|---|
-| Dungeon (dark orchestral) | Contrabass Pizzicato · Cello Drone-Lead · Iron Chains · Golden Celesta · Doom Brass & Choir† |
+| Dungeon (dark orchestral) | Contrabass Pizzicato · Cello Drone-Lead · Iron Chains · Golden Celesta · Doom Brass & Choir*† |
 | Castle (royal court) | Lute* · Brass Fanfare · Royal Strings · Chamber Organ · Heroic Horn |
-| Cathedral (sacred voices, bells) | Soft Choir · Pipe Organ · Monk Chant · Church Bells |
-| Haunted Forest (eerie wood, wind) | Wooden Flute · Cello Harmonics · Music Box · Ancient Harp |
+| Cathedral (sacred voices, bells) | Soft Choir* · Pipe Organ · Monk Chant* · Church Bells |
+| Haunted Forest (eerie wood, wind) | Wooden Flute · Cello Harmonics · Music Box* · Ancient Harp* |
 | Caverns (stone, crystal, water) | Stone Marimba · Crystal Bells† · Water Kalimba*† · Hoard Gong |
 | Village (weary folk) | Tin Whistle · Weary Guitar* · Fiddle* · Tuned Anvil |
-| Swamp (murky) | Detuned Banjo · Murky Reed · Drowned Bells† |
-| Mountains (highland, stone) | Shepherd's Flute · War Drums · Ice Glockenspiel · Dwarven Chant |
-| Necropolis (death, ghosts) | Dark Choir Pad† · Ghost Violin* · Tolling Bell & Organ |
+| Swamp (murky) | Detuned Banjo* · Murky Reed · Drowned Bells† |
+| Mountains (highland, stone) | Shepherd's Flute · War Drums* · Ice Glockenspiel · Dwarven Chant* |
+| Necropolis (death, ghosts) | Dark Choir Pad*† · Ghost Violin* · Tolling Bell & Organ* |
 | Wizard's Tower (arcane) | Harpsichord Arpeggio · Clavichord · Glass Marimba · Celestial Pad*† |
 
-\* the developer's own recordings (guitar, violin, kalimba, a soft synth pad); † carries
-one of the developer's effect captures (shimmer, dark hall, chorus reverb). The rest are
-WORLDBUILDER's physical, modal, formant and FM models.
+\* the developer's own recordings (guitar, violin, kalimba, a soft synth pad; since Session 8
+also his voice, banjo, two djembes and piano: see the DEVLOG's Session 8 for which plays
+what); † carries one of the developer's effect captures (shimmer, dark hall, chorus
+reverb). The rest are WORLDBUILDER's physical, modal, formant and FM models. Every
+recorded instrument has a synthesised stand-in for builds without the recordings.
+- DUNGEON CRAWLER FX sings with the developer's voice in a few places (the Final Boss
+  Lair's sub-octave choir, the Chapel's choir, a faint bloom in the Cloister) and whispers
+  faintly in the Graveyard, the Ancient Grove and the Crypt (and in their Atmosphere).
 - Without MIDI the instrument is silent. MIDI travel (an effect feature) is off in the
   instrument: its notes are the music.
 
@@ -209,12 +214,15 @@ build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --art build/art 
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --signatures                          # how much each signature changes its place
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --calibrate-instruments Source/Instrument/Trims.h   # the instruments' level trims
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-instruments build/instruments   # one melody on every instrument
+build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-recordings build/recordings     # the instruments with the new recordings; the FX's voice places before/after
 ```
 
 The instrument's sampled instruments use the developer's recordings (the private
 `AdrianAbbas/Samples` repository, prepared by `tools/sample-prep`); CI fetches them with the
 `SAMPLES_TOKEN` secret. They are never committed here; without them those instruments
-play synthesised stand-ins.
+play synthesised stand-ins. Recordings may sit in subfolders and be MP3 or WAV; a new one
+needs an entry in `tools/sample-prep/manifest.json`. The FX ships only the three voice sets
+its places use.
 
 On macOS this builds a universal (arm64 + x86_64) AU, VST3 and Standalone of each
 plug-in. CI (`.github/workflows/build.yml`) builds both, runs the full test suite,

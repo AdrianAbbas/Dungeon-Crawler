@@ -226,7 +226,7 @@ Resume from the first unticked line. Details in "Session 8" at the end of this f
 - [x] S5. Banjo: Mire (velocity layers, 3 round-robins, murky and detuned)
 - [x] S6. Djembe: Mountain Pass war drums (strokes across the keyboard, round-robins); the optional hand-drum layer not added (why: Session 8)
 - [x] S7. Piano: where a dark piano fits: the Mausoleum (low under the toll) and the Final Boss Lair (doom strike); not the Witch's Hut (why: Session 8)
-- [ ] S8. Tests (cents report, velocity smoothness, clicks, levels, distinct; FX strength/distinctness), listening renders, trims
+- [x] S8. Tests (cents report, velocity smoothness, clicks, levels, distinct; FX strength/distinctness), listening renders, trims
 - [ ] S9. DEVLOG (which instruments use which recordings, bad notes to re-record), final push, CI green
 
 ---
@@ -2152,3 +2152,244 @@ Note for that listen: the samples log maps e.g. "static-y bassy synth *long* hit
 to `mlg-staticbass-short` and the *short* file to `-long` (only this pair; the cyberpunk,
 pulse, soft pad and square pairs map long to long). Check whether the file names or the
 manifest are the swapped side; nothing was changed here.
+
+## Session 8: the new recordings (2026-11-02, unattended)
+
+The developer's Samples repository gained his VOICE, a BANJO (re-recorded through the
+SSL), two DJEMBES and his PIANO. They now play in ten instruments and in six of the FX's
+places. Everything else is unchanged, including every LIKE place's character (the LIKE
+regression still passes: none of the golden places changed).
+
+### What the recordings are (measured, not taken from the names)
+
+Every `notes.txt` was read first (the repository has one, in its root; the voice and piano
+files are in the root too, not in `01-voice/` and `02-piano/`). The preparation finds
+recordings anywhere below the source anyway, so they can move into subfolders.
+
+- **The octave numbering of the notes is GarageBand's (middle C = C3)**. The voice's "E2"
+  sweeps start at 165 Hz (E3 in this repository's C4 = 60), the "G1" drones sound at
+  98 Hz (G2), the "A2" aah drone at 215 Hz (A3, 30-40 cents flat). The spectra show the
+  fundamentals clearly, with nothing an octave below. So nothing was "sung on G1": every
+  note is mapped at its measured pitch, and the manifest's names (scientific octaves) only
+  order the notes.
+- **Voice sweeps**: 7 chest notes each, every 3 semitones (E3 G3 [A3] C#4 E4 G4 A#4); the
+  third, meant as A#3, is sung near A3 in every sweep (80-230 cents low); the falsetto files
+  hold C#5 and E5 (2 notes each). Vowels: ooh, aah, ee and mmm soft and full; oh soft only;
+  ee full twice. The "mm soft" sweep is recorded about 13 dB *louder* than "mm full": the
+  preparation's layer steps put soft 7 dB under full, note by note.
+- **Choir stacks**: 5-6 takes of one pitch per file (ooh on E3, A3, E4 and falsetto E5; aah
+  on E3, A3, E4; hummed on A2 and on E3). They become round-robin takes the ensemble's
+  singers pick from.
+- **Drones**: two 10-14 s takes each of the hummed G2, the gravelly "ooo" G2 (the monk
+  chant: its roughness shows as a wandering pitch) and the aah A3. The grit ("grungy eeeh")
+  is 5 rough takes near A3 (3 of them without a steady pitch: used as a texture, tuned
+  nominally to A3).
+- **Textures**: three 22 s takes of unintelligible whispering (normal, higher, lower),
+  slow breaths (22 pieces), shh/hhh/fff/sss (8 pieces).
+- **Banjo**: soft, medium and hard sweeps of 11 notes (D3..G#5 every 3 semitones; the
+  tuning is 5-30 cents flat throughout, the D string most), a palm-muted sweep, the open
+  fifth string G4 3x soft, 3x medium, 3x hard; strumming and drum-head knocks.
+- **Djembes**: per drum (big, small) five strokes (bass, tone, slap, muted bass, muted
+  slap), each 9 hits: 3 soft, 3 medium, 3 hard (the big drum's bass tone is E2, 40 cents
+  flat; the small drum's C#3).
+- **Piano**: 88 keys, A0-C8, in each of the four sweeps. In tune at A4 (-0.1 cents), with a
+  normal stretch (A1 -7, A3 -3, A5 +1, A7 +28 cents re A4); no string more than 15 cents off
+  the smooth stretch curve.
+- Not described in `notes.txt`: `Notes.wav` (sustained single notes a minor third apart,
+  D#2..F#5, then free playing: most likely the pedal captures' test notes). Not used.
+
+### Sample preparation (`tools/sample-prep`)
+
+- **Finding recordings**: a manifest name is a path, or a file name found anywhere below
+  the source (case and extension case ignored); the "not in the manifest" check walks the
+  whole tree; CI counts MP3s and WAVs everywhere below the checkout.
+- **Sung notes** (`segmentNotes`, `trustPitch`): candidates are sustained stretches of at
+  least 1 s (a breath before a note rises like an onset; a sustained tone does not), each
+  note's pitch is the detector's (the guitar's "strings ringing in sympathy" rule does not
+  apply to a voice), loops found in the held part; the choir stacks and drones keep takes
+  that wander up to 40 cents (a stack needs its takes' natural drift).
+- **Hits** (`kind: hits`): 9 hits per file in order, soft to hard; a hit is a rise out of
+  the quiet that rings (a 30-50 ms blip at a file's end, from the edit, is ignored). The
+  velocity layers are assigned by measured loudness (reported where that differs from the
+  recording's order, below), then set 6 dB apart (`layerStepsDb`), each hit keeping its
+  tone.
+- **Textures** (`kind: texture`): denoised, whole or cut into phrases, evened in loudness.
+- **Piano** (`kind: chromatic`, sweeps.py): the order alone cannot give the keys (a double
+  strike or a missed key shifts every label after it, which happened in two of the four
+  sweeps), so the 88 keys are assigned in order by how clearly each expected pitch sounds
+  (the strings' method). Each note's pitch comes from its partials (f_n = n f0 sqrt(1 + B
+  n^2), f0 and the inharmonicity B fitted). Where a key still rings into the next one, its
+  partials are notched out of the next slice (6 notes). The overall tuning is corrected and
+  the stretch kept: a note played at its key sounds at the key plus the smooth stretch curve
+  (a running median of all four sweeps' deviations) relative to A4. Per key, the three
+  dynamics are set 8/3.5/0 dB apart around the key's own level; a take that would need
+  more than 12 dB is dropped (that key's layer plays the neighbouring key's take).
+- **Banjo**: slices start where the level comes within 25 dB of the pluck's peak (a finger
+  settling on the string came up to 0.35 s earlier, and the decay would have run from
+  there: 10-13 dB lost).
+- **The FX's voice**: the choir stacks carry their spectral envelope (19 third-octave bands,
+  125 Hz-8 kHz, averaged over every take and pitch); `index-fx.json` lists the three sets
+  the FX ships (whispers, ooh and aah stacks: 6.5 MB).
+- **CI log**: one `Prepared: N notes  <set>` line per sample set, a total, and what could
+  not be matched (the full report stays in the samples log and `report.json`).
+- **Memory**: the instrument's bank is now about 190 MB in memory (it was about 83 MB; loaded
+  once per process, shared by every instance), the FX's 13 MB. The held piano notes are cut
+  at 6 s (the Mausoleum fades them over about 4 s).
+
+Prepared here: 45 sample sets (piano's three short sweeps are one set): voice-ooh 18,
+voice-aah 18, voice-ee 17, voice-mm 14, voice-oh 7, choir-ooh 21, choir-aah 15, choir-mm
+7, drone-hum 2, drone-chant 2, drone-aah 2, voice-grit 5, voice-whispers 3, voice-breaths
+22, voice-shh 8, banjo 33, banjo-muted 11, banjo-g5 9, djembe 10 x 9, piano 255, piano-long
+88 notes; with the earlier sets 73 MB of FLAC.
+
+### The voice sampler (`VocalVoice`, Source/Instrument/Synth.*)
+
+- Every singer reads the recordings with WORLDBUILDER's sample player: the soft and the
+  full take **crossfaded by velocity** (no step as the velocity rises: the two takes were
+  levelled 7 dB apart per note), **two vowels morphed** while the note sounds, the sustain
+  **looped** and the recorded **release tail** on note off.
+- **Ensemble**: one voice up to six. The first singer reads the vowel sweep (accurate pitch
+  coverage), the others the choir stacks (other takes); each is detuned (a few cents),
+  drifts slowly, enters a little late (up to `timingMs`) and has its place in the stereo
+  field. One voice up to a full choir is the `singers` count (1-6).
+- **Above the recordings** (E5, the falsetto top): keys are not folded down by octaves; the
+  nearest note is shifted up, a low-pass that falls an octave per octave of shift keeps it
+  from turning thin, and the Soft Choir blends the formant choir in (fully by 6 semitones).
+  Below the lowest note the same, shifted down.
+- **One-shot velocity layers** (banjo, djembes, piano) glide into each other: across a
+  layer's velocity range the level rises from the take below (same key, same round-robin)
+  to its own; the softest rises 6 dB. Opt-in per instrument (`smoothLayers`): the guitar,
+  kalimba and violin instruments are unchanged.
+- Voices have four layers now (the Boss Lair needed brass, sub-brass, the choir stab and
+  the piano).
+
+### Which instruments and places use which recordings now
+
+| Place | Instrument | Recordings | How |
+|---|---|---|---|
+| Cathedral · Cloister | Soft Choir | voice-ooh, voice-aah (soft), choir-ooh, choir-aah | four singers, soft takes mostly (velocity 0.15-0.7 into the crossfade), Vowel morphs ooh to aah; started 0.3 s into each note (past his scoop onto the pitch); formant choir above E5 |
+| Cathedral · Crypt | Monk Chant | drone-hum, drone-chant (low notes), voice-mm, voice-oh (above D3) | an octave below the key, three monks; Vowel: hum to gravel chant; the drones are never shifted beyond a fifth; a faint formant choir underneath |
+| Necropolis · Gates | Dark Choir Pad | voice-aah, voice-ooh (full), choir-aah, choir-ooh | six singers, full takes, spread wide, slow; three more an octave below; the faint analog pad and the dark-hall capture as before |
+| Mountains · Dwarven Hall | Dwarven Chant | drone-chant (low), drone-aah (higher, morphing by key), voice-grit | an octave below the key (as before), three dwarves; Brass: the low brass as before |
+| Dungeon · Final Boss Lair | Doom Brass & Choir | voice-aah, voice-ooh (full), choir-aah, choir-ooh, voice-grit; piano | the Choir macro's stab: six voices tight in time with grit, let go after 0.28 s; Weight: the piano struck an octave below |
+| Haunted Forest · Ancient Grove | Ancient Harp | voice-whispers, voice-breaths | Whispers: a moment of his whispering (any of the three voices, from anywhere in it) or one of his breaths with each pluck |
+| Haunted Forest · Witch's Hut | Music Box | voice-mm (soft) | his soft hum at the key (the box sounds an octave above), fading with the box |
+| Swamp · Mire | Detuned Banjo | banjo (3 velocity layers), banjo-g5 | round-robins: the three hits per dynamic of the open G4 string on G4 ± 2; elsewhere the neighbouring recorded notes a minor third away (pitched); the second string detuned (Detune) |
+| Mountains · Mountain Pass | War Drums | the 10 djembe strokes | strokes across the keyboard (big bass up to B2, big muted bass, tone, slap, muted slap, then the small drum's), pitched 3-21 semitones down (lower within each stroke's keys); 3 round-robins x 3 dynamics; Rim: the small slap over the low strokes |
+| Necropolis · Mausoleum | Tolling Bell & Organ | piano-long | his held piano notes struck an octave below the bell |
+| FX · Final Boss Lair | sub-octave choir | choir-ooh, choir-aah (spectral envelope) | Voice Imprint 0.85: the Choir module's voices sing through his voice's spectrum instead of the generic vowel formants (kept as loud) |
+| FX · Chapel | choir an octave below | the same | Voice Imprint 0.8 |
+| FX · Cloister | a faint choir an octave above (new) | the same | Voice Bloom 0.09 (only with the recordings: without them the cloister is exactly as it was), Voice Imprint 1 |
+| FX · Graveyard, Ancient Grove, Crypt | faint whispers | voice-whispers | Whispers 0.5 / 0.9 / 0.3 (the grove's blur buries them: 0.9 is as faint there as 0.3 in the crypt): two readers, 1.6-3.4 s from anywhere in his three takes, following the playing (no playing, no whispers), band-limited (500 Hz-2 kHz), before the place's space; their own random numbers (the wind and drips sound exactly as before) |
+| FX · Atmosphere, those three places | Whisper events | voice-whispers | the Atmosphere layer's whisper is his (elsewhere it stays synthesised); the Ancient Grove's set gained Whisper (in place of Tinkle) |
+
+Prepared but not played: voice-ee, choir-mm, voice-shh, banjo-muted (no instrument asked
+for them). Not used: the hummed melody (it cannot follow the keys or the harmony: under
+the lullaby it would clash), the ghostly ooh (no steady pitch, not asked for), the banjo's
+strumming and drum-head knocks.
+
+Decisions:
+1. **Piano only where it fits**: the Mausoleum (low under the toll) and the Boss Lair (a
+   doom strike on Weight). Not in the Witch's Hut: the box and the hum are the lullaby, and a
+   detuned piano there would make it a different instrument.
+2. **No extra hand drum** in the Dwarven Hall or the Boss Lair (the brief made it optional,
+   "if it fits"): both already carry three or four layers (chant, grit, brass; brass,
+   sub-brass, stab, piano), and a drum struck with every chanted or brass note would turn
+   them into percussion. Not tried by ear: easy to add if wanted (`warDrum()` on a layer).
+3. **The Crypt's chant sounds an octave below the key** (inside the design, not by the
+   instrument's transposition, so its stand-in is unchanged): a monk chant played where the
+   other choirs are would put the drones a fifth to an octave above their recorded pitch.
+4. **Velocity in the djembes**: layers by loudness, 6 dB apart, gliding (see the list of
+   hits played out of order below).
+5. **The FX ships 6.5 MB** of voice (it loads the bank too now; `prepareToPlay` waits for
+   it up to 3 s, as the instrument does).
+
+### Recordings to re-record (notes or hits that sound wrong or were dropped)
+
+- **Voice**: in every chest sweep the third note (meant A#3) is sung near A3, 80-230
+  cents low (it plays in tune, but the sweeps have a gap A3-C#4 and two notes close
+  together G3-A3). Falsetto: ooh E5 sung 55 cents low. Loops that match only loosely
+  (crossfaded, listen for a slow pulse when holding): aah C#5 (falsetto), aah G4 (full),
+  ee E3 and A#3 (second full take), oh A#4, mm-stack E3 take 2. The second "ee full"
+  sweep: four of its notes wander while held (dropped; the first take plays).
+- **Choir stacks**: aah "A2": takes 3-5 are sung G#3 +30 against takes 1-2 at A3 -30 (60
+  cents apart; each plays in tune, but the stack is two pitches); ooh "E3" take 3 sung D#4
+  +50; aah "E3" take 4 near D#4.
+- **Drones**: the gravel chant's first take starts 53 cents flat (F#2) and settles; the
+  sampler starts 1 s in.
+- **Djembes**: hits played out of order (assigned by loudness): big bass soft 1 / medium
+  1; big slap soft 3 / medium 2; big muted slap 4 hits; small bass, tone, slap, muted bass
+  and muted slap 2-4 hits each. The **small slap** is the worst: its first "medium" hit is
+  louder than every hard one, and its hard hits differ by 19 dB. The **small muted bass**
+  has almost no dynamics (soft, medium and hard within 3 dB). Within one dynamic, hits
+  differ by 9-14 dB in the big bass, big slap, small bass, small tone (re-record with a
+  steadier hand if these strokes matter).
+- **Piano**: takes far from their key's other dynamics, dropped (the neighbouring key's
+  take plays): soft F3 (+30 dB needed), soft D4 (+22), soft G#4 (+16), soft C#7 (+15),
+  soft D#7 (+17), soft E7 (+26), soft F#7 (+13), soft G7 (+24), medium G#7 (+19). The soft
+  sweep was played very unevenly in the top octave.
+- **Banjo**: fine; the medium sweep has handling noise before most notes (50 candidates for
+  11 notes; all rejected).
+
+### Tests (`--only recordings`, new; in CI's shards as `9-recordings`)
+
+- **The sets load** (22 checks; reported, not failed, in a build without the recordings).
+- **In tune from MIDI**: nine keys (45-76) per changed instrument, dry, pitch by YIN, cents
+  from the pressed key's pitch class (the instruments transpose). Median |cents|: Doom
+  Brass & Choir 3.4, Soft Choir 3.4, Monk Chant 2.8, Music Box 4.9, Ancient Harp 0.0,
+  Detuned Banjo 7.8 (+19 at keys 45 and 50, its lowest recorded note and below it; within
+  the 40-cent gate, worth a listen), Dwarven Chant 1.8, Dark Choir Pad 5.6; every measured key
+  within 40 cents. War Drums and the Tolling Bell are reported only (struck, inharmonic);
+  the Mausoleum's piano layer measured 4-7 cents.
+- **Velocity rises smoothly** (0.1..1.0, key 60): no step down, no jump of 6.5 dB or more
+  between neighbouring velocities, a rise of more than 3 dB. The War Drums now rise 24.8 dB
+  in steps of 1.4-5.3 dB; the banjo 22.4 dB in steps of 2.3-2.9 dB.
+- **No clicks** (two keys each, held 5 s through every loop's turns and let go, then a short
+  note let go during its attack): 2.5 ms windows of the second difference against the 90th
+  percentile of their neighbours (a driven brass wave's edges are part of its sound; the
+  first version of this check, against the median, flagged them). The detector checks
+  itself: nothing in a clean tone, a 0.02 step found.
+- **Stand-ins**: with the recordings switched off each changed instrument plays and is
+  within 3 dB of the others (their own trims, `standInTrims`); every recorded instrument is
+  within 0.3 dB of the median.
+- **The FX's voice places**, with the voice vs without (the same build, the bank switched
+  off): Graveyard whispers -23 dB under the place's output, Ancient Grove -33, Crypt -25 (all
+  faint: gated at least 12 dB under), the Boss Lair's imprint -22, the Chapel's -32, the
+  Cloister's bloom -25; every place's loudness unchanged (gated within 1.5 dB; the
+  listening renders measure the same RMS to 0.1 dB before and after).
+- The rest of the suite unchanged and green: the effect's strength, distinctness and LIKE
+  regression, the instruments' levels (spread 0.3 dB) and siblings (closest pair still the
+  Chamber Organ / Heroic Horn, 5.2), the whole of `instruments` 378.
+
+Problems found and fixed on the way: the Ancient Grove's vocal "fizz" (8 kHz band, limit +9
+dB) went from 8.9 to 9.02 when the whispers came in, at any whisper level: they drew from
+the Relics module's random generator and so changed the wind's noise (they have their own
+now; the wind is as before). The Monk Chant measured 6 dB louder in its place than dry
+because the Crypt's reversed swell peaks after the melody: the calibration now measures the
+in-place level over the same 3 s tail the check does. Sung notes started on the singer's
+scoop (Soft Choir -20 cents on low keys): the pads start 0.3-1 s into the note, faded in.
+
+**Listening render** (CI test-logs artifact, `recordings/`; `--listen-recordings dir`): per
+changed instrument the same melody and four chords (Am F G Em) dry, then in its place,
+then its stand-in dry, one file each and `all-changed-instruments.wav` with cues; and
+`fx-<place>-before-then-after.wav` for the six FX places (the guitar and synth phrase
+without the voice, then with it).
+
+CPU (report only, one core here): Dark Choir Pad with a four-note chord in its place 20 %
+(was 17 %: six singers and three below); the others as before.
+
+### Handoff (end of session 8)
+
+**Done**: S1-S9 (checklist at the top). Pushed to `main` with `[skip ci]` per part; the
+last push without, CI below.
+
+**Listen to** (MANUAL_TEST, "Session 8"): the Soft Choir and Dark Choir Pad (your stacks:
+does the ensemble feel like a choir or a chorus effect?), the Monk Chant and Dwarven Chant
+(your drones carry the low notes; above D3 the chant switches to your sweeps), the Boss
+Lair's stab and piano, the War Drums across the whole keyboard, the banjo's round-robins
+on repeated notes, the Witch's Hut hum (alluring or too much? it is at 0.3), and the FX
+places' whispers (faint by design: are they too faint?).
+
+**Known limits**: nothing heard on a Mac yet; sound judged by measurements and spectra.
+The voice above E5 is shifted and blended into synthesis, not recorded. The voice sweeps
+have a gap between A3 and C#4 (the A#3 sung as A3), covered by shifting.

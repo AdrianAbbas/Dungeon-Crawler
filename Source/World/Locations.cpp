@@ -213,7 +213,7 @@ std::vector<LocationDesign> buildWorld() {
                                { Character, 3 }, { Space, .65f }, { Decay, 4.5f }, { Damping, .45f }, { PreDelay, 40 }, { Shimmer, .15f }, { ReverbMix, .25f },
                                { VaultKind, 22 }, { VaultMix, .74f }, { VaultShimmer, .3f },
                                // Session 8: the grove whispers (the developer's voice).
-                               { Whispers, .32f } } },
+                               { Whispers, .9f } } },
         },
         {
           { "Mist", { { WraithMix, -.12f, .3f }, { Blur, -.3f, .2f }, { Drift, -.2f, .3f } } },

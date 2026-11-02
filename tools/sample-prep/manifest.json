@@ -1263,7 +1263,7 @@
             "layerName": "long",
             "patch": "piano",
             "tuningGroup": "piano",
-            "maxSeconds": 8.0,
+            "maxSeconds": 6.0,
             "articulation": "long"
         }
     ],

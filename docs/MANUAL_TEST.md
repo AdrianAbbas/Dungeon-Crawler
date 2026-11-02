@@ -326,3 +326,24 @@ validated.
 - [ ] Logic Pro: the same, plus automation of Location and Sub-location changes the
       instrument over the song.
 - [ ] CPU on the Air: four instances with chords held (Activity Monitor or Logic's meter).
+
+**Session 8: your voice, banjo, djembes and piano**
+- [ ] Soft Choir (Cloister): your soft ooh/aah with the choir stacks; the Vowel macro
+      morphs ooh to aah while a chord is held. Play above E5: the voice shifts gently and
+      the synthesised choir takes over.
+- [ ] Monk Chant (Crypt): your hummed and gravelly drones on low notes, an octave below
+      the keys; Vowel: hum to chant. Dwarven Chant (Dwarven Hall): the gravel drone low,
+      the aah drone higher, your grit under it; Brass adds the low brass.
+- [ ] Dark Choir Pad (Gates): six of you, wide and slow, three more an octave down.
+- [ ] Doom Brass & Choir (Final Boss Lair): the choir stab is your full aah/ooh stacks with
+      grit; Weight brings in the low piano strike.
+- [ ] Ancient Harp (Ancient Grove): Whispers turns up your whispers and breaths.
+- [ ] Music Box (Witch's Hut): your soft hum under the box: more alluring, or too much?
+- [ ] Detuned Banjo (Mire): soft to hard; repeat one note fast (round-robins: no
+      machine-gun); Detune.
+- [ ] War Drums (Mountain Pass): play across the keyboard: the big drum's bass at the
+      bottom up to the small drum's muted slap at the top, pitched down and huge.
+- [ ] Tolling Bell & Organ (Mausoleum): your piano struck low under the bell.
+- [ ] DUNGEON CRAWLER FX on a guitar or synth: the Graveyard, the Ancient Grove and the
+      Crypt whisper faintly while you play (turn Atmosphere up there too); the Final Boss
+      Lair and the Chapel sing with your voice; the Cloister blooms faintly.

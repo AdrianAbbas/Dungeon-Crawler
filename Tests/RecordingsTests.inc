@@ -314,7 +314,7 @@ int listenRecordings(const juce::String& directory) {
     juce::String cues;
     std::vector<float> allL, allR;
     int index = 0;
-    const auto clean = [](juce::String t) { return t.removeCharacters("'&, ").replace(" / ", "-"); };
+    const auto clean = [](juce::String t) { return t.replace(" / ", "-").removeCharacters("'&, /"); };
     for (int k : changedInstrumentsFiltered()) {
         // Dry, a second's pause, in its place; then the same without the recordings (the
         // stand-in), dry.

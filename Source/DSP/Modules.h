@@ -95,6 +95,7 @@ private:
     int whisperCountdown = 0;
     std::array<dsp::Svf, 4> whisperBand;   // per side: a high-pass, then a low-pass
     float whisperLevel = 0;
+    dsp::Random whisperRandom;
     float envelope = 0, attack = 0.01f, release = 0.0001f, gainSmooth = 0.01f;
     float flickerGain = 1, flickerTarget = 0, flickerValue = 0, flickerPhase = 0, windPhase = 0, configuredDecay = -1;
     int flickerCountdown = 0, dripCountdown = 0, configured = -1;

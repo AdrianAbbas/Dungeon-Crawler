@@ -36,6 +36,7 @@ void Relics::reset() {
     configured = -1;
     for (auto& w : whisperVoices) w = Whisper {};
     whisperCountdown = static_cast<int>(0.4 * sr);
+    whisperRandom.seed(0x57485350u);   // its own: the wind's and the drips' noise stay as they were
     for (auto& f : whisperBand) f.clear();
     whisperLevel = 0;
     flicker.value = -1;   // not primed
@@ -77,7 +78,7 @@ void Relics::process(float* l, float* r, int n, const Frame& p, const Context&) 
     // The whisper band: the breath of the voice, no rumble, no hiss above it.
     for (int side = 0; side < 2; ++side) {
         whisperBand[static_cast<std::size_t>(2 * side)].set(500.0, sr, 0.7f);
-        whisperBand[static_cast<std::size_t>(2 * side + 1)].set(2800.0, sr, 1.0f);
+        whisperBand[static_cast<std::size_t>(2 * side + 1)].set(2000.0, sr, 0.9f);
     }
     configure(static_cast<int>(std::lround(p[MetalKind])), static_cast<int>(std::lround(p[MetalNote])),
               static_cast<int>(std::lround(p[MetalOctave])), std::clamp(p[MetalDecay], 0.05f, 8.0f));
@@ -147,21 +148,21 @@ void Relics::process(float* l, float* r, int n, const Frame& p, const Context&) 
         float whisperL = 0, whisperR = 0;
         if (wh > 1.0e-4f && whisperTakes != nullptr) {
             if (--whisperCountdown <= 0) {
-                whisperCountdown = static_cast<int>(sr * (0.5 + 1.8 * random.unit()));
+                whisperCountdown = static_cast<int>(sr * (0.5 + 1.8 * whisperRandom.unit()));
                 for (auto& w : whisperVoices)
                     if (!w.on) {
-                        const auto& z = whisperTakes->zones[static_cast<std::size_t>(random.unit() * 0.999f * static_cast<float>(whisperTakes->zones.size()))];
-                        const float span = static_cast<float>(1.6 + 1.8 * random.unit());
+                        const auto& z = whisperTakes->zones[static_cast<std::size_t>(whisperRandom.unit() * 0.999f * static_cast<float>(whisperTakes->zones.size()))];
+                        const float span = static_cast<float>(1.6 + 1.8 * whisperRandom.unit());
                         const int need = static_cast<int>(span * whisperTakes->rate) + 8;
                         if (z.length <= need) break;
                         w.data = z.data;
                         w.length = z.length;
-                        w.pos = static_cast<double>(random.unit()) * static_cast<double>(z.length - need);
-                        w.step = static_cast<float>(whisperTakes->rate / sr) * (0.96f + 0.08f * random.unit());
+                        w.pos = static_cast<double>(whisperRandom.unit()) * static_cast<double>(z.length - need);
+                        w.step = static_cast<float>(whisperTakes->rate / sr) * (0.96f + 0.08f * whisperRandom.unit());
                         w.age = 0;
                         w.span = span;
-                        w.gain = 0.6f + 0.4f * random.unit();
-                        w.pan = 0.75f * random.bipolar();
+                        w.gain = 0.6f + 0.4f * whisperRandom.unit();
+                        w.pan = 0.75f * whisperRandom.bipolar();
                         w.on = true;
                         break;
                     }
