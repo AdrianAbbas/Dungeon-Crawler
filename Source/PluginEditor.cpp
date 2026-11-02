@@ -305,9 +305,9 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
     journeyPanel.onClose = [this] { journeyToggle.setToggleState(false, juce::dontSendNotification); journeyPanel.setVisible(false); repaint(); storeViewState(); };
     addAndMakeVisible(journeyToggle);
     addChildComponent(journeyPanel);
-    // The instrument (DUNGEON CRAWLER) has no input: its Input fader gives way to the
-    // Effects roller (Session 9; the FX has the roller beside Intensity). The instrument's
-    // own panel sits under the world (DungeonCrawlerEditor), as in LIGHT SEEKER.
+    // The instrument (DUNGEON CRAWLER) has no input: no Input fader. Its Effects roller is on
+    // its own panel under the world (DungeonCrawlerEditor, as in LIGHT SEEKER); the FX has
+    // the roller here, between Intensity and Mix (Session 9).
     if (processor.isInstrument()) {
         input.slider.setVisible(false);
         input.label.setVisible(false);

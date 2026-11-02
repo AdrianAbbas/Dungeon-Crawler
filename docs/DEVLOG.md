@@ -2423,3 +2423,140 @@ places' whispers (faint by design: are they too faint?).
 **Known limits**: nothing heard on a Mac yet; sound judged by measurements and spectra.
 The voice above E5 is shifted and blended into synthesis, not recorded. The voice sweeps
 have a gap between A3 and C#4 (the A#3 sung as A3), covered by shifting.
+
+---
+
+## Session 9: the window, the instrument panel, the Effects roller (2026-11-02, unattended)
+
+Two UI changes for both plug-ins; no instrument or place sound changes (at the defaults
+every sound is bit-identical; see "Sound" below). LIGHT SEEKER's fixes copied from its
+DEVLOG "Direction Update 2" (sections 2-4) and its code; LIGHT SEEKER itself untouched.
+The three parts share the editor and the processor, so the code went up as one commit
+(`[skip ci]`), the documents as a second.
+
+### 1. The window reopens as it was left (both plug-ins)
+
+**Cause** (still broken after Session 5): the host destroys the editor when its window
+closes, and `DungeonCrawlerView`'s constructor always started on `View::Map`. Nothing
+outside the editor remembered which scene was shown or which panels were open; only the
+window's scale and the place (parameters) survived.
+
+**Now** (LIGHT SEEKER's fix, copied): `DungeonCrawlerProcessor::ViewState` behind a spin
+lock: the view (the map or a place's scene), the controls strip, the Advanced drawer or
+the Journey panel and where each was scrolled. The view writes it on every change
+(`storeViewState`: `goTo`, the panel toggles and their close paths, the controls toggle,
+`closePanels`, the destructor) and at 10 Hz while a panel is open (its scroll). It is saved
+in the session as an `EditorView` child of the state (older versions ignore it; older
+sessions without it open on the map, as before) and restored when the editor is created:
+the scene simply appears, no zoom from the map. A user preset carries sounds, not the
+window (`loadUserPreset` keeps the current view). The window size was already kept
+(`editorScale`); the instrument is a parameter (Lock + Instrument), so it comes back too.
+Unlike LIGHT SEEKER there is no keyboard scroll position to keep (the panel's keyboard
+shows its whole range, C2-C7).
+
+### 2. Hover never sticks; double-buffered repaints
+
+- `Source/UI/Hover.h` copied as is: `HoverButton` keeps its own hover flag (set on enter,
+  cleared on exit and when hidden) and paints from it; `sweepHover` runs on every mouse
+  move, enter and exit in the window and in the instrument panel and clears any button
+  still lit where the mouse is not. The landmarks, hotspots and the place list
+  (`PlaceButton`, new: the selected place a crimson diamond and rule, stable; a hovered one
+  a soft glow and a faint rule only while the mouse is over it) are `HoverButton`s; the
+  place list stays shown throughout a location (no hide/show under the mouse).
+- **Double buffer:** DUNGEON CRAWLER had LIGHT SEEKER's bug in its dark form: `paint`
+  looked the scene up at the current pixel size and, on a miss (a resized window, an
+  out-of-process host reporting another display scale), filled the region with black: a
+  dark box behind an ember's or a button's repaint. The view now keeps a `frame` (the
+  scene at rest, replaced only when a new image is ready: `refreshFrame` on `sceneReady`,
+  at the end of a transition, on settling) and paints every region from it, scaled when
+  the art at the new size is not ready yet; the editor's resize requests the new size at
+  once (`scaleChanged`). Only before the very first scene is there a plain dark ground.
+
+### 3. The instrument panel: LIGHT SEEKER's layout, the dark style
+
+Under the world, always shown, as LIGHT SEEKER's: the window is 960 x 756 at 100 %
+(resizable, fixed aspect), the FX stays 960 x 560. The slide-up drawer and its Instrument
+button are gone (so there is no instrument "drawer" state to restore). Left: where the
+instrument belongs, its name, ‹ › and the chooser (choosing locks), Lock instrument, the
+Bend range (where LIGHT SEEKER has Octave: DUNGEON CRAWLER has no octave parameter). Then
+the five macros (named by the instrument), **Vowel**, **Ensemble**, **Level**,
+**Intensity**, the **Effects** roller and what the mod wheel does. Below: the Bend and
+Mod wheels (drawn like the roller; Bend springs back), Sustain, and the keyboard lit by
+the host's notes. Dark stone gradient, an iron rail with a crimson edge, bone-coloured
+keys lit crimson, iron black keys; its own look-and-feel (it sits outside the view).
+Kept from DUNGEON CRAWLER: its own keyboard component (cheap, the lit-key bits, already
+tested) instead of JUCE's scrolling one. Mix stays in the controls strip (the old panel's
+"Space").
+
+New instrument parameters (appended; no existing ID moves): **Level** (`instLevel`,
+-24..+12 dB, 0 dB; smoothed over 30 ms into the place), **Vowel** and **Ensemble**
+(`instVowel`, `instEnsemble`, 50 % = the design). They act on the layers sung with the
+recorded voice, for notes that start after a change: Vowel moves the morph between the
+layer's two vowels (only where it has two), Ensemble thins the choir to one singer or
+fills it to six. At 50 % `startVocal` leaves everything exactly as designed. Enabled on
+the six instruments that sing (`designUsesVoice`: Doom Brass & Choir, Soft Choir, Monk
+Chant, Music Box, Dwarven Chant, Dark Choir Pad), dimmed on the others. The Soft Choir's
+and Monk Chant's own fifth macro was also called "Vowel" (the same morph): it is now
+labelled **Open** (ooh to aah, hum to chant), so the panel does not show two Vowels.
+
+The panel's wheels and pedal send through the same lock-free queue as its keys (kinds
+packed in the top byte). Drawing: a 15 Hz check repaints only the keyboard, a wheel or
+the pedal when what the audio thread last saw changed.
+
+### 4. The Effects roller
+
+`effects` (both plug-ins, appended, automatable, 0-150 %, default 100 %; sessions saved
+before it existed open at 100 %; factory presets start from the defaults, so 100 %; user
+presets and sessions keep it). Drawn as a wheel (`Source/UI/EffectsRoller.h`): a ridged
+iron cylinder in a recessed slot whose ridges roll as it moves, a crimson grip, the lit
+length along the slot, an ivory tick at 100 %, the value under it; vertical drag, scroll
+wheel, double-click to 100 %. On the instrument panel (its largest control) and in the
+FX's controls between Intensity and Mix.
+
+**Mapping** (`process`, `Engine::strengthen`): the engine's intensity is Intensity x
+Effects. Up to 100 % this is exactly Intensity's path (the place's frame interpolated from
+neutral; the trims and the level matcher follow), so 0 % is the true dry path. Above 100 %
+(up to 1.5) the place's wet and character amounts continue along the line from neutral to
+the place: every module mix and send (Crypt, Echoes, Vault, Ensemble, Tape, Choir and
+Drone, Wraith, Ancient Blood, the Signature, Relics, voice imprint, whispers and bloom),
+Drive, Darkness, Age, Dust, Instability, Shimmer, Tomb, Space; Feedback and Tape Feedback
+too, capped at 0.85 / 0.8 (or the place's own, if higher) so echoes never run away;
+Decay up to 1.6 times the place's. Times, rates, pitches, filters and choices stay as
+designed. The level matcher holds the level. In the instrument the place's own trim (the
+build-up of sustained and ringing notes, `placeTrims`) is scaled by Effects, so towards
+0 % the instrument meets its dry self without a level step and above 100 % the extra
+build-up is corrected; at 100 % it is exactly as before. Moving it is click-free (the
+modules smooth their amounts; the dry path crossfades in 30 ms).
+
+### Tests
+
+- `window` (new, shard 1): close and reopen at Cathedral → Crypt with Advanced open and
+  scrolled at 125 %: the same scene (not the map), place, drawer and scroll, size; the
+  Journey panel; the controls hidden; a location's own scene; the map; a saved session
+  (a new processor from the state) at 75 % with the Journey panel; a preset keeps the
+  window; a new instance opens on the map. All for the FX **and** the instrument (also:
+  the same instrument). Hover: every place-list entry lights only while hovered after a
+  click, the selected place stays marked, a missed exit is cleared by the next move, a
+  hotspot hidden while hovered comes back clear, every visible button of the instrument
+  window (place list, toolbar, panel) set to "over" and swept: none left lit, a landmark's
+  name plate goes on exit. Double buffer: at 75/100/150 %, with every rendered scene
+  forgotten, partial repaints of the life regions show the scene (< 1 % of pixels
+  differ); a resize keeps the frame and then gets the art at the new size.
+- `effects` (new, shard 2): the parameter (automatable, range, 100 % default, older
+  session → 100 %, session, factory and user presets); eleven FX places across every
+  location: the effects grow 50 → 100 → 150 % (a level-normalised octave-band/time
+  distance from the dry render; at 150 % that or the difference energy, since a place
+  already fully wet saturates one of them) and the level is kept (0 / 150 % within 3 dB of
+  100 %); 0 % is the dry input (< -60 dB); sweeps and jumps on a held sine in three places
+  are click-free; five instruments on the calibration melody (the same two checks, the
+  level as the trims are calibrated: the loudest 400 ms, K-weighted); a held string chord
+  while the roller sweeps 100 → 0 → 150 %: its largest step is within the steady steps at
+  0 / 100 / 150 % (the dry strings have much larger steps of their own than in their
+  place); Level 0 dB, Vowel and Ensemble set to 50 % change nothing (bit-identical), Level -12 dB lowers
+  by 12 dB. (Against the old code: the existing sound groups, including the bit-exact
+  LIKE regressions and the instrument levels, pass unchanged.)
+- `instrumenteditor` updated (the panel under the world, 960 x 756; no button, no Esc);
+  the parameter count check: eight instrument parameters → eleven.
+- Snapshots: `docs/snapshots/session9/` (the instrument window and panel with a chord
+  held and the wheels moved, a non-singing instrument with Vowel/Ensemble dimmed and the
+  roller at 140 %, the FX window and its controls at 60 %); `--panel-snapshots dir`.
