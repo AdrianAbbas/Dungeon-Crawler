@@ -241,7 +241,7 @@ at the end of this file.
 - [x] W4. Effects roller (both plug-ins): parameter (0-150 %, default 100 %), engine (Intensity x Effects; above 100 % the wet amounts go further), instrument place trim follows it; drawn as a wheel
 - [x] W5. Tests (`window`, `effects`; instrument editor updated), snapshots `docs/snapshots/session9/`, full suite
 - [x] W6a. README, MANUAL_TEST, DEVLOG handoff; full Linux suite 2435 passed, 0 failed; final push without `[skip ci]`
-- [ ] W6b. CI green (macOS + Linux)
+- [x] W6b. CI green (macOS + Linux): run 41531598330
 
 ---
 
