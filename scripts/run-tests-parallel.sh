@@ -1,25 +1,29 @@
 #!/usr/bin/env bash
 # Runs the whole Linux test suite as concurrent shards, then the CPU-measuring group
-# alone (report-only) so its timings are not disturbed. Together the shards cover
-# every test group and every location.
+# alone (report-only) so its timings are not disturbed. The editor and workflow groups
+# hold wall-clock checks too (a full repaint fits a 30 fps frame; Eco costs less than
+# Standard), so they also run alone, after the shards: with the seventh shard
+# (instruments, Direction Update 3) they failed under contention on the 4-core runner.
+# Together the shards cover every test group and every location.
 # Usage: scripts/run-tests-parallel.sh path/to/DungeonCrawlerTests [log directory]
 set -u
 tests="${1:?the DungeonCrawlerTests binary}"
 logs="${2:-build/test-logs}"
 mkdir -p "$logs"
 
-"$tests" --only smoke,parameters,state,layouts,transparency,editor,art,levels,workflow,instrumenteditor > "$logs/1-basics.txt" 2>&1 &
+"$tests" --only smoke,parameters,state,layouts,transparency,art,levels,instrumenteditor > "$logs/1-basics.txt" 2>&1 &
 "$tests" --only rates,extremes,realtime,place,journeys,atmosphere,navigation,instrument > "$logs/2-robustness.txt" 2>&1 &
 "$tests" --only locations,travel,modules,musicality > "$logs/3-locations.txt" 2>&1 &
 "$tests" --only qa > "$logs/5-qa.txt" 2>&1 &
 "$tests" --only strength,like > "$logs/6-strength.txt" 2>&1 &
 "$tests" --only instruments > "$logs/7-instruments.txt" 2>&1 &
 wait
+"$tests" --only editor,workflow > "$logs/8-timed.txt" 2>&1
 "$tests" --only cpu > "$logs/4-cpu.txt" 2>&1
 
 passed=0
 failed=0
-for log in "$logs"/[1-7]-*.txt; do
+for log in "$logs"/[1-8]-*.txt; do
     line=$(grep -E '^[0-9]+ passed, [0-9]+ failed' "$log" | tail -1)
     if [[ -z "$line" ]]; then
         echo "$log: did not finish"

@@ -2122,6 +2122,15 @@ every check passed), `DungeonCrawler-linux-test-logs` (test logs plus both liste
 renders: dry vs processed per place, and one melody on all 40 instruments, as WAV) and
 `DungeonCrawler-macOS-diagnostics`.
 
+**Then a flaky Linux test, fixed**: the next two branch pushes (DEVLOG only, no code) and a
+re-run failed on Linux in "Processor tests": "Eco costs less than Standard" (15.1 vs 9.8,
+13.3 vs 10.9, 10.6 vs 8.4 % of a core) and "a full repaint with the drawer fits in a 30 fps
+frame" (34.9, 38.4 ms; limit 33). Both are wall-clock checks in the `workflow` and `editor`
+groups, which ran inside the parallel shards; Direction Update 3 added a seventh concurrent
+shard (`instruments`) on a 4-core runner. `scripts/run-tests-parallel.sh` now runs
+`editor,workflow` alone after the shards (log `8-timed.txt`), as `cpu` already was. The
+checks and their limits are unchanged.
+
 **Still not done**: nobody has listened on a Mac yet; the renders are there to be heard.
 Note for that listen: the samples log maps e.g. "static-y bassy synth *long* hit sweep.wav"
 to `mlg-staticbass-short` and the *short* file to `-long` (only this pair; the cyberpunk,
