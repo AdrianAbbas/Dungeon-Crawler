@@ -98,6 +98,40 @@ def note_loudness(audio):
 
 
 # ---------------------------------------------------------------------------
+# 0. Finding the recordings: in the root or in any subfolder (01-voice/, 02-piano/...),
+# as MP3 or WAV (Session 8). A manifest name is a path relative to the source, or just
+# a file name found anywhere below it (case and the extension's case ignored).
+
+AUDIO_EXT = (".mp3", ".wav", ".aif", ".aiff", ".flac")
+_tree = {}
+
+
+def recordings(source):
+    """Every audio file below `source`: relative paths, sorted (hidden folders skipped)."""
+    if source not in _tree:
+        found = []
+        for dp, dns, fns in os.walk(source):
+            dns[:] = sorted(d for d in dns if not d.startswith("."))
+            for fn in fns:
+                if fn.lower().endswith(AUDIO_EXT) and not fn.startswith("."):
+                    found.append(os.path.relpath(os.path.join(dp, fn), source))
+        _tree[source] = sorted(found)
+    return _tree[source]
+
+
+def resolve(source, name):
+    """The path of a manifest's recording, wherever it is below `source`, or None."""
+    direct = os.path.join(source, name)
+    if os.path.exists(direct):
+        return direct
+    base = os.path.basename(name).lower()
+    stem = os.path.splitext(base)[0]
+    exact = [r for r in recordings(source) if os.path.basename(r).lower() == base]
+    loose = exact or [r for r in recordings(source) if os.path.splitext(os.path.basename(r).lower())[0] == stem]
+    return os.path.join(source, sorted(loose, key=lambda r: (r.count(os.sep), r))[0]) if loose else None
+
+
+# ---------------------------------------------------------------------------
 # 1. Decoding and the MP3 padding
 
 def mp3_gapless(path):
@@ -574,13 +608,21 @@ def process_set(spec, source, room, out_dir, report):
     bowed = spec["kind"] == "bowed"
     partials = spec.get("partials", 3)
     os.makedirs(os.path.join(out_dir, sid), exist_ok=True)
-    zones, floors = [], []
+    zones, floors = [], {}
+    # Several files can make one velocity layer ("index": the layer they join; the voice's
+    # falsetto notes join both the soft and the full layer). Names per layer index.
+    names = {}
+    for fi, layer in enumerate(spec["layers"]):
+        names.setdefault(layer.get("index", fi), layer["name"])
+    nlayers = len(names)
+    tolerance = spec.get("labelTolerance", 0.5)
     # Layers that are one articulation recorded in two files (the violin's open and
     # stopped pizzicato) become one key map; shared notes are extra round-robins.
     merge = spec.get("mergeLayers", False)
     merged_rr = {}
-    for li, layer in enumerate(spec["layers"]):
-        path = os.path.join(source, layer["file"])
+    for fi, layer in enumerate(spec["layers"]):
+        li = layer.get("index", fi)
+        path = resolve(source, layer["file"]) or os.path.join(source, layer["file"])
         notes = layer.get("notes", spec.get("notes"))
         expected = [midi_of(n) for n in notes]
         takes = spec.get("takes", 1)
@@ -590,10 +632,21 @@ def process_set(spec, source, room, out_dir, report):
             continue
         raw, gap_note, corr, trailing = load(path)
         x, before, after, quiet = denoise(raw, room)
-        floors.append(before)
+        floors.setdefault(li, []).append(before)
         x = signal.sosfiltfilt(signal.butter(2, 25, "highpass", fs=RATE, output="sos"), x)
         env = envelope(x)
         cands, floor = onsets(env, bowed)
+        if spec.get("segmentNotes"):
+            # Sung notes (Session 8): long tones between clear gaps. A breath before a note
+            # rises like an onset; a sustained stretch of at least `minNote` seconds does not.
+            seg = gaps_segments(x, spec.get("noteGap", 0.25), spec.get("noteThresholdDb", -32.0), spec.get("minNote", 1.0))
+            cands = []
+            for a_, b_ in seg:
+                fa, fb = a_ // ENV_HOP, max(a_ // ENV_HOP + 1, b_ // ENV_HOP)
+                pk = fa + int(np.argmax(env[fa:fb]))
+                # The note's start: where it first comes within 30 dB of its own peak.
+                st = fa + int(np.argmax(env[fa:fb] >= env[pk] - 30.0))
+                cands.append((st, pk, float(env[pk])))
         sequence = [m for m in expected for _ in range(takes)] if takes > 0 else []
         chosen, rejected = pick(cands, x, bowed, partials, sequence)
         entry = {
@@ -617,7 +670,7 @@ def process_set(spec, source, room, out_dir, report):
                 label = expected[k // takes]
             elif c["midi"] is not None:
                 label = min(expected, key=lambda m: min(abs(m + o - c["midi"]) for o in (-12, 0, 12)))
-                if min(abs(label + o - c["midi"]) for o in (-12, 0, 12)) > 0.5:
+                if min(abs(label + o - c["midi"]) for o in (-12, 0, 12)) > tolerance:
                     entry["rejected"].append(f"{c['start'] * ENV_HOP / RATE:.2f}s (sounds like {name_of(c['midi'])}, not a string)")
                     continue
             else:
@@ -636,7 +689,7 @@ def process_set(spec, source, room, out_dir, report):
                                           + (f" (sounds like {name_of(found)})" if found else "") + "; using the label")
             else:
                 cents = 100 * (midi - label)
-                if abs(cents) >= 50 and abs(abs(cents) - 1200) >= 50:
+                if abs(cents) >= 50 and abs(abs(cents) - 1200) >= 50 and not spec.get("trustPitch"):
                     # Another pitch won: keep the label when its harmonics are as clear
                     # (a weak fundamental under louder ringing strings).
                     ev_label, ev_found = evidence(x, onset, bowed, [label, int(round(midi))])
@@ -702,7 +755,7 @@ def process_set(spec, source, room, out_dir, report):
         return None
     # A held take whose pitch wanders (more than 12 cents, standard deviation, across its
     # loop) would wobble every time the loop turns: dropped when the note has other takes.
-    for z in [z for z in zones if z.get("wander", 0) > 12]:
+    for z in [z for z in zones if z.get("wander", 0) > spec.get("maxWander", 12)]:
         others = [o for o in zones if o is not z and o["label"] == z["label"] and o["layer"] == z["layer"] and o.get("wander", 0) <= 12]
         if others:
             zones.remove(z)
@@ -715,12 +768,13 @@ def process_set(spec, source, room, out_dir, report):
     # The layers of one instrument were recorded at different input levels (the soft
     # takes turned up). The room's noise is the same in all of them, so each layer is
     # levelled by its noise floor: the dynamics between the layers come back.
-    if len(floors) > 1 and spec["layers"][0]["velocity"] != spec["layers"][1]["velocity"]:
-        mean = float(np.mean(floors))
-        trims = [mean - f for f in floors]
+    if len(floors) > 1 and not merge and not spec.get("noFloorLevelling"):
+        per = {li: float(np.mean(f)) for li, f in floors.items()}
+        mean = float(np.mean(list(per.values())))
+        trims = {li: mean - f for li, f in per.items()}
         for z in zones:
             z["audio"] = z["audio"] * 10 ** (trims[z["layer"]] / 20)
-        report["levelling"][sid] = {spec["layers"][i]["name"]: {"floorDb": round(floors[i], 1), "trimDb": round(trims[i], 1)} for i in range(len(floors))}
+        report["levelling"][sid] = {names[i]: {"floorDb": round(per[i], 1), "trimDb": round(trims[i], 1)} for i in sorted(per)}
     # The noise floors bring the layers near each other, but not into a usable order: the
     # player's touch changed across the register too (the medium guitar takes match the
     # hard ones on the low strings and fall 12-20 dB under them above G4). With
@@ -728,7 +782,7 @@ def process_set(spec, source, room, out_dir, report):
     # around the note's own level (the median over its layers), so a velocity never jumps
     # to a much quieter or louder take; each take keeps its own tone.
     steps = spec.get("layerStepsDb")
-    if steps and len(spec["layers"]) == len(steps):
+    if steps and nlayers == len(steps):
         changes = []
         for label in sorted({z["label"] for z in zones}, key=midi_of):
             mine = [z for z in zones if z["label"] == label]
@@ -740,7 +794,7 @@ def process_set(spec, source, room, out_dir, report):
                 z["audio"] = z["audio"] * 10 ** (trim / 20)
                 changes.append(trim)
             for li in level:
-                report["layerSteps"].setdefault(sid, {}).setdefault(label, {})[spec["layers"][li]["name"]] = round(float(np.clip(
+                report["layerSteps"].setdefault(sid, {}).setdefault(label, {})[names[li]] = round(float(np.clip(
                     centre + steps[li] - level[li], -24.0, 18.0)), 1)
         report["warnings"].extend(f"{sid}: a layer step needed more than the limit ({c:+.1f} dB)" for c in changes if c in (-24.0, 18.0))
     # 5. One gain for the whole instrument: its loudest peak at -1 dBFS.
@@ -756,8 +810,8 @@ def process_set(spec, source, room, out_dir, report):
         z["rms"] = round(float(db(np.sqrt(np.mean(head ** 2)))), 2)
         z["peak"] = round(float(db(np.abs(z["audio"]).max())), 2)
         z["loudness"] = round(note_loudness(z["audio"]), 2)
-    layers = len(spec["layers"])
-    if layers > 1 and spec["layers"][0]["velocity"] != spec["layers"][1]["velocity"]:
+    layers = nlayers
+    if layers > 1 and not merge:
         for label in sorted({z["label"] for z in zones}, key=midi_of):
             levels = [next((z["loudness"] for z in zones if z["label"] == label and z["layer"] == li), None) for li in range(layers)]
             if None not in levels and any(levels[i] >= levels[i + 1] for i in range(layers - 1)):
@@ -775,7 +829,7 @@ def process_set(spec, source, room, out_dir, report):
         upper = [q for q in roots if q > round(r, 1) + 0.5]
         lo = math.floor((max(lower) + r) / 2) + 1 if lower else int(round(r)) - 7
         hi = math.floor((min(upper) + r) / 2) if upper else int(round(r)) + 7
-        name = f"{z['label'].replace('#', 's')}-{spec['layers'][z['layer']]['name'] if not merge else spec['id'].split('-')[-1]}-{z['rr'] + 1}.flac"
+        name = f"{z['label'].replace('#', 's')}-{names[z['layer']] if not merge else spec['id'].split('-')[-1]}-{z['rr'] + 1}.flac"
         sf.write(os.path.join(out_dir, sid, name), z["audio"].astype(np.float32), RATE, subtype="PCM_16", format="FLAC")
         mz = {"file": f"{sid}/{name}", "label": z["label"], "root": z["root"], "loKey": lo, "hiKey": hi,
               "loVel": z["velocity"][0], "hiVel": z["velocity"][1], "layer": z["layer"], "rr": z["rr"],
@@ -786,7 +840,279 @@ def process_set(spec, source, room, out_dir, report):
         mapping_zones.append(mz)
     mapping_zones.sort(key=lambda m: (m["root"], m["layer"], m["rr"]))
     mapping = {"id": sid, "name": spec["name"], "kind": spec["kind"], "rate": RATE, "channels": 1,
-               "layers": [l["name"] for l in spec["layers"]] if not merge else [spec["id"].split("-")[-1]], "gainDb": round(20 * math.log10(gain), 2), "zones": mapping_zones}
+               "layers": [names[i] for i in sorted(names)] if not merge else [spec["id"].split("-")[-1]], "gainDb": round(20 * math.log10(gain), 2), "zones": mapping_zones}
+    if spec.get("envelope"):
+        mapping["envelopeHz"], mapping["envelopeDb"] = spectral_envelope(zones)
+    with open(os.path.join(out_dir, f"{sid}.json"), "w") as f:
+        json.dump(mapping, f, indent=1)
+    return mapping
+
+
+
+# ---------------------------------------------------------------------------
+# Session 8: hits (drums, the banjo's open fifth string) and textures (whispers,
+# breaths, a hummed melody). Both are processed first and written once every set of
+# their gain group is known, so the strokes of one drum keep their levels between them.
+
+def hit_onsets(env, count, top_db=45.0):
+    """Starts of `count` hits (5 ms frames): a rise out of the quiet before it, relaxed
+    until enough are found; with too many, the smallest rises go first (a hand settling
+    on the skin, a breath, a chair)."""
+    sm = np.convolve(env, np.ones(3) / 3, mode="same")
+    top = float(np.percentile(sm, 99.8))
+    found = []
+    for need in (24.0, 20.0, 16.0, 12.0, 9.0):
+        found, i = [], 30
+        while i < len(sm) - 1:
+            before = sm[max(0, i - 30):i].min()
+            ahead = sm[i:i + 20].max()
+            if sm[i] - before > 6 and ahead - before >= need and ahead > top - top_db:
+                start = i
+                while start > 0 and sm[start - 1] > before + 3 and i - start < 10:
+                    start -= 1
+                peak = i + int(np.argmax(sm[i:i + 60]))
+                level = float(sm[peak])
+                # How long it sounds within 20 dB of its peak: a hit rings, a click does not.
+                ring = int(np.sum(sm[peak:peak + 200] > level - 20.0))
+                if i < len(sm) - 30:       # not the file's last 150 ms (an edit's click)
+                    found.append({"start": start, "peak": peak, "rise": float(ahead - before), "level": level,
+                                  "score": level + 10.0 * math.log10(max(ring, 1))})
+                i = peak + 40          # 200 ms: a hit's own bounce is not a new hit
+            else:
+                i += 1
+        if len(found) >= count:
+            break
+    extra = []
+    while len(found) > count:
+        k = min(range(len(found)), key=lambda j: found[j]["score"])
+        extra.append(found.pop(k))
+    return found, extra
+
+
+def process_hits(spec, source, room, report):
+    """One recording of `takes` hits per dynamic, soft to hard: velocity layers and
+    round-robins. Returns zones (audio not yet levelled)."""
+    sid = spec["id"]
+    path = resolve(source, spec["file"])
+    layers, takes = spec.get("layers", ["soft", "medium", "hard"]), spec.get("takes", 3)
+    count = len(layers) * takes
+    if path is None:
+        report["problems"].append(f"{sid}: missing file '{spec['file']}'")
+        return []
+    raw, gap_note, corr, trailing = load(path)
+    x, before, after, quiet = denoise(raw, room, max_db=spec.get("denoiseDb", 9.0))
+    x = signal.sosfiltfilt(signal.butter(2, spec.get("highPass", 25), "highpass", fs=RATE, output="sos"), x)
+    env = envelope(x)
+    found, extra = hit_onsets(env, count)
+    floor = float(np.percentile(env[env > -200], 10))
+    entry = {"file": spec["file"], "set": sid, "layer": "/".join(layers), "padding": gap_note,
+             "stereo": "dual mono" if corr > 0.999 else f"stereo (L/R correlation {corr:.3f}, mixed to mono)",
+             "trailingSilence": round(trailing / RATE, 2), "noiseFloorDb": round(before, 1), "noiseAfterDb": round(after, 1),
+             "quietFrames": quiet, "expected": count, "found": len(found), "candidates": len(found) + len(extra),
+             "rejected": [f"{c['start'] * ENV_HOP / RATE:.2f}s ({c['level']:.0f} dB, rose {c['rise']:.0f} dB)" for c in extra], "notes": []}
+    report["files"].append(entry)
+    if len(found) != count:
+        report["problems"].append(f"{sid}: expected {count} hits, found {len(found)}")
+    zones = []
+    sm = np.convolve(env, np.ones(10) / 10, mode="same")
+    for k, c in enumerate(found):
+        stop = found[k + 1]["start"] - 4 if k + 1 < len(found) else len(env)
+        stop = min(stop, c["start"] + int(spec.get("maxSeconds", 3.0) * RATE / ENV_HOP))
+        peak = c["peak"]
+        end = stop
+        for i in range(peak, stop):
+            if sm[i] < max(floor + 4, sm[peak] - spec.get("rangeDb", 60.0)):
+                end = min(stop, i + 10)
+                break
+        start = max(0, c["start"] * ENV_HOP - int(0.003 * RATE))
+        y = x[start:end * ENV_HOP].copy()
+        head = envelope(y[:int(0.3 * RATE)])
+        if len(head):
+            start_shift = max(0, int(np.argmax(head >= head.max() - 36.0)) * ENV_HOP - int(0.003 * RATE))
+            y = y[start_shift:]
+            start += start_shift
+        fin = int(0.001 * RATE)
+        y[:fin] *= np.linspace(0, 1, fin)
+        fout = int(np.clip(0.2 * len(y), 0.02 * RATE, 0.25 * RATE))
+        y[-fout:] *= 0.5 * (1 + np.cos(np.linspace(0, np.pi, fout)))
+        layer, rr = min(k // takes, len(layers) - 1), k % takes
+        # Pitch: a pitched hit (the banjo's string, a drum's bass tone) is tuned to what it
+        # sounds; an unpitched one keeps the nominal root.
+        root, detected = float(spec.get("root", 60)), "unpitched"
+        frames = yin(y[int(0.03 * RATE):int(0.5 * RATE)], fmin=spec.get("fmin", 40.0), fmax=spec.get("fmax", 1500.0))
+        good = [f for f, ap in frames if ap < 0.2]
+        if len(good) >= 3:
+            heard = 69 + 12 * math.log2(float(np.median(good)) / 440.0)
+            if "label" in spec:
+                label = midi_of(spec["label"])
+                if abs(heard - label) < 1.0:
+                    root = refine_midi(y, heard)
+                    detected = f"{name_of(root)} {100 * (root - label):+.0f} cents"
+                else:
+                    detected = f"heard {name_of(heard)}, not {spec['label']}; nominal"
+                    report["warnings"].append(f"{sid} hit {k + 1}: {detected}")
+            else:
+                detected = f"{name_of(heard)} {100 * (heard - round(heard)):+.0f} cents (a drum's tone; nominal root kept)"
+        note = {"label": f"{layers[layer]} {rr + 1}", "at": round(start / RATE, 2), "seconds": round(len(y) / RATE, 2), "detected": detected}
+        entry["notes"].append(note)
+        zones.append({"label": spec.get("label", name_of(root)), "root": round(root, 3), "layer": layer, "rr": rr, "audio": y,
+                      "velocity": spec.get("velocities", [[0.0, 0.42], [0.42, 0.75], [0.75, 1.0]])[layer],
+                      "source": spec["file"], "at": round(start / RATE, 3), "loKey": 0, "hiKey": 127})
+    # Velocity layers by how loud each hit is (Session 8): the recording's order says what
+    # was meant, but a "medium" hit louder than the hard ones would make a key jump down in
+    # level as the velocity rises. Reordered only when the order differs; reported.
+    if spec.get("orderByLoudness", True) and len(zones) == count:
+        recorded = [(z["layer"], z["rr"]) for z in zones]
+        ranked = sorted(range(len(zones)), key=lambda i: note_loudness(zones[i]["audio"]))
+        vels = spec.get("velocities", [[0.0, 0.42], [0.42, 0.75], [0.75, 1.0]])
+        for rank, i in enumerate(ranked):
+            zones[i]["layer"], zones[i]["rr"] = rank // takes, rank % takes
+            zones[i]["velocity"] = vels[rank // takes]
+        moved = [f"{layers[recorded[i][0]]} {recorded[i][1] + 1} -> {layers[zones[i]['layer']]}" for i in range(len(zones)) if recorded[i][0] != zones[i]["layer"]]
+        if moved:
+            report["warnings"].append(f"{sid}: velocity layers assigned by loudness, not as recorded: {', '.join(moved)}")
+            entry["reordered"] = moved
+    # The dynamics should rise: soft < medium < hard (mean loudness per layer).
+    means = [float(np.mean([note_loudness(z["audio"]) for z in zones if z["layer"] == li] or [-120])) for li in range(len(layers))]
+    entry["layerLoudness"] = [round(m, 1) for m in means]
+    if any(means[i] >= means[i + 1] for i in range(len(means) - 1)):
+        report["warnings"].append(f"{sid}: the dynamics do not rise ({', '.join(f'{m:.1f}' for m in means)} dB)")
+    for li in range(len(layers)):
+        lv = [note_loudness(z["audio"]) for z in zones if z["layer"] == li]
+        if len(lv) > 1 and max(lv) - min(lv) > 8:
+            report["warnings"].append(f"{sid}/{layers[li]}: its {len(lv)} hits differ by {max(lv) - min(lv):.0f} dB")
+    return zones
+
+
+def refine_midi(y, midi):
+    seg = y[int(0.05 * RATE):int(0.6 * RATE)]
+    if len(seg) < 4096:
+        return midi
+    return 69 + 12 * math.log2(refine(seg, 440 * 2 ** ((midi - 69) / 12), 3) / 440.0)
+
+
+def gaps_segments(x, gap_s, thr_db, min_s):
+    """Phrases separated by at least `gap_s` of quiet (thr_db under the peak)."""
+    env = envelope(x)
+    sm = np.convolve(env, np.ones(8) / 8, mode="same")
+    on = sm > sm.max() + thr_db
+    gap = max(1, int(gap_s * RATE / ENV_HOP))
+    out, i, n = [], 0, len(on)
+    while i < n:
+        if not on[i]:
+            i += 1
+            continue
+        j = i
+        while j < n and on[j:j + gap].any():
+            j += 1
+        if (j - i) * ENV_HOP >= min_s * RATE:
+            out.append((max(0, i * ENV_HOP - int(0.05 * RATE)), min(len(x), j * ENV_HOP + int(0.15 * RATE))))
+        i = j
+    return out
+
+
+def process_texture(spec, source, room, report):
+    """Unpitched or freely pitched recordings (whispers, breaths, a hummed melody, a
+    ghostly glide): denoised, each file whole or cut into its phrases, every piece a
+    round-robin the instrument picks from."""
+    sid = spec["id"]
+    zones = []
+    for fi, fname in enumerate(spec["files"]):
+        path = resolve(source, fname)
+        if path is None:
+            report["problems"].append(f"{sid}: missing file '{fname}'")
+            continue
+        raw, gap_note, corr, trailing = load(path)
+        x, before, after, quiet = denoise(raw, room, max_db=spec.get("denoiseDb", 9.0))
+        x = signal.sosfiltfilt(signal.butter(2, spec.get("highPass", 60), "highpass", fs=RATE, output="sos"), x)
+        pieces = gaps_segments(x, spec.get("gap", 0.6), spec.get("thresholdDb", -40.0), spec.get("minSeconds", 0.4)) if spec.get("segment") else [(0, len(x))]
+        if not spec.get("segment"):
+            live = np.nonzero(envelope(x) > envelope(x).max() - 45)[0]
+            if len(live):
+                pieces = [(max(0, int(live[0]) * ENV_HOP - int(0.05 * RATE)), min(len(x), int(live[-1]) * ENV_HOP + int(0.3 * RATE)))]
+        entry = {"file": fname, "set": sid, "layer": "texture", "padding": gap_note,
+                 "stereo": "dual mono" if corr > 0.999 else f"stereo (L/R correlation {corr:.3f}, mixed to mono)",
+                 "trailingSilence": round(trailing / RATE, 2), "noiseFloorDb": round(before, 1), "noiseAfterDb": round(after, 1),
+                 "quietFrames": quiet, "expected": "varies", "found": len(pieces), "candidates": len(pieces), "rejected": [], "notes": []}
+        report["files"].append(entry)
+        for a, b in pieces:
+            y = x[a:b].copy()
+            if spec.get("maxSeconds") and len(y) > spec["maxSeconds"] * RATE:
+                y = y[:int(spec["maxSeconds"] * RATE)]
+            fin, fout = int(0.02 * RATE), int(min(0.3, 0.2 * len(y) / RATE) * RATE)
+            y[:fin] *= np.linspace(0, 1, fin)
+            y[-fout:] *= 0.5 * (1 + np.cos(np.linspace(0, np.pi, fout)))
+            root, detected = float(midi_of(spec["label"])) if "label" in spec else 60.0, "unpitched"
+            if spec.get("pitched"):
+                frames = yin(y, fmin=60, fmax=900, frame=2048, hop=1024)
+                good = [f for f, ap in frames if ap < 0.25]
+                heard = 69 + 12 * math.log2(float(np.median(good)) / 440.0) if len(good) >= 5 else None
+                if heard is not None and ("label" not in spec or abs(heard - root) < spec.get("labelTolerance", 1.5)):
+                    root = heard
+                    detected = f"median {name_of(root)} {100 * (root - round(root)):+.0f} cents ({len(good)} steady frames)"
+                elif "label" in spec:
+                    detected = f"no steady pitch near {spec['label']} (rough); nominal {spec['label']}"
+            entry["notes"].append({"label": f"piece {len(zones) + 1}", "at": round(a / RATE, 2), "seconds": round(len(y) / RATE, 2), "detected": detected})
+            zones.append({"label": name_of(root), "root": round(root, 3), "layer": 0, "rr": len(zones), "audio": y, "velocity": [0.0, 1.0],
+                          "source": fname, "at": round(a / RATE, 3), "loKey": 0, "hiKey": 127})
+        entry["found"] = len(entry["notes"])
+    # Pieces of one texture at one loudness (a whisper picked at random is never a jump).
+    if spec.get("evenLoudness", True) and zones:
+        target = float(np.median([note_loudness(z["audio"]) for z in zones]))
+        for z in zones:
+            z["audio"] = z["audio"] * 10 ** (float(np.clip(target - note_loudness(z["audio"]), -12, 12)) / 20)
+    return zones
+
+
+ENVELOPE_HZ = [125.0 * 2 ** (k / 3) for k in range(19)]     # 125 Hz .. 8 kHz, thirds of an octave
+
+
+def spectral_envelope(zones):
+    """The voice's spectral envelope (its formants and breath), dB per third of an octave,
+    loudest band 0 dB: the log power spectrum of every take's held part, averaged over
+    all takes and pitches (the harmonics of different notes fall in different places, so
+    what is left is the shape of the voice). The FX's choir sings through it."""
+    acc, count = None, 0
+    for z in zones:
+        a = z["audio"]
+        s0, e0 = z.get("loop", (int(0.3 * RATE), min(len(a), int(1.8 * RATE))))
+        seg = a[s0:e0]
+        if len(seg) < 4096:
+            continue
+        f, pxx = signal.welch(seg, RATE, nperseg=4096)
+        logp = 10 * np.log10(pxx + 1e-20)
+        acc = logp if acc is None else acc + logp
+        count += 1
+    if acc is None:
+        return ENVELOPE_HZ, [0.0] * len(ENVELOPE_HZ)
+    acc /= count
+    bands = []
+    for c in ENVELOPE_HZ:
+        sel = (f >= c / 2 ** (1 / 6)) & (f < c * 2 ** (1 / 6))
+        bands.append(float(np.mean(acc[sel])) if sel.any() else -60.0)
+    top = max(bands)
+    return [round(c, 1) for c in ENVELOPE_HZ], [round(b - top, 2) for b in bands]
+
+
+def write_zones(spec, zones, gain, out_dir, layer_names):
+    """Writes levelled zones (hits, textures) and their mapping."""
+    sid = spec["id"]
+    os.makedirs(os.path.join(out_dir, sid), exist_ok=True)
+    out = []
+    for z in zones:
+        a = z["audio"] * gain
+        name = f"{z['label'].replace('#', 's')}-{layer_names[z['layer']]}-{z['rr'] + 1}.flac"
+        sf.write(os.path.join(out_dir, sid, name), a.astype(np.float32), RATE, subtype="PCM_16", format="FLAC")
+        env_z = envelope(a[:int(1.5 * RATE)])
+        top = int(np.argmax(np.convolve(env_z, np.ones(2) / 2, mode="same"))) * ENV_HOP if len(env_z) else 0
+        head = a[top:top + int(0.3 * RATE)]
+        out.append({"file": f"{sid}/{name}", "label": z["label"], "root": z["root"], "loKey": z["loKey"], "hiKey": z["hiKey"],
+                    "loVel": z["velocity"][0], "hiVel": z["velocity"][1], "layer": z["layer"], "rr": z["rr"], "length": len(a),
+                    "rms": round(float(db(np.sqrt(np.mean(head ** 2) + 1e-24))), 2), "loudness": round(note_loudness(a), 2),
+                    "peak": round(float(db(np.abs(a).max())), 2), "source": z["source"], "at": z["at"]})
+    out.sort(key=lambda m: (m["layer"], m["rr"]))
+    mapping = {"id": sid, "name": spec["name"], "kind": spec["kind"], "rate": RATE, "channels": 1, "layers": layer_names,
+               "gainDb": round(20 * math.log10(gain), 2), "zones": out}
     with open(os.path.join(out_dir, f"{sid}.json"), "w") as f:
         json.dump(mapping, f, indent=1)
     return mapping
@@ -803,7 +1129,10 @@ def main():
     with open(args.manifest) as f:
         manifest = json.load(f)
     os.makedirs(args.out, exist_ok=True)
-    room_raw, room_note, _, _ = load(os.path.join(args.source, manifest["roomTone"]))
+    room_path = resolve(args.source, manifest["roomTone"])
+    if room_path is None:
+        raise SystemExit(f"room tone '{manifest['roomTone']}' not found below {args.source}")
+    room_raw, room_note, _, _ = load(room_path)
     room = room_profile(room_raw)
     report = {"roomTone": {"file": manifest["roomTone"], "seconds": round(len(room_raw) / RATE, 1), "padding": room_note,
                            "levelDb": round(float(db(np.sqrt(np.mean(room_raw ** 2)))), 1)},
@@ -813,11 +1142,20 @@ def main():
     only = set(args.only.split(",")) if args.only else None
     index = []
     synths = []
+    grouped = []       # hits and textures: written once their gain group is complete
     for spec in manifest["sets"]:
-        if spec["kind"] == "synth":
+        if spec["kind"] in ("synth", "chromatic"):
             known.add(spec["file"])
             if not only or spec["id"] in only:
                 synths.append(spec)
+            continue
+        if spec["kind"] in ("hits", "texture"):
+            known |= {spec["file"]} if spec["kind"] == "hits" else set(spec["files"])
+            if not only or spec["id"] in only:
+                print(f"[{spec['id']}] ...", flush=True)
+                zones = process_hits(spec, args.source, room, report) if spec["kind"] == "hits" else process_texture(spec, args.source, room, report)
+                if zones:
+                    grouped.append((spec, zones))
             continue
         known |= {l["file"] for l in spec["layers"]}
         if only and spec["id"] not in only:
@@ -829,6 +1167,16 @@ def main():
             seconds = sum(z["length"] for z in mapping["zones"]) / RATE
             report["sets"][spec["id"]] = {"zones": len(mapping["zones"]), "seconds": round(seconds, 1),
                                           "loops": sum(1 for z in mapping["zones"] if "loopStart" in z)}
+    for group in dict.fromkeys(sp.get("gainGroup", sp["id"]) for sp, _ in grouped):
+        members = [(sp, zs) for sp, zs in grouped if sp.get("gainGroup", sp["id"]) == group]
+        peak = max(np.abs(z["audio"]).max() for _, zs in members for z in zs)
+        gain = 10 ** (members[0][0].get("peakDb", -1.0) / 20) / max(peak, 1e-9)
+        for sp, zs in members:
+            names = sp.get("layers", ["soft", "medium", "hard"]) if sp["kind"] == "hits" else ["texture"]
+            mapping = write_zones(sp, zs, gain, args.out, names)
+            index.append(sp["id"])
+            seconds = sum(z["length"] for z in mapping["zones"]) / RATE
+            report["sets"][sp["id"]] = {"zones": len(mapping["zones"]), "seconds": round(seconds, 1), "loops": 0}
     # The synth sweeps (sweeps.py uses this module's helpers, so it is imported here).
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import sweeps
@@ -837,11 +1185,16 @@ def main():
         seconds = sum(z["length"] for z in mapping["zones"]) / RATE
         report["sets"][mapping["id"]] = {"zones": len(mapping["zones"]), "seconds": round(seconds, 1),
                                          "loops": sum(1 for z in mapping["zones"] if "loopStart" in z)}
-    for name in sorted(os.listdir(args.source)):
-        if name.lower().endswith((".mp3", ".wav", ".aif", ".aiff", ".flac")) and name not in known:
-            report["problems"].append(f"'{name}' is not in the manifest (not used)")
+    known_paths = {resolve(args.source, k) for k in known} - {None}
+    for rel in recordings(args.source):
+        if os.path.join(args.source, rel) not in known_paths:
+            report["problems"].append(f"'{rel}' is not in the manifest (not used)")
     with open(os.path.join(args.out, "index.json"), "w") as f:
         json.dump({"version": 1, "instruments": index}, f, indent=1)
+    # The FX's own small set (Session 8: the voice in its places), shipped in its bundle.
+    fx = [sp["id"] for sp in manifest["sets"] if sp.get("fx") and sp["id"] in index]
+    with open(os.path.join(args.out, "index-fx.json"), "w") as f:
+        json.dump({"version": 1, "instruments": fx}, f, indent=1)
     total = sum(os.path.getsize(os.path.join(dp, fn)) for dp, _, fns in os.walk(args.out) for fn in fns if fn.endswith(".flac"))
     report["flacBytes"] = total
     with open(os.path.join(args.out, "report.json"), "w") as f:
@@ -864,8 +1217,10 @@ def main():
             print(f"   not notes: {', '.join(e['rejected'])}")
         if "takesPerNote" in e:
             print(f"   takes per note: {e['takesPerNote']}")
+    print()
     for sid, s in report["sets"].items():
-        print(f"\n{sid}: {s['zones']} notes, {s['seconds']} s of audio, {s['loops']} loops")
+        # One line per sample set, also for the CI log ("Prepared: N notes").
+        print(f"Prepared: {s['zones']} notes  {sid}  ({s['seconds']} s of audio, {s['loops']} loops)")
     for pid, pt in report["patches"].items():
         print(f"{pid}: gain {pt['gainDb']:+.1f} dB (both articulations), sounding " + ", ".join(f"{k} {v} s" for k, v in pt["sounding"].items()))
     for sid, lv in report["levelling"].items():

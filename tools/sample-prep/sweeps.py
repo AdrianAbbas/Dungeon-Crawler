@@ -251,7 +251,7 @@ def find_loop(y, f0, a, b, min_len=0.6, max_len=2.2):
 
 def process(spec, source, report):
     """The notes of one recording, labelled and trimmed (not yet levelled or written)."""
-    sid, path = spec["id"], os.path.join(source, spec["file"])
+    sid, path = spec["id"], P.resolve(source, spec["file"]) or os.path.join(source, spec["file"])
     keys, long_note = spec.get("keys", 37), spec["articulation"] == "long"
     if not os.path.exists(path):
         report["problems"].append(f"{sid}: missing file '{spec['file']}'")
@@ -420,11 +420,12 @@ def write(spec, zones, gain, out_dir):
 
 def run(specs, source, out_dir, report):
     """Every synth set: processed, levelled per patch, written. Returns the mappings."""
+    mappings = run_chromatic([s for s in specs if s["kind"] == "chromatic"], source, out_dir, report)
+    specs = [s for s in specs if s["kind"] != "chromatic"]
     done = {}
     for spec in specs:
         print(f"[{spec['id']}] ...", flush=True)
         done[spec["id"]] = (spec, process(spec, source, report))
-    mappings = []
     for patch in dict.fromkeys(s["patch"] for s in specs):
         members = [done[s["id"]] for s in specs if s["patch"] == patch and done[s["id"]][1]]
         if not members:
@@ -439,3 +440,259 @@ def run(specs, source, out_dir, report):
         for spec, zones in members:
             mappings.append(write(spec, zones, gain, out_dir))
     return mappings
+
+
+# ---------------------------------------------------------------------------
+# Session 8: acoustic piano sweeps ("kind": "chromatic"). Every key, lowest to highest,
+# one at a time; three short-hit dynamics and one held sweep, the same gain for all
+# four. Unlike the synth sweeps, the order alone cannot give the keys: a double strike
+# or a key too soft to find shifts every label after it, so the keys are assigned in
+# order by how clearly each expected pitch sounds (prepare.pick, as for the strings).
+
+def piano_pitch(seg, midi):
+    """(f0 Hz, inharmonicity B) of a struck string near `midi`: its partials found where
+    f_n = n f0 sqrt(1 + B n^2) puts them, then f0 and B fitted ((f_n / n)^2 is linear in
+    n^2). The fundamental of a low note is weak; its partials still give f0."""
+    n_fft = 1 << 18
+    spec = np.abs(np.fft.rfft(seg * np.hanning(len(seg)), n_fft))
+    binhz = RATE / n_fft
+    f0, b = hz(midi), 4.0e-4 * 2 ** ((midi - 60) / 24)
+    for _ in range(3):
+        pts = []
+        for n in range(1, 13):
+            pred = n * f0 * math.sqrt(1 + b * n * n)
+            if pred > min(6000.0, 0.45 * RATE):
+                break
+            lo, hi = int(pred * 2 ** (-35 / 1200) / binhz), int(pred * 2 ** (35 / 1200) / binhz) + 1
+            if hi >= len(spec) - 1 or hi - lo < 3:
+                break
+            i = lo + int(np.argmax(spec[lo:hi]))
+            around = np.median(spec[max(0, lo - (hi - lo)):hi + (hi - lo)])
+            if spec[i] < 4 * around:
+                continue
+            a, c, d = np.log(spec[i - 1] + 1e-20), np.log(spec[i] + 1e-20), np.log(spec[i + 1] + 1e-20)
+            shift = 0.5 * (a - d) / (a - 2 * c + d) if (a - 2 * c + d) != 0 else 0.0
+            pts.append((n, (i + shift) * binhz, float(spec[i])))
+        if not pts:
+            return None, None
+        if len(pts) >= 3:
+            nn = np.array([p[0] for p in pts], float)
+            yy = np.array([(p[1] / p[0]) ** 2 for p in pts])
+            w = np.array([p[2] for p in pts])
+            A = np.vstack([np.ones_like(nn), nn * nn]).T * w[:, None]
+            sol, *_ = np.linalg.lstsq(A, yy * w, rcond=None)
+            if sol[0] > 0:
+                f0 = math.sqrt(sol[0])
+                b = float(np.clip(sol[1] / sol[0], 0.0, 0.01))
+        else:
+            n, fn, _ = pts[0]
+            f0 = fn / (n * math.sqrt(1 + b * n * n))
+    return f0, b
+
+
+def chromatic_notes(spec, source, report):
+    """The notes of one piano sweep: labelled, sliced, the previous key's ringing notched
+    out where it overlaps. Returns zones with their measured pitches (not yet tuned)."""
+    sid = spec["id"]
+    path = P.resolve(source, spec["file"])
+    keys = spec.get("keys", 88)
+    if path is None:
+        report["problems"].append(f"{sid}: missing file '{spec['file']}'")
+        return []
+    x, corr, trailing, fmt = load_wav(path)
+    # Candidates: every rise out of the quiet (relaxed: a missed key cannot be recovered).
+    loose, _, env, need = onsets(x, 10 ** 6)
+    ordered, _, _, _ = onsets(x, keys)
+    # The first key: the median offset of the first pass's pitches over the ordered onsets.
+    raw = []
+    for k, c in enumerate(ordered):
+        s = c["start"] * HOP
+        e = ordered[k + 1]["start"] * HOP if k + 1 < len(ordered) else len(x)
+        r = raw_pitch(x[s + int(0.04 * RATE):min(e, s + int(0.6 * RATE))])
+        if r is not None:
+            raw.append(r - k)
+    base = int(round(float(np.median(raw)))) if raw else spec.get("lowest", 21)
+    if "lowest" in spec and abs(base - P.midi_of(spec["lowest"])) > 0:
+        report["warnings"].append(f"{sid}: the sweep's order points at {P.name_of(base)} as the lowest key; the manifest says {spec['lowest']}, kept the manifest")
+        base = P.midi_of(spec["lowest"])
+    sequence = list(range(base, base + keys))
+    cands = [(c["start"], c["peak"], c["level"]) for c in loose]
+    chosen, rejected = P.pick(cands, x, False, 3, sequence)
+    floor = float(np.percentile(env[env > -200], 5))
+    entry = {"file": spec["file"], "set": sid, "layer": spec.get("articulation", "short"), "format": fmt,
+             "stereo": "dual mono" if corr > 0.999 else f"stereo (L/R correlation {corr:.3f}, mixed to mono)",
+             "trailingSilence": round(trailing, 2), "noiseFloorDb": round(floor, 1), "expected": keys, "found": len(chosen),
+             "candidates": len(cands), "riseNeededDb": 9.0, "range": f"{P.name_of(base)}-{P.name_of(base + keys - 1)}",
+             "rejected": [f"{c['start'] * HOP / RATE:.2f}s ({c['level']:.0f} dB)" for c in rejected], "notes": []}
+    report["files"].append(entry)
+    if len(chosen) != keys:
+        report["problems"].append(f"{sid}: expected {keys} keys, found {len(chosen)}")
+        return []
+    zones, prev = [], None
+    for k, c in enumerate(chosen):
+        label = sequence[k]
+        where = f"{sid} {P.name_of(label)} at {c['start'] * HOP / RATE:.2f}s"
+        stop = chosen[k + 1]["start"] - 2 if k + 1 < len(chosen) else len(env)
+        stop = min(stop, c["start"] + int(spec.get("maxSeconds", 6.0) * RATE / HOP))
+        start = max(0, c["start"] * HOP - int(0.004 * RATE))
+        end = note_end(env, c["start"], stop, floor)
+        y = x[start:end * HOP].copy()
+        seg = y[int(0.06 * RATE):int(0.06 * RATE) + int(0.7 * RATE)]
+        f0, b = piano_pitch(seg, label) if len(seg) > 4096 else (None, None)
+        note = {"label": P.name_of(label), "at": round(start / RATE, 2)}
+        if f0 is None:
+            report["problems"].append(f"{where}: no partials found; using the key")
+            f0, b = hz(label), 0.0
+        midi = 69 + 12 * math.log2(f0 / 440.0)
+        if abs(midi - label) > 0.6:
+            report["problems"].append(f"{where}: sounds {P.name_of(midi)} ({100 * (midi - label):+.0f} cents from its key)")
+        # The previous key still ringing into this one (a low string's long decay): its
+        # partials notched out (zero-phase, narrow), except where they sit on this note's.
+        if prev is not None:
+            pf, pb, plevel = prev
+            head = P.envelope(y[:int(0.4 * RATE)])
+            if len(head) and plevel > head.max() - 30.0:
+                mine = [n * f0 * math.sqrt(1 + b * n * n) for n in range(1, 40)]
+                notched = []
+                for n in range(1, 24):
+                    f = n * pf * math.sqrt(1 + pb * n * n)
+                    if f > 5000:
+                        break
+                    if min(abs(f / m - 1) for m in mine) < 0.025:
+                        continue
+                    bq, aq = signal.iirnotch(f, 25, RATE)
+                    y = signal.filtfilt(bq, aq, y)
+                    notched.append(f)
+                if notched:
+                    note["bleed"] = f"previous key notched at {len(notched)} partials ({plevel - head.max():+.0f} dB under)"
+        # The level this note still has where the next one starts (for the next notch).
+        tail_level = float(np.max(P.envelope(x[max(start, stop * HOP - int(0.1 * RATE)):stop * HOP]) if stop * HOP - start > int(0.1 * RATE) else [-120]))
+        prev = (f0, b, tail_level)
+        y = y[:faded(y, spec.get("rangeDb", 60.0))]
+        fin = int(0.001 * RATE)
+        y[:fin] *= np.linspace(0, 1, fin)
+        fout = int(np.clip(0.12 * len(y), 0.02 * RATE, 0.25 * RATE))
+        y[-fout:] *= 0.5 * (1 + np.cos(np.linspace(0, np.pi, fout)))
+        note["seconds"] = round(len(y) / RATE, 2)
+        note["detected"] = f"{100 * (midi - label):+.0f} cents, B {b:.1e}" + (f"; {note['bleed']}" if "bleed" in note else "")
+        zones.append({"label": P.name_of(label), "key": label, "measured": midi, "audio": y, "source": spec["file"], "at": round(start / RATE, 3)})
+        entry["notes"].append(note)
+    return zones
+
+
+def stretch_curve(keys, devs):
+    """A smooth curve through the notes' deviations from equal temperament (cents): the
+    piano's stretch (low notes flat, high notes sharp) and its overall offset. A running
+    median over 9 keys, then a running mean over 7 (single strings out of tune do not
+    bend it)."""
+    order = np.argsort(keys)
+    k, d = np.asarray(keys)[order], np.asarray(devs)[order]
+    med = np.array([np.median(d[max(0, i - 4):i + 5]) for i in range(len(d))])
+    smooth = np.array([np.mean(med[max(0, i - 3):i + 4]) for i in range(len(med))])
+    return dict(zip(k.tolist(), smooth.tolist()))
+
+
+def run_chromatic(specs, source, out_dir, report):
+    """The piano: every sweep sliced and measured; the overall tuning corrected with the
+    stretch kept (each note sounds at its key plus the smooth stretch curve, relative to
+    A4); one gain for all four files; the short sweeps one instrument with three
+    velocity layers, the held sweep another."""
+    done = []
+    for spec in specs:
+        print(f"[{spec['id']}] ...", flush=True)
+        done.append((spec, chromatic_notes(spec, source, report)))
+    mappings = []
+    for group in dict.fromkeys(s.get("tuningGroup", s["id"]) for s in specs):
+        members = [(s, z) for s, z in done if s.get("tuningGroup", s["id"]) == group and z]
+        if not members:
+            continue
+        keys = [z["key"] for _, zs in members for z in zs]
+        devs = [100 * (z["measured"] - z["key"]) for _, zs in members for z in zs]
+        curve = stretch_curve(keys, devs)
+        ref = curve.get(69, float(np.median(devs)))
+        out_of_tune = []
+        for s, zs in members:
+            for z in zs:
+                dev = 100 * (z["measured"] - z["key"])
+                stretch = curve[z["key"]] - ref
+                # Played at its key, the note sounds at key + stretch (cents).
+                z["root"] = round(z["key"] + (dev - stretch) / 100.0, 3)
+                if abs(dev - curve[z["key"]]) > 15:
+                    out_of_tune.append(f"{s['id']} {z['label']} {dev - curve[z['key']]:+.0f}")
+        report["tuning"] = report.get("tuning", {})
+        report["tuning"][group] = {"overallCents": round(ref, 1), "stretch": {P.name_of(k): round(v - ref, 1) for k, v in curve.items() if k % 12 == 9},
+                                   "stringsOffTheCurve": out_of_tune}
+        report["warnings"].append(f"{group}: overall tuning {ref:+.1f} cents at A4, corrected; stretch kept "
+                                  f"({', '.join(f'{P.name_of(k)} {v - ref:+.0f}' for k, v in curve.items() if k % 24 == 9)} cents)")
+        if out_of_tune:
+            report["warnings"].append(f"{group}: {len(out_of_tune)} strings more than 15 cents off the stretch curve (tuned onto it): {', '.join(out_of_tune)}")
+    for patch in dict.fromkeys(s.get("patch", s["id"]) for s in specs):
+        members = [(s, z) for s, z in done if s.get("patch", s["id"]) == patch and z]
+        if not members:
+            continue
+        built = []
+        for inst in dict.fromkeys(s.get("instrument", s["id"]) for s, _ in members):
+            parts = sorted([(s, zs) for s, zs in members if s.get("instrument", s["id"]) == inst], key=lambda p: p[0].get("layerIndex", 0))
+            steps = parts[0][0].get("layerStepsDb")
+            if steps and len(steps) == len(parts):
+                # The hand was not even from key to key: each key's layers are set `steps`
+                # apart around the key's own level (each keeps its tone). A take that would
+                # need more than `maxStepDb` is dropped: that key's layer then plays the
+                # neighbouring key's take, a semitone away (reported: re-record it).
+                limit = parts[0][0].get("maxStepDb", 12.0)
+                dropped = []
+                for key in sorted({z["key"] for _, zs in parts for z in zs}):
+                    mine = [(li, z) for li, (_, zs) in enumerate(parts) for z in zs if z["key"] == key]
+                    lv = {li: P.note_loudness(z["audio"]) for li, z in mine}
+                    centre = float(np.median([lv[li] - steps[li] for li in lv]))
+                    for li, z in mine:
+                        trim = centre + steps[li] - lv[li]
+                        if abs(trim) > limit:
+                            parts[li][1].remove(z)
+                            dropped.append(f"{parts[li][0].get('layerName', li)} {z['label']} ({trim:+.0f} dB)")
+                        else:
+                            z["audio"] = z["audio"] * 10 ** (trim / 20)
+                if dropped:
+                    report["problems"].append(f"{inst}: takes far off their key's other dynamics, dropped (the neighbouring key's take plays; re-record): {', '.join(dropped)}")
+            built.append((inst, parts))
+        # One gain for the patch (the same input gain for every file), after the steps.
+        peak = max(np.abs(z["audio"]).max() for _, parts in built for _, zs in parts for z in zs)
+        gain = 10 ** (-1 / 20) / max(peak, 1e-9)
+        for inst, parts in built:
+            mappings.append(write_chromatic(inst, parts, gain, out_dir))
+            # Velocity layers: louder with each layer, note by note.
+            if len(parts) > 1:
+                for key in sorted({z["key"] for _, zs in parts for z in zs}):
+                    lv = [next((P.note_loudness(z["audio"]) for z in zs if z["key"] == key), None) for _, zs in parts]
+                    if None not in lv and any(lv[i] >= lv[i + 1] for i in range(len(lv) - 1)):
+                        report["warnings"].append(f"{inst} {P.name_of(key)}: velocity layers not in loudness order ({', '.join(f'{v:.1f}' for v in lv)} dB)")
+    return mappings
+
+
+def write_chromatic(inst, parts, gain, out_dir):
+    os.makedirs(os.path.join(out_dir, inst), exist_ok=True)
+    out, names = [], []
+    for li, (spec, zones) in enumerate(parts):
+        names.append(spec.get("layerName", spec.get("articulation", "short")))
+        keys = sorted(z["key"] for z in zones)
+        for z in zones:
+            a = z["audio"] * gain
+            name = f"{z['label'].replace('#', 's')}-{names[-1]}-1.flac"
+            sf.write(os.path.join(out_dir, inst, name), a.astype(np.float32), RATE, subtype="PCM_16", format="FLAC")
+            env = P.envelope(a[:int(1.5 * RATE)])
+            top = int(np.argmax(np.convolve(env, np.ones(2) / 2, mode="same"))) * HOP
+            head = a[top:top + int(0.3 * RATE)]
+            vel = spec.get("velocity", [0.0, 1.0])
+            out.append({"file": f"{inst}/{name}", "label": z["label"], "root": z["root"],
+                        "loKey": z["key"] - (spec.get("endStretch", 5) if z["key"] == keys[0] else 0),
+                        "hiKey": z["key"] + (spec.get("endStretch", 5) if z["key"] == keys[-1] else 0),
+                        "loVel": vel[0], "hiVel": vel[1], "layer": li, "rr": 0, "length": len(a),
+                        "rms": round(float(P.db(np.sqrt(np.mean(head ** 2) + 1e-24))), 2), "loudness": round(P.note_loudness(a), 2),
+                        "peak": round(float(P.db(np.abs(a).max())), 2), "source": z["source"], "at": z["at"]})
+    out.sort(key=lambda m: (m["root"], m["layer"]))
+    mapping = {"id": inst, "name": parts[0][0]["name"], "kind": "chromatic", "rate": RATE, "channels": 1, "layers": names,
+               "gainDb": round(20 * math.log10(gain), 2), "zones": out}
+    import json
+    with open(os.path.join(out_dir, f"{inst}.json"), "w") as f:
+        json.dump(mapping, f, indent=1)
+    return mapping

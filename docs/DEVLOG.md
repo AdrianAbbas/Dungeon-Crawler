@@ -214,6 +214,21 @@ without after each whole milestone. Resume from the first unticked line. Details
   - [x] 5c. Listening render: one melody on every instrument, dry and in its place
   - [x] 5d. DEVLOG handoff (what to listen for), README, MANUAL_TEST; final push without `[skip ci]`
 
+**Session 8: the new recordings** (2026-11-02, unattended). VOICE, BANJO, DJEMBE and PIANO
+from `AdrianAbbas/Samples` into the instrument (and the FX's voice places). Push with
+`[skip ci]` after each part; the last push without, then wait for CI until green.
+Resume from the first unticked line. Details in "Session 8" at the end of this file.
+
+- [x] S1. Sample prep: recursive discovery (subfolders, WAV), voice / hits / piano kinds, pitch detected per note, "Prepared: N notes" per set in the CI log
+- [ ] S2. Voice sampler (vowel layers soft/full, loops, vowel morph, choir ensemble 1..full, above E4 shifted + synthesis)
+- [ ] S3. Voice instruments: Cloister, Crypt, Gates, Dwarven Hall, Final Boss Lair, Ancient Grove whispers, Witch's Hut hum
+- [ ] S4. FX places: recorded voice in the Boss Lair sub-octave choir, Cloister/Chapel bloom; whispers in Graveyard, Ancient Grove, Crypt (+ Atmosphere)
+- [ ] S5. Banjo: Mire (velocity layers, 3 round-robins, murky and detuned)
+- [ ] S6. Djembe: Mountain Pass war drums (strokes across the keyboard, round-robins), optional low hand drum
+- [ ] S7. Piano: where a dark piano fits (Mausoleum, Witch's Hut, Final Boss Lair)
+- [ ] S8. Tests (cents report, velocity smoothness, clicks, levels, distinct; FX strength/distinctness), listening renders, trims
+- [ ] S9. DEVLOG (which instruments use which recordings, bad notes to re-record), final push, CI green
+
 ---
 
 ## Lessons carried over (from Worldbuilder's DEVLOG, read first)

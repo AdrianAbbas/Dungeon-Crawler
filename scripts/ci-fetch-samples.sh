@@ -26,10 +26,16 @@ if ! git -c http.extraheader="AUTHORIZATION: basic $auth" clone -q --depth 1 "ht
     exit 1
 fi
 [[ -n "${GITHUB_ENV:-}" ]] && echo "DC_REQUIRE_SAMPLES=1" >> "$GITHUB_ENV"
-echo "Samples: $(git -C "$checkout" log -1 --format='%h %s') ($(find "$checkout" -maxdepth 1 -iname '*.mp3' | wc -l | tr -d ' ') MP3s, $(find "$checkout" -maxdepth 1 -iname '*.wav' | wc -l | tr -d ' ') WAVs)"
+# Recordings may sit in subfolders (01-voice/, 02-piano/...): counted everywhere below the checkout.
+echo "Samples: $(git -C "$checkout" log -1 --format='%h %s') ($(find "$checkout" -path "$checkout/.git" -prune -o -iname '*.mp3' -print | wc -l | tr -d ' ') MP3s, $(find "$checkout" -path "$checkout/.git" -prune -o -iname '*.wav' -print | wc -l | tr -d ' ') WAVs)"
 
 python3 -m pip install --quiet -r "$here/tools/sample-prep/requirements.txt"
-python3 "$here/tools/sample-prep/prepare.py" --source "$checkout" --out "$out" | tee "$out.log"
+python3 "$here/tools/sample-prep/prepare.py" --source "$checkout" --out "$out" > "$out.log"
+# The full report is long: the CI log shows one "Prepared: N notes" line per sample set,
+# then what could not be matched (the whole report stays in "$out.log" and report.json).
+grep -E '^Prepared: ' "$out.log"
+echo "Prepared in total: $(grep -E '^Prepared: ' "$out.log" | awk '{s += $2} END {print s}') notes in $(grep -cE '^Prepared: ' "$out.log") sample sets"
+sed -n '/^Could not match/,$p' "$out.log" | head -80
 # The effect captures (LIMINAL's capture tools) into the same folder: captures/*.wav.
 python3 -I "$here/tools/captures/prepare.py" "$checkout" "$out/captures" > "$out.captures.log" 2>&1 || { tail -30 "$out.captures.log"; echo "::warning title=Captures::the effect captures could not be prepared; the instruments play without them"; }
 rm -rf "$out/captures/report"
