@@ -18,6 +18,7 @@
 #include "Captures.h"
 #include "wb/Instruments.h"
 #include <array>
+#include <memory>
 #include <atomic>
 #include <cstdint>
 
@@ -396,7 +397,11 @@ private:
     void controlChunk() noexcept;
 
     void renderBlock(float* l, float* r, int n) noexcept;
-    std::array<Voice, maxVoices> voices;
+    // The voices live on the heap (about 2.3 MB: four layers of every model each), made
+    // once with the engine, never on the audio thread: a processor made on a stack (a host
+    // or a test) stays small.
+    std::unique_ptr<std::array<Voice, maxVoices>> voiceStore = std::make_unique<std::array<Voice, maxVoices>>();
+    std::array<Voice, maxVoices>& voices = *voiceStore;
     CaptureBus captures;
     std::array<float, macroCount> macros { 0.5f, 0.5f, 0.5f, 0.5f, 0.5f };
     Performance perf;

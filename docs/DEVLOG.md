@@ -2233,8 +2233,8 @@ recordings anywhere below the source anyway, so they can move into subfolders.
 - **CI log**: one `Prepared: N notes  <set>` line per sample set, a total, and what could
   not be matched (the full report stays in the samples log and `report.json`).
 - **Memory**: the instrument's bank is now about 190 MB in memory (it was about 83 MB; loaded
-  once per process, shared by every instance), the FX's 13 MB. The held piano notes are cut
-  at 6 s (the Mausoleum fades them over about 4 s).
+  once per process, shared by every instance), the FX's 13 MB. The held piano notes are
+  capped at 6 s (they are about 2.5 s each as recorded: the sweep moved on).
 
 Prepared here: 45 sample sets (piano's three short sweeps are one set): voice-ooh 18,
 voice-aah 18, voice-ee 17, voice-mm 14, voice-oh 7, choir-ooh 21, choir-aah 15, choir-mm
@@ -2368,6 +2368,14 @@ now; the wind is as before). The Monk Chant measured 6 dB louder in its place th
 because the Crypt's reversed swell peaks after the melody: the calibration now measures the
 in-place level over the same 3 s tail the check does. Sung notes started on the singer's
 scoop (Soft Choir -20 cents on low keys): the pads start 0.3-1 s into the note, faded in.
+
+**CI, first run of the final push (41399731423)**: the macOS smoke test crashed (segfault,
+exit 139) before its first check. The processor had grown to 2.4 MB (the instrument engine
+embeds 24 voices of four layers of every model; the fourth layer and the voice sampler
+added 0.9 MB), and the smoke test keeps several processors as locals of one function: on
+macOS's 8 MB main-thread stack that no longer fit (gcc on Linux shares the slots). The
+voices now live on the heap, made once with the engine (never on the audio thread): the
+processor is 60 KB.
 
 **Listening render** (CI test-logs artifact, `recordings/`; `--listen-recordings dir`): per
 changed instrument the same melody and four chords (Am F G Em) dry, then in its place,
