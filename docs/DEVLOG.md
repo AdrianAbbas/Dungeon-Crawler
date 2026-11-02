@@ -2093,3 +2093,36 @@ its siblings, level, in its place).
   less natural.
 - The Instrument parameter's 40 choices are automatable (host lists show the names);
   MIDI travel is off in the instrument.
+
+## Session 7b: Direction Update 3 built on macOS for the first time (2026-11-02)
+
+**What was broken**: every push to `direction-update-3` (runs #16-#19) failed in the
+macOS job's "Build AU host harnesses" step, so `auval`, both harnesses and packaging never
+ran on the instrument edition. The plug-ins themselves compiled (Build, smoke tests and the
+universal-binary gate passed in run #19); the Linux job (tests, listening renders) was
+already green. The only compile errors were in
+`tools/au-harness/DungeonCrawlerInstrumentAUHarness.mm`: `requireSamples` was used at
+lines 615 and 891 (the `--require-samples` flag and the recorded-instruments check) but
+never declared.
+
+**Fix**: `static bool requireSamples = false;` at file scope after the includes. Both
+harness files were also checked for other undeclared names and for the WORLDBUILDER
+"`__block` variable cannot be captured in a lambda" error: no lambda captures a `__block`
+variable (the effect harness already copies its `__block AVAudioUnit` into
+`AUAudioUnit* const renderUnit`; the instrument harness's lambdas capture only the render
+block, the MIDI block and plain locals), and clang reported nothing else.
+
+**Result** (run 41368337199, first try after the fix): macOS and Linux green. `auval`
+passed for both plug-ins on arm64 and x86_64; every harness suite (v2 out-of-process,
+AUAudioUnit, v2 in-process, both plug-ins, both architectures, `--strict`, with
+`DC_REQUIRE_SAMPLES=1` so the recorded-instruments check was a gate) reported 0 failures,
+plus the Apple AULowpass control. Processor tests: 2256 passed, 0 failed. Artifacts
+produced: `DungeonCrawler-macOS-Universal` (installable package, uploaded only because
+every check passed), `DungeonCrawler-linux-test-logs` (test logs plus both listening
+renders: dry vs processed per place, and one melody on all 40 instruments, as WAV) and
+`DungeonCrawler-macOS-diagnostics`.
+
+**Still not done**: nobody has listened on a Mac yet; the renders are there to be heard.
+Note for that listen: the samples log maps e.g. "static-y bassy synth *long* hit sweep.wav"
+to `mlg-staticbass-short` (and the short file to `-long`), the same for every pair; check
+whether the Samples repo's file names or the manifest are the swapped side.
