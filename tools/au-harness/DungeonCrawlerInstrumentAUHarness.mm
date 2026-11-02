@@ -45,6 +45,10 @@
 #include <thread>
 #include <vector>
 
+// Set by --require-samples: the recorded-instrument check becomes a gate (CI passes it
+// when the build had SAMPLES_TOKEN).
+static bool requireSamples = false;
+
 namespace {
 
 //==============================================================================
