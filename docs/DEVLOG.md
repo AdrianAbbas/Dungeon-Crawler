@@ -229,6 +229,19 @@ Resume from the first unticked line. Details in "Session 8" at the end of this f
 - [x] S8. Tests (cents report, velocity smoothness, clicks, levels, distinct; FX strength/distinctness), listening renders, trims
 - [x] S9. DEVLOG (which instruments use which recordings, bad notes to re-record), final push, CI green
 
+**Session 9: the window, the instrument panel, the Effects roller** (2026-11-02,
+unattended). Two UI changes for both plug-ins, no sound changes; LIGHT SEEKER's fixes
+copied (never modified). Push with `[skip ci]` after each part; the last push without,
+then wait for CI until green. Resume from the first unticked line. Details in "Session 9"
+at the end of this file.
+
+- [x] W1. The window reopens as it was left (LIGHT SEEKER Direction Update 2 §3): view state in the processor and the saved state, restored when the editor is created; both plug-ins
+- [x] W2. Hover never sticks (§4: `HoverButton`, `sweepHover`, the place list kept shown); double-buffered frame (§2: DUNGEON CRAWLER had the same miss, a black box)
+- [x] W3. Instrument panel: LIGHT SEEKER's layout (under the world, 960 x 756), dark stone/iron, crimson; Level, Vowel, Ensemble (new parameters, 50 % / 0 dB = as before)
+- [x] W4. Effects roller (both plug-ins): parameter (0-150 %, default 100 %), engine (Intensity x Effects; above 100 % the wet amounts go further), instrument place trim follows it; drawn as a wheel
+- [x] W5. Tests (`window`, `effects`; instrument editor updated), snapshots `docs/snapshots/session9/`, full suite
+- [ ] W6. README, MANUAL_TEST, DEVLOG handoff; final push without `[skip ci]`, CI green
+
 ---
 
 ## Lessons carried over (from Worldbuilder's DEVLOG, read first)

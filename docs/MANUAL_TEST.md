@@ -311,9 +311,9 @@ validated.
       Pipe Organ, Harpsichord Arpeggio (hold a key: it climbs at the song's tempo).
 - [ ] Hold a chord and click another place: the chord keeps sounding while the space
       morphs; the next notes play the new instrument. Let go: nothing hangs.
-- [ ] Instrument button (controls, left of Intensity): the panel slides up. Its five
-      macros carry the instrument's names (e.g. Snap, Glint, Course, Whispers); move
-      each, they change the sound. Intensity and Space change the place's share.
+- [ ] The instrument panel under the world (Session 9): its five macros carry the
+      instrument's names (e.g. Snap, Glint, Course, Whispers); move each, they change the
+      sound. Intensity and Effects change the place's share.
 - [ ] Lock instrument on, travel to the Final Boss Lair: the same instrument, in the lair.
       Choose another instrument from the panel's list: it plays and Lock is on.
 - [ ] The panel's keyboard lights up with every note you play and can be clicked; the
@@ -328,11 +328,11 @@ validated.
 - [ ] CPU on the Air: four instances with chords held (Activity Monitor or Logic's meter).
 
 **Session 8: your voice, banjo, djembes and piano**
-- [ ] Soft Choir (Cloister): your soft ooh/aah with the choir stacks; the Vowel macro
-      morphs ooh to aah while a chord is held. Play above E5: the voice shifts gently and
+- [ ] Soft Choir (Cloister): your soft ooh/aah with the choir stacks; the Open macro
+      (called Vowel until Session 9) morphs ooh to aah while a chord is held. Play above E5: the voice shifts gently and
       the synthesised choir takes over.
 - [ ] Monk Chant (Crypt): your hummed and gravelly drones on low notes, an octave below
-      the keys; Vowel: hum to chant. Dwarven Chant (Dwarven Hall): the gravel drone low,
+      the keys; Open: hum to chant. Dwarven Chant (Dwarven Hall): the gravel drone low,
       the aah drone higher, your grit under it; Brass adds the low brass.
 - [ ] Dark Choir Pad (Gates): six of you, wide and slow, three more an octave down.
 - [ ] Doom Brass & Choir (Final Boss Lair): the choir stab is your full aah/ooh stacks with
@@ -347,3 +347,39 @@ validated.
 - [ ] DUNGEON CRAWLER FX on a guitar or synth: the Graveyard, the Ancient Grove and the
       Crypt whisper faintly while you play (turn Atmosphere up there too); the Final Boss
       Lair and the Chapel sing with your voice; the Cloister blooms faintly.
+
+## Session 9: the window, the instrument panel, the Effects roller
+
+**The window reopens as it was left** (both plug-ins)
+- [ ] Go into a place (e.g. Cathedral → Crypt), open Advanced and scroll it, make the
+      window bigger (corner or ⚙). Close the plug-in window, open it again: the same
+      scene (not the world map), Advanced open and scrolled, the same size.
+- [ ] The same with the Journey panel open; with the controls hidden (▾); on the map.
+- [ ] Save the project, quit GarageBand, reopen the project: the window opens as it was.
+- [ ] Load a preset: the window stays where it is (only the sound changes).
+- [ ] The instrument: lock or choose an instrument, close and reopen: the same instrument.
+
+**Hover never sticks**
+- [ ] Click a place in the list (top right), then move the mouse over the other names and
+      away: each glows only while the mouse is over it; the chosen place keeps its crimson
+      diamond and rule. Same for the hotspots in the scene and the landmarks on the map.
+- [ ] Move quickly in and out of the window over the list and the panel's buttons:
+      nothing stays lit.
+
+**The instrument panel** (DUNGEON CRAWLER)
+- [ ] The panel sits under the world (no Instrument button any more): name, ‹ › and the
+      chooser, Lock, Bend range; Tone…signature macros, Vowel, Ensemble, Level, Intensity,
+      the Effects roller; Bend and Mod wheels, Sustain, the keyboard.
+- [ ] Play from your MIDI keyboard: the keys light crimson; the wheels and Sustain follow
+      your keyboard. Drag the Bend wheel (it springs back), the Mod wheel, click Sustain.
+- [ ] Soft Choir (Cloister): Vowel moves ooh ↔ aah, Ensemble from one singer (0 %) to a
+      full choir (100 %), for the next notes. On the Contrabass they are dimmed.
+- [ ] Level: −24 to +12 dB, smooth while moving.
+
+**The Effects roller** (instrument panel; the FX's controls next to Intensity)
+- [ ] Hold a chord and roll it from 100 % down to 0 %: the place's effects fade to the
+      nearly dry instrument, with no click and no jump in loudness.
+- [ ] Roll it up to 150 %: more reverb, echoes, voices and character than before, about
+      as loud.
+- [ ] Automate it in Logic; save it in a user preset; open an older project: it is at 100 %.
+- [ ] Double-click: back to 100 %. Scroll wheel moves it.

@@ -80,14 +80,22 @@ Audio → DUNGEON CRAWLER. Play your MIDI keyboard or the piano roll.
 - The map and the places work as in the effect: **choosing a place chooses its
   instrument and its space**. A note held while you travel keeps sounding (the space
   morphs around it; the next note plays the new place's instrument).
-- **Instrument** (in the controls, where the effect has Input) slides up the instrument
-  panel: the instrument's name and place, **Lock instrument**, a chooser for any of the
-  forty (choosing one locks it), its five macros (Tone, Attack, Release, Body and its own
-  signature control; their names follow the instrument: Pluck, Strike, Ring, Glint,
-  Course…), **Intensity** (how strongly the place's effects apply) and **Space** (the
-  place against the dry instrument), the pitch-bend range, the wheels and the pedal as
-  they arrive, and an on-screen keyboard that lights up with the notes (click it to
-  play).
+- **The instrument panel** sits under the world (the window is 960 x 756 at 100 %): where
+  the instrument belongs and its name, ‹ › to step through the forty and a chooser for any
+  of them (choosing one locks it), **Lock instrument**, the pitch-bend range; its five
+  macros (Tone, Attack, Release, Body and its own signature control; their names follow
+  the instrument: Pluck, Strike, Ring, Glint, Course…), **Vowel** and **Ensemble** (on the
+  instruments that sing with the recorded voice: Soft Choir, Monk Chant, Dark Choir Pad,
+  Dwarven Chant, Doom Brass & Choir, Music Box; dimmed on the others; 50 % is the
+  instrument as designed), **Level**, **Intensity**, the **Effects** roller, the bend and
+  mod wheels and the sustain pedal (they follow your keyboard and can be dragged), and
+  an on-screen keyboard that lights up with the notes (click it to play).
+- **Effects** (a roller like a mod wheel, on the instrument panel and in the effect's
+  controls, next to Intensity): how much of the place's effects. 0 % is nearly the dry
+  sound, 100 % the place as designed (sessions from before it existed open at 100 %),
+  up to 150 % stronger: the reverbs, echoes, voices and character effects go further,
+  level-matched. Automatable, saved with presets and sessions; drag it, scroll it, or
+  double-click it back to 100 %.
 - Playing: velocity (level and tone), sustain pedal, pitch bend (±2 semitones by
   default), the mod wheel (vibrato, brightness, tremulant, swell or growl, as fits the
   instrument; the panel says which), up to 4–12 notes at once depending on the
@@ -96,7 +104,10 @@ Audio → DUNGEON CRAWLER. Play your MIDI keyboard or the piano roll.
   set), *Instruments elsewhere* (locked instruments in other places: the Tavern guitar in
   the Boss Lair, church bells in the Crystal Cavern…) and the effect's *Journeys* (the
   instrument changes with each place of the route).
-- Intensity 0 % plays the instrument dry; Bypass too.
+- Intensity 0 % (or Effects 0 %) plays the instrument dry; Bypass too.
+- **The window reopens as you left it**: closed and opened again, or with the project,
+  it shows the same place (or the map), the same panels open and scrolled where they
+  were, the controls shown or hidden, at the same size; presets never move the window.
 
 | Location (family) | Its places' instruments |
 |---|---|
