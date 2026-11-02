@@ -240,7 +240,8 @@ at the end of this file.
 - [x] W3. Instrument panel: LIGHT SEEKER's layout (under the world, 960 x 756), dark stone/iron, crimson; Level, Vowel, Ensemble (new parameters, 50 % / 0 dB = as before)
 - [x] W4. Effects roller (both plug-ins): parameter (0-150 %, default 100 %), engine (Intensity x Effects; above 100 % the wet amounts go further), instrument place trim follows it; drawn as a wheel
 - [x] W5. Tests (`window`, `effects`; instrument editor updated), snapshots `docs/snapshots/session9/`, full suite
-- [ ] W6. README, MANUAL_TEST, DEVLOG handoff; final push without `[skip ci]`, CI green
+- [x] W6a. README, MANUAL_TEST, DEVLOG handoff; full Linux suite 2435 passed, 0 failed; final push without `[skip ci]`
+- [ ] W6b. CI green (macOS + Linux)
 
 ---
 
@@ -2560,3 +2561,20 @@ modules smooth their amounts; the dry path crossfades in 30 ms).
 - Snapshots: `docs/snapshots/session9/` (the instrument window and panel with a chord
   held and the wheels moved, a non-singing instrument with Vowel/Ensemble dimmed and the
   roller at 140 %, the FX window and its controls at 60 %); `--panel-snapshots dir`.
+
+### Results and handoff (end of session 9)
+
+**Linux (this container)**: the full suite in its CI shards, 2435 passed, 0 failed (the
+sound groups unchanged; `window` and `effects` new). Both plug-ins build.
+
+**Look at in GarageBand** (MANUAL_TEST, "Session 9"): close and reopen the window inside a
+place with a panel open, and after reopening the project; move the mouse over the place
+list after a click (nothing should stay lit); the instrument panel under the world; roll
+Effects from 100 % to 0 % and up to 150 % on a held chord (no click, no loudness jump);
+the Soft Choir's Vowel and Ensemble.
+
+**Known limits**: nothing seen on a Mac yet; the layout was checked on the snapshots. The
+window is 196 px taller in the instrument (as in LIGHT SEEKER), so at 200 % it is 1920 x
+1512. Vowel and Ensemble act on the next notes, not on the notes already sounding. At
+150 % a few very wet places (the Bog, the Boss Lair) change less than the others: they
+are already almost fully wet at 100 %.
