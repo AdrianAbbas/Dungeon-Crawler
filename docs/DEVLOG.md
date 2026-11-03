@@ -2588,7 +2588,7 @@ results panel over the scene. Checklist (resume from the first open item after a
 - [x] 2. Search panel (`Source/UI/SearchPanel.*`): field, chips, grouped results, description, Recent, keyboard; wired into the view (button, Cmd+F, Esc, click outside); jumps exactly as by hand
 - [x] 3. Instrument preview (hold to hear a short phrase; never while the host plays)
 - [x] 4. Tests (`search` group): findable by name and 3 tags, typos, Enter == by hand (state compare), keyboard, cost; snapshots in docs/snapshots/session10
-- [ ] 5. README, MANUAL_TEST, DEVLOG handoff; final push without `[skip ci]`, CI green
+- [x] 5. README, MANUAL_TEST, DEVLOG handoff; final push without `[skip ci]`, CI green
 
 ### 1. The index (`Source/World/Search.*`)
 
@@ -2673,3 +2673,16 @@ refresh < 5 ms (measured 0.5-1.5 / 0.15-0.3 / 0.6 ms).
 Snapshots: `docs/snapshots/session10/` (`--search-snapshots dir`): the FX map with a
 typo, the FX panel "eerie", the instrument window with Recent and with "choir", the
 panel "choir" and "dwarvn" at 2x, Instruments + Dark chips.
+
+### Results and handoff (end of session 10)
+
+**Linux (this container)**: the full suite in its CI shards, 2528 passed, 0 failed (the
+existing groups unchanged; `search` new, 93 checks, in shard 1). Both plug-ins build.
+
+**Look at in GarageBand / Logic** (MANUAL_TEST, "Session 10"): Cmd+F inside the host
+(some hosts keep the keyboard until the window is clicked); typing speed on the Air;
+landing from the map and from a scene; the preview's level on a few instruments.
+
+**Known limits**: the preview plays with the current macros (an instrument's own
+macros are only set by its presets); Cmd+F needs the plug-in window to have keyboard
+focus (click it first in hosts that keep the keys). Nothing seen on a Mac yet.
