@@ -2824,3 +2824,8 @@ the window with the panel open; the tests were also run under AddressSanitizer h
 "War Drums: no jump between neighbouring velocities" 8.4 dB (limit 6.5; it runs only with
 the recordings): the designed Punch boosted the hard slap's sharp transient more than the
 soft layer's, so the layer step grew. Its Punch is now 3.5 dB (attempt 1).
+AddressSanitizer here (window, instrumenteditor, search, mix): no memory error; only the
+search's two wall-clock limits are over under the sanitizer's slowdown (in the normal build
+0.3 / 0.6 ms). (`ASAN_OPTIONS=alloc_dealloc_mismatch=0`: the tests count allocations with
+their own operator new, which the sanitizer otherwise reports against the library's
+nothrow new.)
