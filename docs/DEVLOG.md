@@ -2691,3 +2691,7 @@ focus (click it first in hosts that keep the keys). Nothing seen on a Mac yet.
 building: the sample report (now 196 warnings) is printed through `sed | head -80`, head
 stops reading, sed fails writing (exit 4) and `pipefail` ended the step. Only a printout:
 its status is now ignored (`scripts/ci-fetch-samples.sh`); no check changed.
+
+**CI, second run**: macOS (clang) refused the magnifier's tooltip, `"\xe2\x8c\x98F)"`
+(clang reads `\x98F` as one hex escape; GCC let it pass): the literal is split. Every
+file changed this session was then syntax-checked with clang here before the next push.

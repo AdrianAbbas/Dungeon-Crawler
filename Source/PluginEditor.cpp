@@ -381,7 +381,7 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
     addChildComponent(drawer);
 
     // Session 10: search.
-    searchButton.setTooltip(juce::String::fromUTF8("Search places, instruments, presets and sounds (\xe2\x8c\x98F)"));
+    searchButton.setTooltip(juce::String::fromUTF8("Search places, instruments, presets and sounds (\xe2\x8c\x98" "F)"));
     searchButton.onClick = [this] { if (searchPanel.isVisible()) closeSearch(); else openSearch(); };
     addAndMakeVisible(searchButton);
     searchPanel.getRecent = [this] { return processor.searchRecent(); };
