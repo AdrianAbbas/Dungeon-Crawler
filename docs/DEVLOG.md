@@ -2833,3 +2833,6 @@ nothrow new.)
 **CI, Session 11 second run**: macOS green (the AU host harnesses included). Linux: the War
 Drums' velocity step 6.8 dB at 3.5 dB of Punch (8.4 at 7): about +0.46 dB of step per dB of
 Punch. Attempt 2: 2 dB (expected about 6.1).
+
+**CI, Session 11 third run: green** (macOS and Linux, run 41629602821): the War Drums'
+velocity check passes at 2 dB of Punch.
