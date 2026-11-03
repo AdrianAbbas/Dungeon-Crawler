@@ -542,7 +542,46 @@ void testMixInstrument(Suite& s) {
     }
 }
 
+void testMixWindow(Suite& s) {
+    s.section("mix: the panel in the window");
+    for (bool instrument : { false, true }) {
+        const std::string kind = instrument ? "instrument" : "FX";
+        windowtests::Window w(instrument);
+        auto& v = w.view();
+        v.settleForTest();
+        s.check(v.mixButton().isVisible() && !v.mixOpen(), kind + ": the Mix button, the panel closed");
+        if (instrument) nav::click(w.editor->instrumentPanel()->mixButton());
+        else nav::click(v.mixButton());
+        s.check(v.mixOpen() && (!instrument || w.editor->instrumentPanel()->mixButton().getToggleState()),
+                kind + ": the Mix button opens the MIX panel" + (instrument ? " (from the instrument panel, its button lit)" : ""));
+        nav::click(v.journeyButton());
+        s.check(!v.mixOpen() && v.journeyOpen(), kind + ": one panel at a time (Journey closes it)");
+        v.toggleMix();
+        s.check(v.mixOpen() && !v.journeyOpen(), kind + ": and Mix closes Journey");
+        v.pressEscapeForTest();
+        s.check(!v.mixOpen(), kind + ": Esc closes it");
+        v.toggleMix();
+        // Closed and reopened with the panel open (the host deletes the editor): it comes
+        // back open. (The first version crashed here in a real host: the view, destroyed
+        // after the instrument panel, told it the panel's state.)
+        w.close();
+        w.open();
+        s.check(w.view().mixOpen() && (!instrument || w.editor->instrumentPanel()->mixButton().getToggleState()),
+                kind + ": a closed and reopened window comes back with the MIX panel open");
+        w.close();
+        w.open();
+        w.view().toggleMix();
+        w.close();
+        w.open();
+        s.check(!w.view().mixOpen(), kind + ": and closed when it was closed");
+        auto& panel = w.view().mixPanelForTest();
+        bool labels = panel.labelForTest(0) == "Reverb / Space" && panel.labelForTest(7) == "Duck";
+        s.check(labels, kind + ": its eight rows (Reverb / Space ... Duck)");
+    }
+}
+
 void testMix(Suite& s) {
+    testMixWindow(s);
     testMixGroups(s);
     testMixHelpers(s);
     testMixSmooth(s);

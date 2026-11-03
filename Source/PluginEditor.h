@@ -405,6 +405,7 @@ class DungeonCrawlerEditor final : public juce::AudioProcessorEditor {
 public:
     static constexpr int defaultWidth = DungeonCrawlerView::defaultWidth, defaultHeight = DungeonCrawlerView::defaultHeight;
     explicit DungeonCrawlerEditor(DungeonCrawlerProcessor&);
+    ~DungeonCrawlerEditor() override;
     void resized() override;
     void paint(juce::Graphics&) override {}
     DungeonCrawlerView& view() noexcept { return content; }

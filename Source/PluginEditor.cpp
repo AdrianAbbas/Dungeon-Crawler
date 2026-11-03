@@ -711,6 +711,9 @@ void DungeonCrawlerView::SteerBadge::resized() {
 }
 
 DungeonCrawlerView::~DungeonCrawlerView() {
+    // Whoever listens may already be gone (the editor's panel is destroyed first).
+    onMixShown = nullptr;
+    onInstrumentChosen = nullptr;
     storeViewState();
     previewer.stop();
     searchPanel.onPreview = nullptr;
@@ -1788,6 +1791,16 @@ DungeonCrawlerEditor::DungeonCrawlerEditor(DungeonCrawlerProcessor& p) : AudioPr
     setResizeLimits(defaultWidth / 2, h / 2, defaultWidth * 2, h * 2);
     if (auto* constrainer = getConstrainer()) constrainer->setFixedAspectRatio(static_cast<double>(defaultWidth) / h);
     setSize(juce::roundToInt(static_cast<float>(defaultWidth) * scale), juce::roundToInt(static_cast<float>(h) * scale));
+}
+
+DungeonCrawlerEditor::~DungeonCrawlerEditor() {
+    // The panel goes before the view: nothing in the view may call it any more.
+    content.onMixShown = nullptr;
+    content.onInstrumentChosen = nullptr;
+    if (panel != nullptr) {
+        panel->removeMouseListener(&panelClicks);
+        panel->onMix = nullptr;
+    }
 }
 
 bool DungeonCrawlerEditor::keyPressed(const juce::KeyPress& key) {
