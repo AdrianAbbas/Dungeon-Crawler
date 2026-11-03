@@ -183,7 +183,7 @@ response, at the same sustain level.
 
 **Punch** and **Time** (instrument panel): every note hits louder and settles back to its
 sustain level over Punch Time (20-500 ms). 100 % is the instrument's own amount: about
-+9 dB on the brass, +7 dB on the War Drums, a little on the plucks, none on pads, choirs and
++9 dB on the brass, +3.5 dB on the War Drums, a little on the plucks, none on pads, choirs and
 organs. 200 % is +12 dB on any instrument and 0 % is off. It responds to velocity, it is
 click-free, and a safety limiter keeps it from ever clipping.
 

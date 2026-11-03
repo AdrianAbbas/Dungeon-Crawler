@@ -2773,7 +2773,7 @@ velocity; a new `SynthVoice::bite`, 0 = WORLDBUILDER's), a presence resonance at
 
 Punch (`Synth`, per voice): the hit's boost = `punchDb(design, Punch)` x (0.3 + 0.7 x
 velocity), settling along a raised cosine in dB over Punch Time, applied as a gain glided
-per sample (chunk-rate targets). Designed: brass 9 dB, War Drums 7, Anvil and Gong 4, the
+per sample (chunk-rate targets). Designed: brass 9 dB, War Drums 3.5 (7 at first: see CI below), Anvil and Gong 4, the
 Dwarven Chant 4, plucks and the pizzicato 2, the rest 0. 200 % = +12 dB anywhere. The
 output's safety limiter (-0.3 dBFS) catches the rest.
 
@@ -2816,3 +2816,11 @@ and without Punch; Duck on a long space.
 the instrument's or the FX's own input, not the other tracks of a song (no side-chain).
 The pre-delay offset for the vaults only goes later (they cannot start earlier than their
 input). Nothing seen on a Mac yet.
+
+**CI, Session 11 first run**: macOS: the instrument crashed in the AU host's in-process
+harness when its window closed (the view, destroyed after the instrument panel, told the
+panel the Mix state): the editor now clears those callbacks first; a test closes and reopens
+the window with the panel open; the tests were also run under AddressSanitizer here. Linux:
+"War Drums: no jump between neighbouring velocities" 8.4 dB (limit 6.5; it runs only with
+the recordings): the designed Punch boosted the hard slap's sharp transient more than the
+soft layer's, so the layer step grew. Its Punch is now 3.5 dB (attempt 1).
