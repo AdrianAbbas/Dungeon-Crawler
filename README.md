@@ -148,6 +148,48 @@ window (if you see plain sliders, switch the window's view menu from "Controls" 
 3. Automate **Location** and **Sub-location** to move through the world over the song;
    or use a **Journey** (below).
 
+## Mix (both plug-ins)
+
+Several instances in a song can drown in reverb. **Mix** (the toolbar; in the instrument
+also on its panel) opens a small panel over the left of the scene, like the Journey
+panel. Each slider is 0-150 %; 100 % is the place as designed (double-click returns
+there). The Effects roller stays the master over all of them.
+
+| Control | What it does |
+|---|---|
+| **Reverb / Space** | All the place's reverbs and convolution spaces (0 %: none; 150 %: more, and longer tails). |
+| **Echoes** | Delays, tape echoes, slap-backs (and the echo-type signatures: Valley Answer, Canyon Echoes...). |
+| **Modulation** | Chorus, shimmer, flutter, the pitch voices and drones, wobbles. |
+| **Character** | Drive, filters, resonators, bells, and the place's other signature effects. |
+| **Atmosphere** | The Atmosphere layer's level. |
+| **Low Cut** | Removes reverb mud below 80-600 Hz (Off by default). |
+| **Pre-delay** | Moves the reverbs later (the dry hit first) or earlier (-40 to +120 ms). |
+| **Duck** | The reverb tails dip while you play and bloom in the gaps (0 % = off). |
+
+All of them are automatable and saved with presets and sessions, and they move without
+clicks. The loudness stays matched: turning a group down keeps the overall level. The low
+cut and the duck never move the level matcher, so the dry stays exactly where it was.
+Each place's signature effect counts in the group it sounds like. The Advanced drawer
+has a new group, **XI. Atmosphere**: on/off, level and density.
+
+**The instrument in a song**: the instruments you mostly play in a mix (brass, strings,
+drums, plucks) now send less to their place's reverbs and echoes by default, and their
+reverb starts 10-30 ms later, so the dry hit comes first. Reverb / Space at 150 % still
+gives the place's full space and more.
+
+**Brass** (Brass Fanfare, Heroic Horn, Doom Brass & Choir, the Dwarven Chant's low brass)
+has a quicker, brighter, harder attack, more presence (2-4 kHz) and a stronger velocity
+response, at the same sustain level.
+
+**Punch** and **Time** (instrument panel): every note hits louder and settles back to its
+sustain level over Punch Time (20-500 ms). 100 % is the instrument's own amount: about
++9 dB on the brass, +7 dB on the War Drums, a little on the plucks, none on pads, choirs and
+organs. 200 % is +12 dB on any instrument and 0 % is off. It responds to velocity, it is
+click-free, and a safety limiter keeps it from ever clipping.
+
+Projects and user presets saved before this version open exactly as they sounded,
+including the instrument's old defaults. Init or any factory preset brings the new sound.
+
 ## Search (both plug-ins)
 
 The magnifier at the top right of the window (or **Cmd+F**) opens the search over the
@@ -194,6 +236,7 @@ where it belongs and its tags.
 | **A / B, A→B** | Compare two complete settings; copy the current one to the other slot. |
 | **↶ ↷** | Undo / redo of your edits in the window. |
 | **⚙** | Window size (75–200 %, or drag the corner) and Quality: Eco (lightest: no animation, mono spectral layer), Standard, High (smoothest animation). |
+| **Mix** | The MIX section: reverb, echoes, modulation, character, atmosphere, and the reverbs' low cut, pre-delay and duck (see Mix above). |
 | **Magnifier** (top right), Cmd+F | Search places, instruments, presets and sounds (see Search above). |
 | **▾** (above the controls) | Hide the controls to see the whole picture. |
 

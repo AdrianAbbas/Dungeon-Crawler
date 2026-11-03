@@ -2655,6 +2655,7 @@ int main(int argc, char** argv) {
         else if (arg == "--panel-snapshots" && i + 1 < argc) return panelSnapshots(argv[i + 1]);
         else if (arg == "--search-snapshots" && i + 1 < argc) return searchSnapshots(argv[i + 1]);
         else if (arg == "--listen-mix" && i + 1 < argc) return listenMix(argv[i + 1]);
+        else if (arg == "--mix-snapshots" && i + 1 < argc) return mixSnapshots(argv[i + 1]);
         else if (arg == "--render" && i + 2 < argc)
             return renderToFile(argv[i + 1], juce::String(argv[i + 2]).getIntValue(), i + 3 < argc ? juce::String(argv[i + 3]).getDoubleValue() : 8.0);
     }

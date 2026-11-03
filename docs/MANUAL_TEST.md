@@ -400,3 +400,21 @@ validated.
 - [ ] Chips: Instruments, Places, Presets, Dark, Epic, Eerie, Sacred filter the list.
 - [ ] Close the search with nothing typed: Recent shows what you chose; save and reopen
       the project: still there. Close and reopen the window after a search: same place.
+
+## Session 11: Mix, brass, Punch
+
+- [ ] A song with three or four instances (brass, strings, choir, drums): with the new
+      defaults, does it still drown? Open Mix on each and turn Reverb / Space down: the
+      reverb goes, the instrument stays about as loud.
+- [ ] Low Cut at 200-300 Hz on a long space (Dragon's Hoard, Nave): the mud goes and the dry
+      keeps its level. Pre-delay +40 ms: the hit comes clearly before the reverb.
+- [ ] Duck at 50-100 %: the tail dips under fast playing and blooms in the pauses. No pumping
+      you would not want?
+- [ ] Echoes at 0 % in the Mountain Pass and the Foothills: the echoes stop. Modulation at 0 %
+      in the Witch's Hut: no wobble.
+- [ ] Move each slider quickly while playing: no clicks. Automate one in Logic.
+- [ ] Brass Fanfare, Heroic Horn, Doom Brass: the hit cuts through, soft playing is softer;
+      the sustain no louder than before.
+- [ ] Punch 0 / 100 / 200 % and Time 20 / 120 / 500 ms on the brass, the War Drums and a pad.
+      Nothing clips at 200 % with chords.
+- [ ] Open a project saved before this version: it sounds exactly as before.

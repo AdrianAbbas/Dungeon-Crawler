@@ -630,3 +630,46 @@ int listenMix(const juce::String& directory) {
     }
     return 0;
 }
+
+// docs/snapshots/session11: the MIX panel (FX and instrument), the instrument panel with
+// Punch, the Advanced drawer's Atmosphere group.
+int mixSnapshots(const juce::String& directory) {
+    juce::File dir(directory);
+    dir.createDirectory();
+    int written = 0;
+    const auto save = [&](const juce::Image& image, const char* name) {
+        auto file = dir.getChildFile(name);
+        file.deleteFile();
+        juce::FileOutputStream stream(file);
+        if (stream.openedOk() && juce::PNGImageFormat().writeImageToStream(image, stream)) ++written;
+    };
+    {
+        windowtests::Window w(false);
+        w.go(dc::Castle, 1);
+        auto set = [&](const char* id, float v) { auto* q = w.p->parameters.getParameter(id); q->setValueNotifyingHost(q->convertTo0to1(v)); };
+        set(dc::ids::mixGroups[0], 0.6f);
+        set(dc::ids::mixLowCut, 220.0f);
+        set(dc::ids::mixDuck, 0.4f);
+        w.view().setAnimation(false);
+        w.view().toggleMix();
+        save(w.editor->createComponentSnapshot(w.editor->getLocalBounds(), true, 1.0f), "s11-fx-mix-panel.png");
+        save(w.editor->createComponentSnapshot(w.view().mixPanelForTest().getBoundsInParent(), true, 2.0f), "s11-fx-mix-panel-2x.png");
+        w.view().toggleMix();
+        nav::click(w.view().advancedButton());
+        if (auto* vp = w.view().drawerViewportForTest()) vp->setViewPosition(0, 100000);
+        save(w.editor->createComponentSnapshot(w.view().drawerForTest().getBoundsInParent(), true, 1.0f), "s11-advanced-atmosphere.png");
+    }
+    {
+        windowtests::Window w(true);
+        w.go(dc::Castle, 1);   // the Brass Fanfare
+        juce::AudioBuffer<float> buffer(2, 512);
+        juce::MidiBuffer midi;
+        for (int k = 0; k < 4; ++k) w.p->processBlock(buffer, midi);
+        if (auto* panel = w.editor->instrumentPanel()) panel->pollForTest();
+        w.view().setAnimation(false);
+        if (auto* panel = w.editor->instrumentPanel()) nav::click(panel->mixButton());
+        save(w.editor->createComponentSnapshot(w.editor->getLocalBounds(), true, 1.0f), "s11-instrument-mix.png");
+        if (auto* panel = w.editor->instrumentPanel()) save(w.editor->createComponentSnapshot(panel->getBounds(), true, 2.0f), "s11-instrument-panel-punch.png");
+    }
+    return written == 5 ? 0 : 1;
+}

@@ -173,6 +173,11 @@ jobs:
       - name: Listening renders (the new recordings, WAV)
         if: always()
         run: build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-recordings build/test-logs/recordings
+      # Session 11: a four-instrument mini-song (brass, strings, choir, drums) before and after
+      # the new mix defaults, and the brass with Punch 0 against its own Punch, as WAV.
+      - name: Listening renders (mini-song before and after, brass Punch, WAV)
+        if: always()
+        run: build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-mix build/test-logs/mix
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4
