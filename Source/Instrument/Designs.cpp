@@ -1266,7 +1266,8 @@ Role roleOf(int index) noexcept {
 }
 
 MixFit mixFit(int index, bool classic) noexcept {
-    if (classic) return {};
+    // The Weary Guitar's Tavern is a small, nearly dry room: nothing to take back there.
+    if (classic || index == 23) return {};
     switch (roleOf(index)) {
         case Role::Brass: return { 0.6f, 0.75f, 30.0f };
         case Role::Strings: return { 0.75f, 0.85f, 15.0f };

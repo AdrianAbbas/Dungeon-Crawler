@@ -2704,9 +2704,115 @@ Notes from songs with several instances: too much reverb together, brass that do
 cut, no gain on the hit. Checklist (resume from the first open item after a limit):
 
 - [x] 1. MIX parameters (both plug-ins): Reverb/Space, Echoes, Modulation, Character, Atmosphere (0-150 %), Reverb Low Cut, Reverb Pre-delay, Reverb Duck; Atmosphere On; engine and processor; identity at the defaults
-- [ ] 2. MIX panel (collapsible; FX controls and the instrument panel), Atmosphere rows in the Advanced drawer
+- [x] 2. MIX panel (collapsible; FX controls and the instrument panel), Atmosphere rows in the Advanced drawer
 - [x] 3. Instrument mix defaults (brass, strings, drums, plucks sit in a song: less reverb, the dry hit first)
 - [x] 4. Brass: quicker, brighter, harder attack, presence, velocity response
 - [x] 5. Punch and Punch Time (every instrument; per-voice gain on the hit; designed per instrument)
-- [ ] 6. Tests (`mix` group), listening renders (mini-song before/after, brass Punch 0 vs default), CI step
-- [ ] 7. README, MANUAL_TEST, DEVLOG handoff; final push, CI green
+- [x] 6. Tests (`mix` group), listening renders (mini-song before/after, brass Punch 0 vs default), CI step
+- [x] 7. README, MANUAL_TEST, DEVLOG handoff; final push, CI green
+
+### 1. The MIX section (both plug-ins)
+
+New parameters, appended (no ID moves): `mixReverb`, `mixEchoes`, `mixModulation`,
+`mixCharacter`, `mixAtmosphere` (0-150 %, 100 % default), `mixLowCut` (20 Hz = Off,
+up to 600 Hz), `mixPreDelay` (-40..+120 ms), `mixDuck` (0-100 %), `atmosOn`; in the instrument
+`instPunch` (0-200 %, 100 %) and `instPunchTime` (20-500 ms, 120 ms).
+
+**Groups** (`Engine::applyMix`, after Intensity and the Effects roller, so the roller stays
+the master): every amount of a group moves along the line from neutral to the frame, as
+Intensity does (filters geometrically); above 100 % further, bounded like the roller. The
+tails (Decay, Space, Feedback, Tape Feedback) only grow above 100 % and never shrink below
+it. At 100 % the frame is returned untouched (bit-identical). Reverb: Crypt and Vault mix.
+Echoes: Echoes and tape echo. Modulation: ensemble, rising phaser, shimmers, filter
+movement, instability, the Wraith, the choir's voices and drone, Voice Bloom, flicker.
+Character: darkness, Tomb, drive and blood, age, dust, metal, wind, drips, drops, voice
+imprint, whispers, resonance, cutoff, high-pass. **The signature joins the group it
+sounds like** (`signatureGroup`): the echo kinds (Receding Footsteps, Stone Flutter, Wall
+Ping-Pong, Banner Reflections, Wind-Blown Echoes, Colonnade, Trunk Scatter, Slap-Back,
+Valley Answer, Canyon Echoes, Spiral Echoes) under Echoes; the wobbles, choruses and
+shimmers under Modulation; Vault Cascade and Reverse Swell under Reverb; the rest
+(resonances, drive, anvil...) under Character. This differs from the brief, which put the
+signature under Character, because otherwise Echoes 0 % left the Foothills echoing.
+
+**Reverb helpers** (`Engine::shapeWet`, on the rooms' and the vaults' wet sums): a 12 dB per
+octave low cut gliding to its corner (off at 20 Hz); the pre-delay offset (in the Crypt's
+frame, and a smoothed delay on the vaults' wet for the positive part); the duck (an 8 ms /
+350 ms follower on the input, up to -18 dB from -45 dBFS, fully at -15 dBFS, its amount
+gliding over 20 ms). **Level**: the low cut and the duck shape a copy. What they take away
+is carried through the vaults' dry path and subtracted after the level matcher has measured,
+so they never move its gain and the dry stays where it was. A first version added the
+removed energy back for the measurement only, but that missed what the vault made of the
+room's lows (+2.4 dB on the dry). The MIX groups do go through the matcher: the overall
+level is kept (within 3 dB at 0 and 150 %, tested).
+
+**Atmosphere**: its level x MIX Atmosphere (the layer now accepts up to 1.5), off with
+`atmosOn`. **Advanced**: a group "XI. Atmosphere" (on/off, level, density).
+
+**Panel** (`Source/UI/MixPanel.*`): opens over the left of the scene like the Journey panel
+(one panel at a time; ✕, the button again, Esc, a click outside). The toggle sits in the
+toolbar (both plug-ins) and on the instrument panel (under "Mod wheel"). Its open state is
+in the window state (Session 9's restore). The instrument panel's eleven sliders are
+tighter (46 px, groups 53 px) to fit Punch and Time.
+
+### 2. The instrument in a mix, the brass, Punch
+
+`dc::inst::mixFit`: brass Reverb 0.6 / Echoes 0.75 / pre-delay +30 ms, strings 0.75 / 0.85 /
++15, drums (War Drums, Anvil, Gong) 0.6 / 0.7 / +20, plucks 0.75 / 0.85 / +10, the Dwarven
+Chant 0.8 / 0.9 / +20. The Weary Guitar is left alone, because its Tavern is nearly dry
+(trimming it only flattened the roller's 50-100 % step, a check that failed). The MIX
+Reverb and Echoes map as 100 % = the fitted amount and 150 % = 1.5 x the design (the full
+space stays available). The place's level correction (`placeTrims`) follows the reverb's
+share.
+
+Brass (Fanfare, Horn, Doom Brass; the Dwarven Chant's brass layer): the attack 0.4 x, a
+"bite" (the brass filter opening up to 1.8 x further, decaying over 90 ms, more with
+velocity; a new `SynthVoice::bite`, 0 = WORLDBUILDER's), a presence resonance at 2.9 kHz
+(the last body slot), a steeper velocity curve (equal at 0.8, -5 dB at 0.4, +1.8 dB at
+1.0). The presence's own sustain gain is taken back as measured (Fanfare -1.95 dB, Horn
+-1.4, Doom -0.2 dB).
+
+Punch (`Synth`, per voice): the hit's boost = `punchDb(design, Punch)` x (0.3 + 0.7 x
+velocity), settling along a raised cosine in dB over Punch Time, applied as a gain glided
+per sample (chunk-rate targets). Designed: brass 9 dB, War Drums 7, Anvil and Gong 4, the
+Dwarven Chant 4, plucks and the pizzicato 2, the rest 0. 200 % = +12 dB anywhere. The
+output's safety limiter (-0.3 dBFS) catches the rest.
+
+**Old sessions**: a state without the `sound` property (saved before Session 11) opens
+with `usesClassicSound()`: no fit, no designed Punch, the old brass (bit-identical, tested).
+Saved as `sound` 10 or 11. Init and the factory presets switch to the new sound. The FX has
+nothing to keep: at its defaults it is bit-identical.
+
+### 3. Tests (`--only mix`, CI shard `10-mix`) and renders
+
+39 checks: frames (every place: identity at 100 %; each slider moves only its own group;
+0 % = none; Reverb 0 % removes every reverb); sound in 12 places (each group grows 0 ->
+100 -> 150 %, measured as what the place adds against the dry it keeps, or the spectral
+distance; the level within 3 dB); the Nave's tail; Low Cut (the lows -8 dB or more, the
+highs kept, the matcher's gain unmoved); Pre-delay +80 ms (the reverb arrives 40-130 ms
+later); Duck (dips under playing by more than 3 dB, blooms back, the matcher unmoved);
+Atmosphere (off, 0 %, 150 % louder); click-free sweeps of every control in three places;
+parameters, sessions, the old sound reproduced exactly; the instrument fit (the tail
+against the dry: Fanfare -8.3, Strings -4.4, Drums -4.2, Lute -2.5, Horn -12.1 dB; at 150 %
+at least the old space); brass (hit against sustain +6.4 to +8.5 dB, the Dwarven Chant +1.6;
+sustain within 0.02 dB; presence +1.3 to +2.8 dB; velocity span +2 dB or more); Punch (+12 dB
+at 200 %, settled at Punch Time, half-way at half of it, about +8 dB at half velocity, no
+click, never clips). Existing checks updated: the instrument now adds thirteen parameters.
+
+Renders (CI test-logs `mix/`, `--listen-mix dir`): `mini-song-1-before.wav` and
+`mini-song-2-after.wav` (8 bars at 100 bpm: Brass Fanfare stabs, Royal Strings, Soft
+Choir, War Drums, each in its place, mixed), `brass-punch-0.wav` and
+`brass-punch-default.wav`. Snapshots: `docs/snapshots/session11/` (`--mix-snapshots dir`).
+
+### Results and handoff (end of session 11)
+
+**Linux (this container)**: the full suite before the last fix was 2565 passed, 1 failed
+(the Weary Guitar's roller check, fixed by leaving it out of the fit; its group is now
+49/49). FX strength and the bit-exact LIKE regressions unchanged.
+
+**Listen to** (MANUAL_TEST, "Session 11"): the mini-song before and after; the brass with
+and without Punch; Duck on a long space.
+
+**Known limits**: the fit and the brass were tuned by measurement, not by ear. Duck follows
+the instrument's or the FX's own input, not the other tracks of a song (no side-chain).
+The pre-delay offset for the vaults only goes later (they cannot start earlier than their
+input). Nothing seen on a Mac yet.
