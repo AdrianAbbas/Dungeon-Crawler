@@ -2836,3 +2836,17 @@ Punch. Attempt 2: 2 dB (expected about 6.1).
 
 **CI, Session 11 third run: green** (macOS and Linux, run 41629602821): the War Drums'
 velocity check passes at 2 dB of Punch.
+
+## Session 12: horns that hit, Punch UI from LIGHT SEEKER (2026-11-03, unattended)
+
+Notes after testing Session 11: the horns (Tower Top's horn, the Great Hall's fanfare, the
+Final Boss Lair's doom brass, the Dwarven Hall's low brass) still do not punch enough;
+LIGHT SEEKER's Fanfare Trumpets and Heroic Horns feel right. And LIGHT SEEKER's Punch UI
+should be copied into the instrument panel (LIGHT SEEKER read only, never modified).
+Checklist (resume from the first open item after a limit):
+
+- [ ] 1. Measure: LIGHT SEEKER's brass with the same metrics and phrase (`tools/brass-reference`, out of tree), DC's brass before
+- [ ] 2. Sound 12: a harder, faster, brighter brass transient (bite, edge, upper-mid presence on the attack), higher Punch with a larger range, stronger velocity-to-attack, drier attack (less reverb, later pre-delay, ducked on the hit); same sustain, no clipping; sessions saved at sound 10/11 unchanged
+- [ ] 3. Punch UI copied from LIGHT SEEKER (labels, readouts, placement, behaviour) in DC's dark style; snapshot in docs/snapshots/
+- [ ] 4. Tests (attack-to-sustain and rise before/after and against LIGHT SEEKER, sustain, peak, old sessions, Punch UI), `--listen-brass` renders and CI step
+- [ ] 5. README / MANUAL_TEST / DEVLOG handoff; final push, CI green
