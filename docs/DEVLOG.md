@@ -2773,7 +2773,7 @@ velocity; a new `SynthVoice::bite`, 0 = WORLDBUILDER's), a presence resonance at
 
 Punch (`Synth`, per voice): the hit's boost = `punchDb(design, Punch)` x (0.3 + 0.7 x
 velocity), settling along a raised cosine in dB over Punch Time, applied as a gain glided
-per sample (chunk-rate targets). Designed: brass 9 dB, War Drums 3.5 (7 at first: see CI below), Anvil and Gong 4, the
+per sample (chunk-rate targets). Designed: brass 9 dB, War Drums 2 (7 at first, then 3.5: see CI below), Anvil and Gong 4, the
 Dwarven Chant 4, plucks and the pizzicato 2, the rest 0. 200 % = +12 dB anywhere. The
 output's safety limiter (-0.3 dBFS) catches the rest.
 
@@ -2829,3 +2829,7 @@ search's two wall-clock limits are over under the sanitizer's slowdown (in the n
 0.3 / 0.6 ms). (`ASAN_OPTIONS=alloc_dealloc_mismatch=0`: the tests count allocations with
 their own operator new, which the sanitizer otherwise reports against the library's
 nothrow new.)
+
+**CI, Session 11 second run**: macOS green (the AU host harnesses included). Linux: the War
+Drums' velocity step 6.8 dB at 3.5 dB of Punch (8.4 at 7): about +0.46 dB of step per dB of
+Punch. Attempt 2: 2 dB (expected about 6.1).

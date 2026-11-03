@@ -1283,8 +1283,9 @@ float designPunchDb(int index, bool classic) noexcept {
     switch (roleOf(index)) {
         case Role::Brass: return 9.0f;
         // The War Drums' recorded djembes change velocity layer as they get harder; a large
-        // boost on the hard slap's sharp transient made that step jump (CI, 8.4 dB): 3.5 dB.
-        case Role::Drums: return index == 30 ? 3.5f : 4.0f;
+        // boost on the hard slap's sharp transient made that step jump (CI: 8.4 dB at 7 dB of
+        // Punch, 6.8 at 3.5; the limit is 6.5): 2 dB.
+        case Role::Drums: return index == 30 ? 2.0f : 4.0f;
         case Role::Chant: return 4.0f;
         case Role::Pluck: return 2.0f;
         case Role::Strings: return index == 0 ? 2.0f : 0.0f;   // the pizzicato is a pluck
