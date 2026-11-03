@@ -35,7 +35,9 @@ python3 "$here/tools/sample-prep/prepare.py" --source "$checkout" --out "$out" >
 # then what could not be matched (the whole report stays in "$out.log" and report.json).
 grep -E '^Prepared: ' "$out.log"
 echo "Prepared in total: $(grep -E '^Prepared: ' "$out.log" | awk '{s += $2} END {print s}') notes in $(grep -cE '^Prepared: ' "$out.log") sample sets"
-sed -n '/^Could not match/,$p' "$out.log" | head -80
+# Only a printout: head stops reading after 80 lines, and sed then fails writing (exit 4,
+# fatal under pipefail with a long report), so its status is ignored. Nothing is checked here.
+{ sed -n '/^Could not match/,$p' "$out.log" || true; } | head -80
 # The effect captures (LIMINAL's capture tools) into the same folder: captures/*.wav.
 python3 -I "$here/tools/captures/prepare.py" "$checkout" "$out/captures" > "$out.captures.log" 2>&1 || { tail -30 "$out.captures.log"; echo "::warning title=Captures::the effect captures could not be prepared; the instruments play without them"; }
 rm -rf "$out/captures/report"

@@ -2686,3 +2686,8 @@ landing from the map and from a scene; the preview's level on a few instruments.
 **Known limits**: the preview plays with the current macros (an instrument's own
 macros are only set by its presets); Cmd+F needs the plug-in window to have keyboard
 focus (click it first in hosts that keep the keys). Nothing seen on a Mac yet.
+
+**CI, first run**: the Linux job stopped in "Fetch and prepare the samples" before
+building: the sample report (now 196 warnings) is printed through `sed | head -80`, head
+stops reading, sed fails writing (exit 4) and `pipefail` ended the step. Only a printout:
+its status is now ignored (`scripts/ci-fetch-samples.sh`); no check changed.
