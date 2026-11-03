@@ -52,7 +52,12 @@ public:
     // How often the 15 Hz check asked for a repaint (of the keyboard, the wheels, the pedal).
     int repaintRequestCount() const noexcept { return repaintRequests; }
     // The sliders, left to right: the five macros, Vowel, Ensemble, Level, Intensity.
-    static constexpr std::size_t vowelSlot = 5, ensembleSlot = 6, levelSlot = 7, intensitySlot = 8, sliderCount = 9;
+    // Session 11: Punch and its time after them.
+    static constexpr std::size_t vowelSlot = 5, ensembleSlot = 6, levelSlot = 7, intensitySlot = 8, punchSlot = 9, punchTimeSlot = 10, sliderCount = 11;
+    // Session 11: the Mix button opens the MIX section (the view's panel).
+    std::function<void()> onMix;
+    juce::Button& mixButton() { return mix; }
+    void setMixShown(bool on) { mix.setToggleState(on, juce::dontSendNotification); }
 
     // The on-screen keyboard: C2..C7.
     class Keyboard final : public juce::Component {
@@ -92,6 +97,7 @@ private:
     EffectsRoller effects, bend, mod;
     juce::Label bendLabel, modLabel;
     juce::TextButton sustain { "Sustain" };
+    juce::TextButton mix { "Mix" };
     Keyboard keyboard;
     juce::String shownTitle, shownPlace;
     int shownInstrument = -1, shownPlaceCode = -1, repaintRequests = 0;

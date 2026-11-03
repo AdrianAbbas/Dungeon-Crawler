@@ -420,6 +420,13 @@ void Synth::noteOn(int key, float velocity) noexcept {
     v.state.fill(0);
     v.tremPhase = 0;
     v.wheelLevel = 1;
+    // Punch: the hit's boost, harder the harder the key is struck; it settles over Punch
+    // Time along a raised cosine (in dB), so it never steps.
+    v.punchPeakDb = punchDb(designNow, punch, classic) * (0.3f + 0.7f * v.velocity);
+    v.punchSamples = std::max(1.0f, std::clamp(punchSeconds, 0.02f, 0.5f) * rate);
+    v.punchPos = 0;
+    v.punchGain = v.punchPeakDb > 0.0f ? std::pow(10.0f, v.punchPeakDb * 0.05f) : 1.0f;
+    v.punchStep = 0;
     Note n;
     n.key = std::clamp(key + int(std::lround(des.transpose)), 0, 127);
     n.hz = 440.0f * std::exp2((float(key) + des.transpose - 69.0f) / 12.0f);
@@ -429,6 +436,7 @@ void Synth::noteOn(int key, float velocity) noexcept {
     n.macro = macros;
     n.vowel = voiceVowel;
     n.ensemble = voiceEnsemble;
+    n.classic = classic;
     n.rate = rate;
     n.bpm = tempo;
     n.noiseAt = d::mix64(noteCount + 77) << 8;
@@ -449,8 +457,19 @@ void Synth::noteOn(int key, float velocity) noexcept {
         if (p.body[k].hz > 0.0f) v.body[k].set(p.body[k].hz, p.body[k].q, rate);
         v.bodyGain[k] = p.body[k].hz > 0.0f ? p.body[k].gain * bodyAmount : 0.0f;
     }
+    // Session 11: the brass's presence, a resonance at 2.9 kHz (its last body slot).
+    const bool presence = brassPresence(designNow, classic);
+    if (presence) {
+        v.body[2].reset();
+        v.body[2].set(2900.0f, 1.1f, rate);
+        v.bodyGain[2] = 0.75f * std::max(bodyAmount, 0.5f);
+    }
     v.drive = v.baseDrive = p.drive;
     v.gain = d::dbToGain(designTrimDb(designNow));
+    // The brass's presence adds to its sustain's level as well: taken back (measured; the
+    // brass sustains as loud as before, the hit is what grows).
+    const float presenceTrimDb = presence ? (designNow == 6 ? -1.95f : designNow == 9 ? -1.4f : -0.2f) : 0.0f;
+    v.gain *= d::dbToGain(presenceTrimDb);
     const auto cap = captureOf(designNow);
     v.capture = captures.available(cap.capture) ? cap.capture : CaptureNone;
     v.captureSend = cap.send;
@@ -459,11 +478,12 @@ void Synth::noteOn(int key, float velocity) noexcept {
     if (usesRecordings(designNow)) {
         bool recorded = false;
         for (const auto& L : v.layer) recorded |= L.model == Model::Sample || L.model == Model::Vocal;
-        if (!recorded) v.gain = d::dbToGain(standInTrimDb(designNow));
+        if (!recorded) v.gain = d::dbToGain(standInTrimDb(designNow) + presenceTrimDb);
     }
     // Velocity sets the level of the blown, bowed, sung and held sources (struck and
     // plucked models already respond to it in their own way).
-    const float velocityGain = 0.35f + 0.65f * std::pow(v.velocity, 1.3f);
+    // The brass (Session 11) answers harder: softer below, stronger above (equal at 0.8).
+    const float velocityGain = presence ? 1.237f * (0.1f + 0.9f * v.velocity * v.velocity) : 0.35f + 0.65f * std::pow(v.velocity, 1.3f);
     for (auto& L : v.layer)
         switch (L.model) {
             case Model::Synth: case Model::Choir: case Model::Wind: case Model::Bowed: case Model::Strings: case Model::Organ: case Model::Fm: case Model::Sample: case Model::Vocal:
@@ -539,6 +559,17 @@ void Synth::controlChunk() noexcept {
     for (auto& v : voices) {
         if (!v.on) continue;
         v.age += chunkSeconds;
+        if (v.punchPeakDb > 0.0f) {
+            // The boost over the next chunk: from where it is to where it will be.
+            v.punchPos += float(d::chunk);
+            if (v.punchPos >= v.punchSamples) {
+                v.punchStep = (1.0f - v.punchGain) / float(d::chunk);
+                if (v.punchPos >= v.punchSamples + float(d::chunk)) { v.punchPeakDb = 0; v.punchGain = 1; v.punchStep = 0; }
+            } else {
+                const float db = v.punchPeakDb * 0.5f * (1.0f + std::cos(3.14159265f * v.punchPos / v.punchSamples));
+                v.punchStep = (std::pow(10.0f, db * 0.05f) - v.punchGain) / float(d::chunk);
+            }
+        }
         const auto& des = design(v.designIndex);
         if (des.control != nullptr) {
             v.note.bpm = tempo;
@@ -636,6 +667,10 @@ void Synth::renderBlock(float* outL, float* outR, int n) noexcept {
                 r = d::softClip(r * k) / k * (1.0f + v.drive);
             }
             float g = v.gain * v.wheelLevel;
+            if (v.punchPeakDb > 0.0f) {
+                g *= v.punchGain;
+                v.punchGain += v.punchStep;
+            }
             if (v.killing) {
                 v.killGain -= v.killStep;
                 if (v.killGain <= 0.0f) {

@@ -61,6 +61,39 @@ DungeonCrawlerView::Drawer::Drawer(juce::AudioProcessorValueTreeState& state) {
         }
         rows.push_back(std::move(row));
     }
+    // Session 11: the Atmosphere layer (on/off, level, density), its own group.
+    {
+        group = 10;
+        auto heading = std::make_unique<juce::Label>();
+        heading->setText("XI. Atmosphere", juce::dontSendNotification);
+        heading->setFont(titleFont(15.0f));
+        heading->setColour(juce::Label::textColourId, colours::blood.brighter(0.3f));
+        content.addAndMakeVisible(*heading);
+        headings.push_back(std::move(heading));
+        const std::array<std::pair<const char*, const char*>, 3> atmos { { { dc::ids::atmosOn, "Atmosphere" }, { dc::ids::atmosLevel, "Level" }, { dc::ids::atmosDensity, "Density" } } };
+        for (const auto& [id, name] : atmos) {
+            auto row = std::make_unique<Row>();
+            row->group = group;
+            row->label.setText(name, juce::dontSendNotification);
+            row->label.setFont(labelFont(13.0f));
+            content.addAndMakeVisible(row->label);
+            auto* parameter = state.getParameter(id);
+            if (juce::String(id) == dc::ids::atmosOn) {
+                row->box = std::make_unique<juce::ComboBox>();
+                row->box->addItemList({ "Off", "On" }, 1);
+                row->boxAttachment = std::make_unique<juce::ComboBoxParameterAttachment>(*parameter, *row->box);
+                content.addAndMakeVisible(*row->box);
+            } else {
+                row->slider = std::make_unique<juce::Slider>(juce::Slider::LinearHorizontal, juce::Slider::TextBoxRight);
+                row->slider->setTextBoxStyle(juce::Slider::TextBoxRight, true, 56, 18);
+                row->slider->setDoubleClickReturnValue(true, double(parameter->convertFrom0to1(parameter->getDefaultValue())));
+                row->slider->setColour(juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
+                row->sliderAttachment = std::make_unique<juce::SliderParameterAttachment>(*parameter, *row->slider);
+                content.addAndMakeVisible(*row->slider);
+            }
+            rows.push_back(std::move(row));
+        }
+    }
     viewport.setViewedComponent(&content, false);
     viewport.setScrollBarsShown(true, false);
     addAndMakeVisible(viewport);
@@ -189,6 +222,7 @@ void DungeonCrawlerView::PlaceButton::paintHover(juce::Graphics& g, bool hover, 
 DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
     : processor(p), cache([this] { sceneReady(); }), drawer(p.parameters),
       journeyPanel(p, [this] { return dc::Stop { shown, dc::clampSubLocation(shown, shownSub) }; }),
+      mixPanel(p.parameters),
       searchPanel(dc::search::index(p.isInstrument())) {
     setLookAndFeel(&look);
     setOpaque(true);
@@ -284,6 +318,8 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
         if (drawer.isVisible()) {
             journeyToggle.setToggleState(false, juce::dontSendNotification);
             journeyPanel.setVisible(false);
+            mixToggle.setToggleState(false, juce::dontSendNotification);
+            mixPanel.setVisible(false);
             drawer.grabKeyboardFocus();
         }
         repaint();
@@ -298,6 +334,8 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
         if (journeyPanel.isVisible()) {
             advancedToggle.setToggleState(false, juce::dontSendNotification);
             drawer.setVisible(false);
+            mixToggle.setToggleState(false, juce::dontSendNotification);
+            mixPanel.setVisible(false);
             journeyPanel.grabKeyboardFocus();
         }
         repaint();
@@ -306,6 +344,25 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
     journeyPanel.onClose = [this] { journeyToggle.setToggleState(false, juce::dontSendNotification); journeyPanel.setVisible(false); repaint(); storeViewState(); };
     addAndMakeVisible(journeyToggle);
     addChildComponent(journeyPanel);
+    // Session 11: the MIX section (one panel open at a time, as the others).
+    mixToggle.setClickingTogglesState(true);
+    mixToggle.setTooltip("Mix: how much reverb, echoes, modulation, character and atmosphere; the reverbs' low cut, pre-delay and duck");
+    mixToggle.onClick = [this] {
+        mixPanel.setVisible(mixToggle.getToggleState());
+        if (mixPanel.isVisible()) {
+            advancedToggle.setToggleState(false, juce::dontSendNotification);
+            journeyToggle.setToggleState(false, juce::dontSendNotification);
+            drawer.setVisible(false);
+            journeyPanel.setVisible(false);
+            mixPanel.toFront(false);
+            if (mixPanel.isShowing()) mixPanel.grabKeyboardFocus();
+        }
+        repaint();
+        storeViewState();
+    };
+    mixPanel.onClose = [this] { mixToggle.setToggleState(false, juce::dontSendNotification); mixPanel.setVisible(false); repaint(); storeViewState(); };
+    addAndMakeVisible(mixToggle);
+    addChildComponent(mixPanel);
     // The instrument (DUNGEON CRAWLER) has no input: no Input fader. Its Effects roller is on
     // its own panel under the world (DungeonCrawlerEditor, as in LIGHT SEEKER); the FX has
     // the roller here, between Intensity and Mix (Session 9).
@@ -427,6 +484,9 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
             journeyToggle.setToggleState(true, juce::dontSendNotification);
             journeyToggle.onClick();
             journeyPanel.setScroll(saved.journeyScroll);
+        } else if (saved.mix) {
+            mixToggle.setToggleState(true, juce::dontSendNotification);
+            mixToggle.onClick();
         }
     }
     storeViewState();
@@ -435,9 +495,10 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
 void DungeonCrawlerView::storeViewState() {
     const bool place = (pending ? pendingView : view) == View::Place;
     const auto shownScene = pending ? pendingScene : scene;
-    const bool advanced = drawer.isVisible(), journey = journeyPanel.isVisible();
+    const bool advanced = drawer.isVisible(), journey = journeyPanel.isVisible(), mix = mixPanel.isVisible();
     const int advancedScroll = drawer.scroll(), journeyScroll = journeyPanel.scroll();
     const bool controls = controlsShown;
+    if (onMixShown) onMixShown(mix);
     processor.updateViewState([&](DungeonCrawlerProcessor::ViewState& v) {
         v.place = place;
         if (place) { v.location = shownScene.location; v.sub = shownScene.sub; }
@@ -445,6 +506,7 @@ void DungeonCrawlerView::storeViewState() {
         v.controls = controls;
         v.advanced = advanced;
         v.journey = journey;
+        v.mix = mix;
         if (advanced) v.advancedScroll = advancedScroll;
         if (journey) v.journeyScroll = journeyScroll;
     });
@@ -521,9 +583,11 @@ void DungeonCrawlerView::choosePreset(int index) {
 void DungeonCrawlerView::closePanels() {
     journeyToggle.setToggleState(false, juce::dontSendNotification);
     advancedToggle.setToggleState(false, juce::dontSendNotification);
-    const bool any = journeyPanel.isVisible() || drawer.isVisible();
+    mixToggle.setToggleState(false, juce::dontSendNotification);
+    const bool any = journeyPanel.isVisible() || drawer.isVisible() || mixPanel.isVisible();
     journeyPanel.setVisible(false);
     drawer.setVisible(false);
+    mixPanel.setVisible(false);
     if (any) repaint();
     storeViewState();
 }
@@ -534,7 +598,7 @@ bool DungeonCrawlerView::keyPressed(const juce::KeyPress& key) {
         return true;
     }
     if (key == juce::KeyPress::escapeKey && searchPanel.isVisible()) { closeSearch(); return true; }
-    if (key == juce::KeyPress::escapeKey && (journeyPanel.isVisible() || drawer.isVisible())) { closePanels(); return true; }
+    if (key == juce::KeyPress::escapeKey && (journeyPanel.isVisible() || drawer.isVisible() || mixPanel.isVisible())) { closePanels(); return true; }
     return false;
 }
 
@@ -623,6 +687,7 @@ void DungeonCrawlerView::pointerDown(juce::Component* target) {
     const auto within = [target](juce::Component& c) { return target == &c || c.isParentOf(target); };
     if (journeyPanel.isVisible() && !within(journeyPanel) && target != &journeyToggle) journeyPanel.onClose();
     if (drawer.isVisible() && !within(drawer) && target != &advancedToggle) drawer.onClose();
+    if (mixPanel.isVisible() && !within(mixPanel) && target != &mixToggle) mixPanel.onClose();
     // The search closes on a click outside it; the click still does what it does (a
     // landmark travels, a place is chosen): the panel never takes clicks from the map.
     if (searchPanel.isVisible() && !within(searchPanel) && target != &searchButton) closeSearch();
@@ -1522,6 +1587,7 @@ void DungeonCrawlerView::resized() {
     undoButton.setBounds(422, ty, 28, th);
     redoButton.setBounds(450, ty, 28, th);
     settingsButton.setBounds(492, ty, 28, th);
+    mixToggle.setBounds(534, ty, 58, th);
     atmosphereLabel.setBounds(w - 270, ty, 90, th);
     atmosphere.setBounds(w - 178, ty, 164, th);
     // Row 2: character (the place's macros), levels, travel, and the three switches.
@@ -1554,7 +1620,7 @@ void DungeonCrawlerView::resized() {
     for (auto* c : std::initializer_list<juce::Component*> { &input.slider, &input.label, &intensity.slider, &intensity.label, &mix.slider, &mix.label,
                                                              &output.slider, &output.label, &travelLabel, &travelTime, &travelSync, &bypass, &advancedToggle, &journeyToggle,
                                                              &macroHeading, &atmosphere, &atmosphereLabel, &presetButton, &prevPreset, &nextPreset, &slotA, &slotB,
-                                                             &copySlot, &undoButton, &redoButton, &settingsButton })
+                                                             &copySlot, &undoButton, &redoButton, &settingsButton, &mixToggle })
         c->setVisible(controlsShown);
     if (!fx) {
         input.slider.setVisible(false);
@@ -1573,6 +1639,7 @@ void DungeonCrawlerView::resized() {
     const int panelBottom = controlsShown ? top - 34 : h - 44;
     drawer.setBounds(200, 56, w - 214, panelBottom - 56);
     journeyPanel.setBounds(14, 56, 330, panelBottom - 56);
+    mixPanel.setBounds(14, 56, 330, juce::jmin(dc::ui::MixPanel::panelHeight, panelBottom - 56));
     layoutOverlays();
     const auto px = pixelSize();
     cache.request(scene, px.x, px.y);
@@ -1711,6 +1778,9 @@ DungeonCrawlerEditor::DungeonCrawlerEditor(DungeonCrawlerProcessor& p) : AudioPr
     content.onScaleChosen = [this](float s) { setScale(s); };
     if (panel != nullptr) {
         content.onInstrumentChosen = [this] { panel->refresh(); };
+        panel->onMix = [this] { content.toggleMix(); };
+        content.onMixShown = [this](bool on) { panel->setMixShown(on); };
+        panel->setMixShown(content.mixOpen());
         panel->addMouseListener(&panelClicks, true);
     }
     setResizable(true, true);

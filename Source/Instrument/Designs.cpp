@@ -48,7 +48,18 @@ void synth(Layer& L, int model, float hz, float attack, float decay, float susta
     L.synth.model = model;
     L.synth.velocity = d::clamp01(n.velocity);
     L.synth.pan = d::panGains(pan);
+    L.synth.bite = 0;
     L.synth.start(hz, attack, decay, sustain, n.rate);
+}
+
+// Session 11: brass that cuts through a mix. Its attack quicker, its brightness opening
+// further for the first ~100 ms (more so the harder it is played), its own blat louder.
+// Nothing in the classic sound (tests, the before/after renders).
+float brassAttack(float seconds, const Note& n) { return n.classic ? seconds : seconds * 0.4f; }
+void brassBite(Layer& L, const Note& n, float amount = 1.0f) {
+    if (n.classic) return;
+    L.synth.bite = amount * (0.6f + 1.2f * n.velocity);
+    L.synth.biteSeconds = 0.09f;
 }
 
 void choir(Layer& L, float hz, float attack, float vowel, float bright, float breath, float detune, const Note& n, float gain = 1, float pan = 0) {
@@ -359,8 +370,9 @@ void treasureRoomControl(Voice& v, const Note& n, float dt) {
 // Final Boss Lair: colossal doom brass with choir stabs. Two low horns and the same an
 // octave below, driven; a choir shouting the note for a moment (Choir).
 void finalBossLair(Voice& v, const Note& n) {
-    const float a = 0.04f * n.scale(1);
+    const float a = brassAttack(0.04f * n.scale(1), n);
     synth(v.layer[0], d::SynthBrass, n.hz, a, 1.0f, 1.0f, n, 0.9f, -0.15f);
+    brassBite(v.layer[0], n);
     v.layer[0].synth.detuneCents = 9;
     v.layer[0].synth.cutoff = 700.0f * std::exp2(n.offset(0));
     v.layer[0].synth.formantHz = 650;
@@ -368,6 +380,7 @@ void finalBossLair(Voice& v, const Note& n) {
     v.layer[1].synth.detuneCents = 6;
     v.layer[1].synth.cutoff = 600.0f * std::exp2(n.offset(0));
     v.layer[1].synth.formantHz = 420;
+    brassBite(v.layer[1], n, 0.7f);
     if (sig(n) > 0.02f) {
         // The choir stab: the developer's full aah and ooh stacks shouted together, six
         // voices tight in time, the gritty voice under them (stand-in: the formant choir).
@@ -419,7 +432,7 @@ void courtyard(Voice& v, const Note& n) {
 // Great Hall: a brass fanfare section: two trumpets a few cents apart and a trombone an
 // octave below (Section: the trombone and the second player).
 void greatHall(Voice& v, const Note& n) {
-    const float a = 0.012f * n.scale(1);
+    const float a = brassAttack(0.012f * n.scale(1), n);
     synth(v.layer[0], d::SynthBrass, n.hz * 2.0f, a, 1.0f, 1.0f, n, 0.8f, -0.3f);
     v.layer[0].synth.detuneCents = 5;
     v.layer[0].synth.cutoff = 1700.0f * std::exp2(n.offset(0));
@@ -433,6 +446,7 @@ void greatHall(Voice& v, const Note& n) {
     v.layer[2].synth.detuneCents = 0;
     v.layer[2].synth.cutoff = 900.0f * std::exp2(n.offset(0));
     v.layer[2].synth.formantHz = 700;
+    for (int k = 0; k < 3; ++k) brassBite(v.layer[std::size_t(k)], n, k == 2 ? 0.6f : 1.0f);
 }
 
 // Throne Room: a regal string ensemble, violins and below them violas and cellos an
@@ -464,7 +478,7 @@ void chapel(Voice& v, const Note& n) {
 // Tower Top: heroic horn calls. A horn (dark bell, scooping lips) and a second horn
 // doubling (Bell Up: the bell raised, brighter and brassier).
 void towerTop(Voice& v, const Note& n) {
-    const float a = 0.09f * n.scale(1);
+    const float a = brassAttack(0.09f * n.scale(1), n);
     synth(v.layer[0], d::SynthBrass, n.hz, a, 1.0f, 1.0f, n, 0.9f, -0.1f);
     auto& s = v.layer[0].synth;
     s.detuneCents = 0;
@@ -478,6 +492,8 @@ void towerTop(Voice& v, const Note& n) {
     v.layer[1].synth.cutoff = (280.0f + 600.0f * sig(n)) * std::exp2(n.offset(0));
     v.layer[1].synth.formantHz = 600;
     v.layer[1].synth.formantLevel = 0.3f;
+    brassBite(v.layer[0], n, 1.2f);
+    brassBite(v.layer[1], n, 1.0f);
 }
 
 // ======================================================================================
@@ -896,10 +912,11 @@ void dwarvenHall(Voice& v, const Note& n) {
         c->gritLevel = 0.22f;
         if (startVocal(v.layer[0], n.hz, n, std::max(a, 0.1f), n.velocity, 1.0f)) {
             if (sig(n) > 0.02f) {
-                synth(v.layer[1], d::SynthBrass, n.hz * 0.5f, a, 1.0f, 1.0f, n, 0.7f * sig(n) * 2.0f);
+                synth(v.layer[1], d::SynthBrass, n.hz * 0.5f, brassAttack(a, n), 1.0f, 1.0f, n, 0.7f * sig(n) * 2.0f);
                 v.layer[1].synth.cutoff = 520.0f * std::exp2(n.offset(0));
                 v.layer[1].synth.formantHz = 420;
                 v.layer[1].synth.detuneCents = 7;
+                brassBite(v.layer[1], n);
             }
             return;
         }
@@ -907,10 +924,11 @@ void dwarvenHall(Voice& v, const Note& n) {
     choir(v.layer[0], n.hz, a, 1.1f, 0.3f + 0.25f * n.offset(0), 0.07f, 10, n, 1.0f);
     v.layer[0].choir.vibratoDepth = 0.05f;
     if (sig(n) > 0.02f) {
-        synth(v.layer[1], d::SynthBrass, n.hz * 0.5f, a, 1.0f, 1.0f, n, 0.7f * sig(n) * 2.0f);
+        synth(v.layer[1], d::SynthBrass, n.hz * 0.5f, brassAttack(a, n), 1.0f, 1.0f, n, 0.7f * sig(n) * 2.0f);
         v.layer[1].synth.cutoff = 520.0f * std::exp2(n.offset(0));
         v.layer[1].synth.formantHz = 420;
         v.layer[1].synth.detuneCents = 7;
+        brassBite(v.layer[1], n);
     }
 }
 
@@ -1231,6 +1249,54 @@ CaptureSend captureOf(int index) noexcept {
 }
 
 namespace dc::inst {
+
+// Session 11. Indices in place order: see the table.
+namespace {
+enum class Role { Other, Brass, Strings, Drums, Pluck, Chant };
+Role roleOf(int index) noexcept {
+    switch (index) {
+        case 4: case 6: case 9: return Role::Brass;                    // Doom Brass, Fanfare, Horn
+        case 0: case 1: case 7: case 15: case 24: case 34: return Role::Strings;
+        case 30: case 25: case 21: return Role::Drums;                 // War Drums, Anvil, Gong
+        case 5: case 17: case 23: case 26: case 36: case 37: return Role::Pluck;   // Lute, Harp, Guitar, Banjo, Harpsichord, Clavichord
+        case 32: return Role::Chant;                                   // Dwarven Chant (with its low brass)
+        default: return Role::Other;
+    }
+}
+}
+
+MixFit mixFit(int index, bool classic) noexcept {
+    if (classic) return {};
+    switch (roleOf(index)) {
+        case Role::Brass: return { 0.6f, 0.75f, 30.0f };
+        case Role::Strings: return { 0.75f, 0.85f, 15.0f };
+        case Role::Drums: return { 0.6f, 0.7f, 20.0f };
+        case Role::Pluck: return { 0.75f, 0.85f, 10.0f };
+        case Role::Chant: return { 0.8f, 0.9f, 20.0f };
+        default: return {};
+    }
+}
+
+float designPunchDb(int index, bool classic) noexcept {
+    if (classic) return 0.0f;
+    switch (roleOf(index)) {
+        case Role::Brass: return 9.0f;
+        case Role::Drums: return index == 30 ? 7.0f : 4.0f;
+        case Role::Chant: return 4.0f;
+        case Role::Pluck: return 2.0f;
+        case Role::Strings: return index == 0 ? 2.0f : 0.0f;   // the pizzicato is a pluck
+        default: return 0.0f;
+    }
+}
+
+float punchDb(int index, float punch, bool classic) noexcept {
+    const float own = designPunchDb(index, classic);
+    punch = std::clamp(std::isfinite(punch) ? punch : 1.0f, 0.0f, 2.0f);
+    return std::clamp(punch <= 1.0f ? own * punch : own + (punch - 1.0f) * (12.0f - own), 0.0f, 12.0f);
+}
+
+bool brassPresence(int index, bool classic) noexcept { return !classic && roleOf(index) == Role::Brass; }
+
 // The instruments that sing with the recorded voice (their start functions use vocal()):
 // the panel shows Vowel and Ensemble for these (dimmed for the others).
 bool designUsesVoice(int index) noexcept {

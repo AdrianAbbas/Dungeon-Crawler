@@ -111,6 +111,9 @@ struct SynthVoice {
     // Brass and Reed.
     float velocity = 0.8f, formantHz = 1200, formantLevel = 0.6f, breath = 0.05f, blat = 0, drive = 1, rate = 48000;
     float scoopCents = 0;
+    // DUNGEON CRAWLER (Session 11): a brass "bite", the brightness opening further for the
+    // first moments of a note (decaying over biteSeconds). 0: as WORLDBUILDER's.
+    float bite = 0, biteSeconds = 0.08f;
     // Scoop / Glide (set by the part before start): the horn's scoop scaled (0: none) and
     // its time; a plain scoop from below (semitones) for the other models.
     float scoopScale = 1, scoopSeconds = 0.028f, plainScoop = 0, plainSeconds = 0.08f;
@@ -176,7 +179,8 @@ struct SynthVoice {
                 // Brightness grows faster than level: soft, little above the fundamental;
                 // loud, harmonics far up. The cutoff follows the note.
                 const float blow = std::pow(clamp01(env.value * velocity), 1.4f);
-                const float c = std::min(f * (1.3f + 16.0f * blow) * (cutoff / 1000.0f), 0.42f * rate);
+                float c = std::min(f * (1.3f + 16.0f * blow) * (cutoff / 1000.0f), 0.42f * rate);
+                if (bite > 0.0f) c = std::min(c * (1.0f + bite * std::exp(-age / std::max(biteSeconds, 0.005f))), 0.42f * rate);
                 for (auto& flt : filter) flt.set(c, 0.6f, rate);
                 drive = 1.0f + 3.5f * blow;
                 formant.set(formantHz, 1.4f, rate);

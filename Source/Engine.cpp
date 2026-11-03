@@ -52,7 +52,62 @@ Frame Engine::targetFrame(const Controls& c) noexcept {
     for (std::size_t i = 0; i < Count; ++i)
         if (moduleSpecs[i].glide == Glide::Step) f[i] = place[i];
     if (c.intensity > 1.0f) strengthen(f, place, std::min(c.intensity, maxIntensity));
+    // Session 11: the MIX section and the reverb pre-delay offset (identity at defaults).
+    applyMix(f, c.mix);
+    if (c.reverbPreDelay != 0.0f && std::isfinite(c.reverbPreDelay))
+        f[PreDelay] = std::clamp(f[PreDelay] + c.reverbPreDelay, moduleSpecs[PreDelay].min, moduleSpecs[PreDelay].max);
     return f;
+}
+
+int Engine::signatureGroup(int kind) noexcept {
+    switch (kind) {
+        case 1: case 2: case 6: case 7: case 10: case 11: case 15: case 25: case 30: case 31: case 37: return MixEchoes;
+        case 4: case 5: case 9: case 16: case 17: case 18: case 23: case 28: case 29: case 32: case 39: case 40: return MixModulation;
+        case 12: case 35: return MixReverb;
+        default: return MixCharacter;
+    }
+}
+
+int Engine::mixGroupOf(P id, const Frame& frame) noexcept {
+    if (id == SigAmount) return signatureGroup(static_cast<int>(std::lround(frame[SigKind])));
+    switch (id) {
+        case ReverbMix: case VaultMix: return MixReverb;
+        case DelayMix: case TapeMix: return MixEchoes;
+        case EnsMix: case Spiral: case Shimmer: case VaultShimmer: case FilterMovement: case Instability: case WraithMix:
+        case ChoirBlend: case Drone: case VoiceBloom: case Flicker: return MixModulation;
+        case Darkness: case Tomb: case Drive: case Age: case Dust: case BloodMix: case Metal: case Wind: case Drips: case Drops:
+        case VoiceImprint: case Whispers: case Resonance: case Cutoff: case HighPass: return MixCharacter;
+        default: return -1;
+    }
+}
+
+// The MIX section (Session 11): every amount of a group moves along the line from neutral
+// to the frame (filters geometrically), as Intensity does for the whole place; above 1 it
+// goes further, bounded like the Effects roller (strengthen): the tails (Decay, Space,
+// Feedback) only grow above 1 and never shrink below it, so turning a group down only
+// lowers its share. At 1 nothing changes (the frame is returned as it was).
+void Engine::applyMix(Frame& f, const std::array<float, 4>& mix) noexcept {
+    bool any = false;
+    for (float m : mix) any = any || m != 1.0f;
+    if (!any) return;
+    const auto neutral = neutralFrame();
+    const Frame designed = f;
+    const auto along = [&](P id, float t, float limit) {
+        const auto& spec = moduleSpecs[id];
+        const float a = neutral[id], b = designed[id];
+        float v = spec.glide == Glide::Log ? a * std::pow(b / a, t) : a + (b - a) * t;
+        if (t > 1.0f) v = std::min(v, std::max(std::min(limit, spec.max), std::min(b, spec.max)));
+        f[id] = std::clamp(v, spec.min, spec.max);
+    };
+    for (std::size_t i = 0; i < Count; ++i) {
+        const int g = mixGroupOf(static_cast<P>(i), designed);
+        if (g < 0) continue;
+        const float t = std::clamp(std::isfinite(mix[static_cast<std::size_t>(g)]) ? mix[static_cast<std::size_t>(g)] : 1.0f, 0.0f, 1.5f);
+        if (t != 1.0f) along(static_cast<P>(i), t, moduleSpecs[i].max);
+    }
+    const float reverb = std::clamp(mix[MixReverb], 0.0f, 1.5f), echoes = std::clamp(mix[MixEchoes], 0.0f, 1.5f);
+    if (reverb > 1.0f) { along(Decay, reverb, designed[Decay] * 1.5f); along(Space, reverb, 1.0f); }
+    if (echoes > 1.0f) { along(Feedback, echoes, 0.85f); along(TapeFeedback, echoes, 0.8f); }
 }
 
 // The Effects roller above 100 % (Session 9): the place's wet amounts, sends, character
@@ -127,6 +182,11 @@ void Engine::prepare(double sampleRate) {
     for (auto& slot : slots) slot.gain.prepare(0.02, sr);
     for (auto& slot : sigSlots) slot.gain.prepare(0.02, sr);
     trimGain.setTime(0.05, sr);
+    for (auto& d : vaultDelay) d.prepare(static_cast<std::size_t>(0.13 * sr) + 8);
+    vaultDelayNow.setTime(0.06, sr);
+    duckAttack = dsp::timeCoefficient(0.008, sr);
+    duckRelease = dsp::timeCoefficient(0.35, sr);
+    duckSmooth = dsp::timeCoefficient(0.02, sr);
     warmUpSamples = std::max(1, static_cast<int>(0.005 * sr));
     settleSamples = static_cast<int>(0.5 * sr);
     reset();
@@ -146,6 +206,12 @@ void Engine::reset() {
     roomIdle.fill(true);
     activeRoom = 0; departingRoom = -1; roomCrossfade = false;
     roomDry.snap(1.0f);
+    for (auto& d : vaultDelay) d.clear();
+    vaultDelayNow.snap(preDelayTarget > 0.0f ? preDelayTarget * 0.001f * static_cast<float>(sr) : 0.0f);
+    for (auto& pair : lowCut) for (auto& f : pair) f.clear();
+    lowCutNow.fill(lowCutTarget);
+    duckEnv = 0;
+    duckDepth = duckAmount;
     levelMatcher.reset();
     for (auto& slot : slots) { slot.gain.value = 0; slot.idle = true; slot.warmUp = 0; }
     place = {};   // the next setControls() arrives at its place at once
@@ -196,6 +262,9 @@ void Engine::startTravel(double seconds) noexcept {
 
 void Engine::setControls(const Controls& c) noexcept {
     context.bpm = c.bpm;
+    lowCutTarget = std::isfinite(c.reverbLowCut) ? std::clamp(c.reverbLowCut, 20.0f, 1000.0f) : 20.0f;
+    preDelayTarget = std::isfinite(c.reverbPreDelay) ? std::clamp(c.reverbPreDelay, -250.0f, 120.0f) : 0.0f;
+    duckAmount = std::isfinite(c.reverbDuck) ? dsp::clamp01(c.reverbDuck) : 0.0f;
     const int location = std::clamp(c.location, 0, static_cast<int>(LocationCount) - 1);
     const Place wanted { location, clampSubLocation(location, c.sub) };
     const Frame target = targetFrame(c);
@@ -282,6 +351,7 @@ void Engine::runRooms(float* l, float* r, int n, float eased) noexcept {
     }
     roomDry.set(std::sqrt(1.0f - dsp::clamp01(m)));
     if (!any && roomDry.value == 1.0f && roomDry.target == 1.0f) return;
+    if (any) shapeWet(roomSum, n, 0);
     for (int i = 0; i < n; ++i) {
         const auto k = static_cast<std::size_t>(i);
         float g = roomDry.next();
@@ -332,12 +402,85 @@ void Engine::runVaults(float* l, float* r, int n, float eased) noexcept {
     }
     vaultDry.set(std::sqrt(1.0f - m));
     if (!any && vaultDry.value == 1.0f && vaultDry.target == 1.0f) return;
+    // What the rooms' helpers take away passes the vaults' dry path as their signal does.
+    const bool carried = removedAny;
+    std::array<std::array<float, maxChunk>, 2> carriedIn;
+    if (carried) {
+        std::copy(removed[0].begin(), removed[0].begin() + n, carriedIn[0].begin());
+        std::copy(removed[1].begin(), removed[1].begin() + n, carriedIn[1].begin());
+        std::fill(removed[0].begin(), removed[0].begin() + n, 0.0f);
+        std::fill(removed[1].begin(), removed[1].begin() + n, 0.0f);
+    }
+    if (any) shapeWet(vaultSum, n, 1);
     for (int i = 0; i < n; ++i) {
         const auto k = static_cast<std::size_t>(i);
         float g = vaultDry.next();
         if (std::abs(g - vaultDry.target) < 1.0e-6f) g = vaultDry.value = vaultDry.target;
         l[i] = vaultIn[0][k] * g + vaultSum[0][k];
         r[i] = vaultIn[1][k] * g + vaultSum[1][k];
+        if (carried) { removed[0][k] += carriedIn[0][k] * g; removed[1][k] += carriedIn[1][k] * g; }
+    }
+}
+
+void Engine::shapeWet(std::array<std::array<float, maxChunk>, 2>& wet, int n, int which) noexcept {
+    const auto W = static_cast<std::size_t>(which);
+    const bool helpers = lowCutTarget > 20.5f || lowCutNow[W] > 20.5f || ducking;
+    std::array<std::array<float, maxChunk>, 2> before;
+    if (helpers) {
+        std::copy(wet[0].begin(), wet[0].begin() + n, before[0].begin());
+        std::copy(wet[1].begin(), wet[1].begin() + n, before[1].begin());
+    }
+    // The vaults' pre-delay offset (the rooms take theirs in the frame's Pre-Delay). At 0
+    // the signal passes untouched; the line is always fed so a change has history.
+    if (which == 1) {
+        vaultDelayNow.set(std::max(0.0f, preDelayTarget) * 0.001f * static_cast<float>(sr));
+        for (int i = 0; i < n; ++i) {
+            const auto k = static_cast<std::size_t>(i);
+            vaultDelay[0].push(wet[0][k]);
+            vaultDelay[1].push(wet[1][k]);
+            const float d = vaultDelayNow.next();
+            if (d >= 0.5f) {
+                wet[0][k] = vaultDelay[0].read(1.0f + d);
+                wet[1][k] = vaultDelay[1].read(1.0f + d);
+            } else if (d > 1.0e-6f) {
+                // Just leaving 0: crossfade into the line over its first half sample.
+                wet[0][k] += 2.0f * d * (vaultDelay[0].read(1.5f) - wet[0][k]);
+                wet[1][k] += 2.0f * d * (vaultDelay[1].read(1.5f) - wet[1][k]);
+            } else vaultDelayNow.value = 0.0f;
+        }
+    }
+    // The low cut: 12 dB per octave, its corner gliding (no zipper); off at 20 Hz.
+    auto& now = lowCutNow[W];
+    if (lowCutTarget > 20.5f || now > 20.5f) {
+        now += 0.25f * (lowCutTarget - now);
+        if (now <= 20.5f && lowCutTarget <= 20.5f) { now = 20.0f; for (auto& f : lowCut[W]) f.clear(); }
+        else {
+            for (auto& f : lowCut[W]) f.set(now, sr, 1.4142f);
+            for (int i = 0; i < n; ++i) {
+                const auto k = static_cast<std::size_t>(i);
+                wet[0][k] = lowCut[W][0].highPass(wet[0][k]);
+                wet[1][k] = lowCut[W][1].highPass(wet[1][k]);
+            }
+        }
+    }
+    // The duck (gains from the input, computed at the start of process()).
+    if (ducking)
+        for (int i = 0; i < n; ++i) {
+            const auto k = static_cast<std::size_t>(i);
+            wet[0][k] *= duckGain[k];
+            wet[1][k] *= duckGain[k];
+        }
+    if (helpers) {
+        // The wet goes on untouched; what the helpers take away is subtracted at the end,
+        // after the level matcher has measured (so they never move its gain).
+        for (int i = 0; i < n; ++i) {
+            const auto k = static_cast<std::size_t>(i);
+            removed[0][k] += before[0][k] - wet[0][k];
+            removed[1][k] += before[1][k] - wet[1][k];
+            wet[0][k] = before[0][k];
+            wet[1][k] = before[1][k];
+        }
+        removedAny = true;
     }
 }
 
@@ -408,6 +551,25 @@ void Engine::process(float* l, float* r, int n, const float* dryL, const float* 
         }
     }
 
+    if (removedAny) {
+        std::fill(removed[0].begin(), removed[0].begin() + n, 0.0f);
+        std::fill(removed[1].begin(), removed[1].begin() + n, 0.0f);
+        removedAny = false;
+    }
+    // Session 11: the reverb duck follows the input (what is played): its tails dip by
+    // up to 18 dB while the input is loud (from -45 dBFS, fully at -15) and bloom again
+    // in the gaps (8 ms down, 350 ms back up).
+    ducking = duckAmount > 1.0e-4f || duckDepth > 1.0e-5f;
+    if (ducking) {
+        for (int i = 0; i < n; ++i) {
+            const float x = std::max(std::abs(l[i]), std::abs(r[i]));
+            duckEnv += (x > duckEnv ? duckAttack : duckRelease) * (x - duckEnv);
+            duckDepth += duckSmooth * (duckAmount - duckDepth);   // the amount itself glides (20 ms)
+            const float db = 20.0f * std::log10(std::max(duckEnv, 1.0e-6f));
+            duckGain[static_cast<std::size_t>(i)] = dsp::dbToGain(-18.0f * duckDepth * dsp::clamp01((db + 45.0f) / 30.0f));
+        }
+        if (duckAmount <= 1.0e-4f && duckDepth <= 1.0e-5f) duckDepth = 0.0f;
+    }
     // A module runs while the current frame asks anything of it; at neutral it is
     // skipped (and starts clean when it is needed again). The Echoes and the Crypt
     // keep running while their tails ring after their mix went to zero.
@@ -435,12 +597,22 @@ void Engine::process(float* l, float* r, int n, const float* dryL, const float* 
     runSlot(echoes, slots[4], echoesActive, l, r, n);
     runRooms(l, r, n, travel * travel * (3.0f - 2.0f * travel));
     if (vaultActive || vaultDry.value != 1.0f) runVaults(l, r, n, travel * travel * (3.0f - 2.0f * travel));
-    if (!matching) return;
+    if (!matching) {
+        if (removedAny)
+            for (int i = 0; i < n; ++i) { l[i] -= removed[0][static_cast<std::size_t>(i)]; r[i] -= removed[1][static_cast<std::size_t>(i)]; }
+        return;
+    }
     trimGain.set(dsp::dbToGain(trimDb));
-    for (int i = 0; i < n; ++i) { const float g = trimGain.next(); l[i] *= g; r[i] *= g; }
+    for (int i = 0; i < n; ++i) {
+        const float g = trimGain.next();
+        l[i] *= g;
+        r[i] *= g;
+        if (removedAny) { removed[0][static_cast<std::size_t>(i)] *= g; removed[1][static_cast<std::size_t>(i)] *= g; }
+    }
     // The matcher stays agile while travelling and for half a second after arriving.
     // At neutral nothing changes the level, so the matcher returns to unity.
     settle = travel < 1.0f ? settleSamples : std::max(0, settle - n);
-    levelMatcher.process(dryL, dryR, l, r, n, abyssActive || wetActive, settle > 0);
+    levelMatcher.process(dryL, dryR, l, r, n, abyssActive || wetActive, settle > 0, removedAny ? removed[0].data() : nullptr,
+                         removedAny ? removed[1].data() : nullptr);
 }
 }

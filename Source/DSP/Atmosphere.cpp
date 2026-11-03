@@ -252,7 +252,7 @@ float Atmosphere::render(Voice& v) noexcept {
 
 void Atmosphere::process(float* l, float* r, int n, double beats, double beatsPerSample, int location, int sub,
                          float level, float density, int seed, const float* dryL, const float* dryR) noexcept {
-    level = clamp01(level);
+    level = std::clamp(level, 0.0f, 1.5f);   // up to 150 % with the MIX section (Session 11)
     // Schedule: one chance per eighth note, decided by a hash of (seed, slot, place).
     const auto slotAt = [](double b) { return static_cast<long long>(std::floor(std::max(0.0, b) * 2.0)); };
     const long long first = slotAt(beats), last = slotAt(beats + beatsPerSample * n);

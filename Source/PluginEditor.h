@@ -21,6 +21,7 @@
 #include "UI/Hover.h"
 #include "UI/EffectsRoller.h"
 #include "UI/SearchPanel.h"
+#include "UI/MixPanel.h"
 
 class DungeonCrawlerView final : public juce::Component, private juce::Timer, private juce::AudioProcessorParameter::Listener {
 public:
@@ -81,6 +82,12 @@ public:
     juce::Button& advancedButton() { return advancedToggle; }
     juce::Button& mapButton() { return mapCrumb; }
     juce::Button& journeyButton() { return journeyToggle; }
+    // Session 11: the MIX section (opens over the left of the scene, like the Journey panel).
+    juce::Button& mixButton() { return mixToggle; }
+    bool mixOpen() const { return mixPanel.isVisible(); }
+    void toggleMix() { mixToggle.setToggleState(!mixPanel.isVisible(), juce::dontSendNotification); mixToggle.onClick(); }
+    dc::ui::MixPanel& mixPanelForTest() { return mixPanel; }
+    std::function<void(bool)> onMixShown;   // the instrument panel's Mix button follows
     juce::Button& undoButtonForTest() { return undoButton; }
     juce::Button& slotButton(int k) { return k == 0 ? slotA : slotB; }
     juce::String presetLabel() const { return presetButton.getButtonText(); }
@@ -370,13 +377,14 @@ private:
     juce::ComboBox travelSync;
     std::unique_ptr<juce::SliderParameterAttachment> travelTimeAttachment;
     std::unique_ptr<juce::ComboBoxParameterAttachment> travelSyncAttachment;
-    juce::TextButton bypass { "Bypass" }, advancedToggle { "Advanced" }, controlsToggle, journeyToggle { "Journey" };
+    juce::TextButton bypass { "Bypass" }, advancedToggle { "Advanced" }, controlsToggle, journeyToggle { "Journey" }, mixToggle { "Mix" };
     dc::ui::EffectsRoller effectsRoller;   // the FX's (the instrument's is on its panel)
     juce::TextButton presetButton, prevPreset, nextPreset, slotA { "A" }, slotB { "B" }, copySlot, undoButton, redoButton, settingsButton;
     std::unique_ptr<juce::ButtonParameterAttachment> bypassAttachment;
     bool controlsShown = true;
     Drawer drawer;
     JourneyPanel journeyPanel;
+    dc::ui::MixPanel mixPanel;
     SteerBadge steerBadge;
     juce::Label notice;
     double noticeUntil = 0;

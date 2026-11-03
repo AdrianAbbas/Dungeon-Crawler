@@ -50,7 +50,14 @@ DungeonCrawlerProcessor::DungeonCrawlerProcessor(PluginKind k)
     atmosSeed = parameters.getRawParameterValue(dc::ids::atmosSeed);
     quality = parameters.getRawParameterValue(dc::ids::quality);
     effects = parameters.getRawParameterValue(dc::ids::effects);
+    for (std::size_t g = 0; g < mixGroups.size(); ++g) mixGroups[g] = parameters.getRawParameterValue(dc::ids::mixGroups[g]);
+    mixLowCut = parameters.getRawParameterValue(dc::ids::mixLowCut);
+    mixPreDelay = parameters.getRawParameterValue(dc::ids::mixPreDelay);
+    mixDuck = parameters.getRawParameterValue(dc::ids::mixDuck);
+    atmosOn = parameters.getRawParameterValue(dc::ids::atmosOn);
     if (isInstrument()) {
+        instPunch = parameters.getRawParameterValue(dc::ids::instPunch);
+        instPunchTime = parameters.getRawParameterValue(dc::ids::instPunchTime);
         instrumentChoice = parameters.getRawParameterValue(dc::ids::instrument);
         instLock = parameters.getRawParameterValue(dc::ids::instLock);
         for (std::size_t m = 0; m < instMacros.size(); ++m) instMacros[m] = parameters.getRawParameterValue(dc::ids::instMacros[m]);
@@ -213,6 +220,7 @@ void DungeonCrawlerProcessor::applyInit() {
         midiCancel.store(true);
     }
     manualEpoch.fetch_add(1, std::memory_order_acq_rel);
+    classicSound.store(false);
     presetIndex = -1;
     presetName = "Init";
     markPresetBaseline();
@@ -335,6 +343,7 @@ void DungeonCrawlerProcessor::applyFactoryPreset(int index) {
             }
         }
     setRoute(preset.route);
+    classicSound.store(false);
     midiCancel.store(true);
     manualEpoch.fetch_add(1, std::memory_order_acq_rel);
     presetIndex = index;
@@ -636,17 +645,37 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
     controls.travelSeconds = sync == 0 ? static_cast<double>(juce::jlimit(0.0f, 10.0f, finiteOr(travelTime->load(), 1.5f)))
                                        : dc::dsp::beatsToSeconds(dc::travelSyncBeats[sync], bpm);
     controls.bpm = bpm;
-    world.setQuality(qualityMode());
-    world.setControls(controls);
+    // Session 11: the MIX section (100 % = as designed) and the reverb helpers.
+    for (std::size_t g = 0; g < controls.mix.size(); ++g) controls.mix[g] = juce::jlimit(0.0f, dc::mixMax, finiteOr(mixGroups[g]->load(), 1.0f));
+    controls.reverbLowCut = juce::jlimit(dc::mixLowCutOff, 600.0f, finiteOr(mixLowCut->load(), dc::mixLowCutOff));
+    controls.reverbPreDelay = juce::jlimit(-40.0f, 120.0f, finiteOr(mixPreDelay->load(), 0.0f));
+    controls.reverbDuck = juce::jlimit(0.0f, 1.0f, finiteOr(mixDuck->load(), 0.0f));
+    // The place's instrument (as the journey, roam or the parameters choose it), or the
+    // locked one; notes already sounding keep theirs.
+    int index = 0;
     if (isInstrument()) {
-        // The place's instrument (as the journey, roam or the parameters choose it), or the
-        // locked one; notes already sounding keep theirs.
-        int index = dc::inst::designFor(controls.location, controls.sub);
+        index = dc::inst::designFor(controls.location, controls.sub);
         if (instrumentLocked()) {
             const float v = finiteOr(instrumentChoice->load(), 0);
             index = juce::jlimit(0, dc::inst::instrumentCount - 1, static_cast<int>(std::lround(v)));
         }
+        // How the instrument sits in a song (brass, strings, drums, plucks: less of the
+        // place's reverb and echoes, the dry hit first); the MIX sliders scale on top.
+        const bool classic = classicSound.load(std::memory_order_relaxed);
+        synth.setClassic(classic);
+        const auto fit = dc::inst::mixFit(index, classic);
+        // 100 % is the fitted amount; above it the slider climbs to the place's full design
+        // and beyond (150 % = 1.5 times the design, as for every other instrument).
+        const auto fitted = [](float user, float f) { return user <= 1.0f ? user * f : f + (user - 1.0f) * 2.0f * (1.5f - f); };
+        controls.mix[dc::MixReverb] = fitted(controls.mix[dc::MixReverb], fit.reverb);
+        controls.mix[dc::MixEchoes] = fitted(controls.mix[dc::MixEchoes], fit.echoes);
+        controls.reverbPreDelay += fit.preDelayMs;
+    }
+    world.setQuality(qualityMode());
+    world.setControls(controls);
+    if (isInstrument()) {
         synth.setDesign(index);
+        synth.setPunch(juce::jlimit(0.0f, 2.0f, finiteOr(instPunch->load(), 1.0f)), juce::jlimit(20.0f, 500.0f, finiteOr(instPunchTime->load(), 120.0f)) * 0.001f);
         playingInstrument.store(index, std::memory_order_relaxed);
         std::array<float, dc::inst::macroCount> m {};
         for (std::size_t k = 0; k < m.size(); ++k) m[k] = juce::jlimit(0.0f, 1.0f, finiteOr(instMacros[k]->load(), 0.5f));
@@ -659,7 +688,10 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
         // Effects roller: towards 0 % the place adds nothing, so the instrument meets its dry
         // self without a level step; above 100 % the stronger place builds up more and the
         // correction grows with it. At 100 %: exactly as designed.
-        placeGain.set(dc::dsp::dbToGain(dc::inst::placeTrimDb(controls.location, controls.sub) * effectsAmount()));
+        // The correction is mostly the reverbs' build-up: it follows their share too (the
+        // instrument's fit and the MIX section's Reverb; exactly as before at 100 %).
+        placeGain.set(dc::dsp::dbToGain(dc::inst::placeTrimDb(controls.location, controls.sub) * effectsAmount()
+                                        * juce::jmin(1.25f, controls.mix[dc::MixReverb])));
         renderInstrument(buffer, outputs, midi);
         // Level (Session 9): the instrument into its place, smoothed (no zipper, no click).
         auto* il = buffer.getWritePointer(0);
@@ -677,7 +709,9 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
     const float bypassTarget = forcedBypass || bypass->load() >= 0.5f ? 1.0f : 0.0f;
     const float neutralTarget = amount <= neutralIntensity ? 1.0f : 0.0f;
 
-    const float atmosAmount = juce::jlimit(0.0f, 1.0f, finiteOr(atmosLevel->load(), 0));
+    // The Atmosphere: its level, its switch and the MIX section's Atmosphere (0-150 %).
+    const float atmosAmount = atmosOn->load() < 0.5f ? 0.0f
+                                                     : juce::jlimit(0.0f, 1.0f, finiteOr(atmosLevel->load(), 0)) * juce::jlimit(0.0f, dc::mixMax, finiteOr(mixGroups[4]->load(), 1.0f));
     const float atmosDense = juce::jlimit(0.0f, 1.0f, finiteOr(atmosDensity->load(), 0.35f));
     const int atmosSeedValue = juce::jlimit(1, 999, static_cast<int>(std::lround(finiteOr(atmosSeed->load(), 1))));
     const double beatsPerSample = bpm / 60.0 / rate;
@@ -751,6 +785,8 @@ void DungeonCrawlerProcessor::getStateInformation(juce::MemoryBlock& data) {
     state.setProperty("editorScale", static_cast<double>(editorScale.load()), nullptr);
     state.setProperty("presetName", presetName, nullptr);
     state.setProperty("presetModified", presetModified(), nullptr);
+    // Session 11: which instrument sound (10: as before Session 11; 11: the new defaults).
+    state.setProperty("sound", classicSound.load() ? 10 : 11, nullptr);
     juce::StringArray stops;
     for (const auto& st : route()) stops.add(juce::String(st.location) + ":" + juce::String(st.sub));
     state.setProperty("route", stops.joinIntoString(","), nullptr);
@@ -766,6 +802,7 @@ void DungeonCrawlerProcessor::getStateInformation(juce::MemoryBlock& data) {
         w.setProperty("controls", v.controls, nullptr);
         w.setProperty("advanced", v.advanced, nullptr);
         w.setProperty("journey", v.journey, nullptr);
+        w.setProperty("mix", v.mix, nullptr);
         w.setProperty("advancedScroll", v.advancedScroll, nullptr);
         w.setProperty("journeyScroll", v.journeyScroll, nullptr);
         state.appendChild(w, nullptr);
@@ -806,6 +843,8 @@ void DungeonCrawlerProcessor::setStateInformation(const void* data, int size) {
         if (std::isfinite(scale)) editorScale.store(juce::jlimit(0.5f, 2.0f, scale));
     }
     if (incoming.hasProperty("presetName")) presetName = incoming.getProperty("presetName").toString();
+    // Saved before Session 11 (no "sound"): the instrument as it sounded then.
+    classicSound.store(isInstrument() && static_cast<int>(incoming.getProperty("sound", 10)) < 11);
     // The window as it was left (Session 9), when the state has it; a preset never has it.
     if (const auto w = incoming.getChildWithName("EditorView"); w.isValid()) {
         updateViewState([&w](ViewState& v) {
@@ -815,6 +854,7 @@ void DungeonCrawlerProcessor::setStateInformation(const void* data, int size) {
             v.controls = static_cast<bool>(w.getProperty("controls", true));
             v.advanced = static_cast<bool>(w.getProperty("advanced", false));
             v.journey = static_cast<bool>(w.getProperty("journey", false)) && !v.advanced;
+            v.mix = static_cast<bool>(w.getProperty("mix", false)) && !v.advanced && !v.journey;
             v.advancedScroll = juce::jlimit(0, 100000, static_cast<int>(w.getProperty("advancedScroll", 0)));
             v.journeyScroll = juce::jlimit(0, 100000, static_cast<int>(w.getProperty("journeyScroll", 0)));
         });

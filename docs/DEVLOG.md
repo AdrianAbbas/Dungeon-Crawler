@@ -2692,6 +2692,21 @@ building: the sample report (now 196 warnings) is printed through `sed | head -8
 stops reading, sed fails writing (exit 4) and `pipefail` ended the step. Only a printout:
 its status is now ignored (`scripts/ci-fetch-samples.sh`); no check changed.
 
+**CI, third run: green** (macOS and Linux, run 41604636107).
+
 **CI, second run**: macOS (clang) refused the magnifier's tooltip, `"\xe2\x8c\x98F)"`
 (clang reads `\x98F` as one hex escape; GCC let it pass): the literal is split. Every
 file changed this session was then syntax-checked with clang here before the next push.
+
+## Session 11: Mix section, brass, Punch (2026-11-03, unattended)
+
+Notes from songs with several instances: too much reverb together, brass that does not
+cut, no gain on the hit. Checklist (resume from the first open item after a limit):
+
+- [x] 1. MIX parameters (both plug-ins): Reverb/Space, Echoes, Modulation, Character, Atmosphere (0-150 %), Reverb Low Cut, Reverb Pre-delay, Reverb Duck; Atmosphere On; engine and processor; identity at the defaults
+- [ ] 2. MIX panel (collapsible; FX controls and the instrument panel), Atmosphere rows in the Advanced drawer
+- [x] 3. Instrument mix defaults (brass, strings, drums, plucks sit in a song: less reverb, the dry hit first)
+- [x] 4. Brass: quicker, brighter, harder attack, presence, velocity response
+- [x] 5. Punch and Punch Time (every instrument; per-voice gain on the hit; designed per instrument)
+- [ ] 6. Tests (`mix` group), listening renders (mini-song before/after, brass Punch 0 vs default), CI step
+- [ ] 7. README, MANUAL_TEST, DEVLOG handoff; final push, CI green

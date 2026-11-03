@@ -20,7 +20,14 @@ struct Controls {
     Frame advanced {};
     double travelSeconds = 1.5;
     double bpm = 120;
+    // Session 11, the MIX section: how much of each group of effects (1 = as designed,
+    // 0 none, up to 1.5 more): Reverb / Space, Echoes, Modulation, Character.
+    std::array<float, 4> mix { 1, 1, 1, 1 };
+    // The reverbs' helpers: a low cut on their wet signal (<= 20 Hz: off), an offset to
+    // their pre-delay (ms), and how far their tails dip while the input plays (0 = off).
+    float reverbLowCut = 20, reverbPreDelay = 0, reverbDuck = 0;
 };
+enum MixGroup { MixReverb, MixEchoes, MixModulation, MixCharacter };
 
 class Engine {
 public:
@@ -49,6 +56,8 @@ public:
     float travelProgress() const noexcept { return travel; }
     double travelDuration() const noexcept { return duration; }
     const Frame& frame() const noexcept { return current; }
+    // Tests (Session 11): the level matcher's gain now.
+    float matcherGain() const noexcept { return levelMatcher.gain; }
 
     // A place's frame with macros and Advanced applied, scaled by Intensity (0 neutral,
     // 1 as designed). Choices keep the place's value at any intensity.
@@ -57,6 +66,15 @@ public:
     // Intensity above 1 (the Effects roller over 100 %, up to maxIntensity): stronger.
     static constexpr float maxIntensity = 1.5f;
     static void strengthen(Frame&, const Frame& place, float t) noexcept;
+    // The MIX section on a frame: each group's amounts along the way from neutral to the
+    // frame (t = 0 none, 1 as is, up to 1.5 further; bounded as strengthen()).
+    static void applyMix(Frame&, const std::array<float, 4>& mix) noexcept;
+    // Which group a module parameter belongs to (-1: none; times, rates, choices...). The
+    // signature's amount joins the group its kind sounds like (`frame` gives the kind):
+    // echoes under Echoes, wobbles, choruses and shimmers under Modulation, the reversed
+    // swell and the vault's cascade under Reverb, the rest (resonances, drive...) Character.
+    static int mixGroupOf(P id, const Frame& frame) noexcept;
+    static int signatureGroup(int kind) noexcept;
     static Frame interpolate(const Frame& a, const Frame& b, float t) noexcept;
     // Layers whose choices cannot morph: during a journey that changes one, the layer
     // dips out, the choice switches while it is silent, and the layer returns.
@@ -117,6 +135,21 @@ private:
     bool roomCrossfade = false;
     dsp::Smoothed roomDry;
     std::array<std::array<float, maxChunk>, 2> roomIn {}, roomWet {}, roomSum {};
+    // Session 11: the reverbs' wet signals (rooms and vaults) shaped before they join:
+    // a low cut, a pre-delay offset (the vaults; the rooms take it in their frame), and
+    // the duck that dips them while the input plays.
+    void shapeWet(std::array<std::array<float, maxChunk>, 2>& wet, int n, int which) noexcept;
+    float lowCutTarget = 20, preDelayTarget = 0, duckAmount = 0, duckEnv = 0;
+    std::array<float, 2> lowCutNow { 20, 20 };
+    std::array<std::array<dsp::Svf, 2>, 2> lowCut {};
+    std::array<dsp::DelayLine, 2> vaultDelay;
+    dsp::Smoothed vaultDelayNow;
+    std::array<float, maxChunk> duckGain {};
+    // What the helpers removed this chunk (the level matcher measures as if they had not).
+    std::array<std::array<float, maxChunk>, 2> removed {};
+    bool removedAny = false;
+    bool ducking = false;
+    float duckAttack = 0, duckRelease = 0, duckSmooth = 0, duckDepth = 0;
     LevelMatcher levelMatcher;
     Context context;
     std::array<std::array<float, maxChunk>, 2> pre {};

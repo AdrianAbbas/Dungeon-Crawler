@@ -52,10 +52,22 @@ inline constexpr const char* effects = "effects";
 inline constexpr const char* instLevel = "instLevel";
 inline constexpr const char* instVowel = "instVowel";
 inline constexpr const char* instEnsemble = "instEnsemble";
+// Session 11: the MIX section (both plug-ins; 100 % = as designed), the reverb helpers,
+// the Atmosphere switch, and the instrument's Punch.
+inline constexpr std::array<const char*, 5> mixGroups { "mixReverb", "mixEchoes", "mixModulation", "mixCharacter", "mixAtmosphere" };
+inline constexpr std::array<const char*, 5> mixGroupNames { "Reverb / Space", "Echoes", "Modulation", "Character", "Atmosphere" };
+inline constexpr const char* mixLowCut = "mixLowCut";
+inline constexpr const char* mixPreDelay = "mixPreDelay";
+inline constexpr const char* mixDuck = "mixDuck";
+inline constexpr const char* atmosOn = "atmosOn";
+inline constexpr const char* instPunch = "instPunch";
+inline constexpr const char* instPunchTime = "instPunchTime";
 }
 
 namespace dc {
 inline constexpr float effectsMax = 1.5f;   // the Effects roller's top (150 %)
+inline constexpr float mixMax = 1.5f;        // the MIX sliders' top (150 %)
+inline constexpr float mixLowCutOff = 20.0f; // Reverb Low Cut at its bottom: off
 // Travel Sync choices: Free (Travel Time in seconds) or a length in beats.
 inline constexpr std::array<double, 6> travelSyncBeats { 0, 1, 2, 4, 8, 16 };
 inline constexpr const char* travelSyncChoices = "Free|1/4|1/2|1 bar|2 bars|4 bars";
@@ -192,6 +204,37 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
     // saved before it existed opens at); 0 % nearly the dry signal; 150 % stronger.
     layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::effects, 1 }, "Effects",
                                                            juce::NormalisableRange<float>(0.0f, effectsMax), 1.0f, percent));
+    // Session 11 (appended: no existing ID moves; a session saved before opens at these
+    // defaults, which leave every sound exactly as it was).
+    for (std::size_t g = 0; g < ids::mixGroups.size(); ++g)
+        layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::mixGroups[g], 1 }, juce::String("Mix ") + ids::mixGroupNames[g],
+                                                               juce::NormalisableRange<float>(0.0f, mixMax), 1.0f, percent));
+    juce::NormalisableRange<float> lowCut(mixLowCutOff, 600.0f);
+    lowCut.setSkewForCentre(150.0f);
+    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::mixLowCut, 1 }, "Reverb Low Cut", lowCut, mixLowCutOff,
+        juce::AudioParameterFloatAttributes().withLabel("Hz")
+            .withStringFromValueFunction([](float v, int) { return v <= mixLowCutOff + 0.5f ? juce::String("Off") : juce::String(juce::roundToInt(v)) + " Hz"; })
+            .withValueFromStringFunction([](const juce::String& t) { return t.trim().equalsIgnoreCase("off") ? mixLowCutOff : t.getFloatValue(); })));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::mixPreDelay, 1 }, "Reverb Pre-delay",
+        juce::NormalisableRange<float>(-40.0f, 120.0f), 0.0f,
+        juce::AudioParameterFloatAttributes().withLabel("ms")
+            .withStringFromValueFunction([](float v, int) { const int ms = juce::roundToInt(v); return (ms > 0 ? "+" : "") + juce::String(ms) + " ms"; })
+            .withValueFromStringFunction([](const juce::String& t) { return t.getFloatValue(); })));
+    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::mixDuck, 1 }, "Reverb Duck",
+                                                           juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f, percent));
+    layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { ids::atmosOn, 1 }, "Atmosphere On", true));
+    if (!instrumentNames.isEmpty()) {
+        // Punch: 100 % is the instrument's own (high on the brass and drums, low or none
+        // elsewhere), 200 % +12 dB on any instrument, 0 % none.
+        layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::instPunch, 1 }, "Punch",
+                                                               juce::NormalisableRange<float>(0.0f, 2.0f), 1.0f, percent));
+        juce::NormalisableRange<float> punchTime(20.0f, 500.0f);
+        punchTime.setSkewForCentre(120.0f);
+        layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::instPunchTime, 1 }, "Punch Time", punchTime, 120.0f,
+            juce::AudioParameterFloatAttributes().withLabel("ms")
+                .withStringFromValueFunction([](float v, int) { return juce::String(juce::roundToInt(v)) + " ms"; })
+                .withValueFromStringFunction([](const juce::String& t) { return t.getFloatValue(); })));
+    }
     return layout;
 }
 }

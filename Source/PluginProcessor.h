@@ -82,6 +82,14 @@ private:
     std::atomic<float>* instVowel = nullptr;
     std::atomic<float>* instEnsemble = nullptr;
     std::atomic<float>* effects = nullptr;
+    // Session 11: the MIX section, the reverb helpers, Atmosphere On, Punch.
+    std::array<std::atomic<float>*, 5> mixGroups {};
+    std::atomic<float>* mixLowCut = nullptr;
+    std::atomic<float>* mixPreDelay = nullptr;
+    std::atomic<float>* mixDuck = nullptr;
+    std::atomic<float>* atmosOn = nullptr;
+    std::atomic<float>* instPunch = nullptr;
+    std::atomic<float>* instPunchTime = nullptr;
 
 public:
     juce::AudioProcessorValueTreeState parameters;
@@ -125,7 +133,7 @@ public:
         bool valid = false;            // an editor has stored it (else: the defaults)
         bool place = false;            // a place's scene; false: the world map
         int location = 0, sub = 0;     // the scene shown then (the place follows the parameters)
-        bool controls = true, advanced = false, journey = false;
+        bool controls = true, advanced = false, journey = false, mix = false;   // mix: Session 11
         int advancedScroll = 0, journeyScroll = 0;
         bool operator==(const ViewState&) const = default;
     };
@@ -193,6 +201,11 @@ public:
     bool previewNote(int instrument, int key, float velocity);
     // Whether the host's transport is playing (written on the audio thread).
     std::atomic<bool> hostPlaying { false };
+    // Session 11: the instrument's sound before Session 11 (no fit to a mix, no designed
+    // Punch, the old brass). A session or user preset saved before it opens with it, so
+    // it sounds as it did; a new instance, Init and the factory presets use the new one.
+    void setClassicSound(bool on) noexcept { classicSound.store(on); }
+    bool usesClassicSound() const noexcept { return classicSound.load(); }
 
 private:
     void process(juce::AudioBuffer<float>&, bool forcedBypass, juce::MidiBuffer* midi);
@@ -203,6 +216,7 @@ private:
     mutable juce::SpinLock viewLock;
     ViewState view;
     juce::StringArray recentSearches;   // guarded by viewLock
+    std::atomic<bool> classicSound { false };
     dc::dsp::Smoothed instGain;   // the instrument's Level
     juce::AbstractFifo keyFifo { 256 };
     std::array<int, 256> keyQueue {};

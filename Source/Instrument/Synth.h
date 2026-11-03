@@ -293,6 +293,7 @@ struct Note {
     std::array<float, macroCount> macro { 0.5f, 0.5f, 0.5f, 0.5f, 0.5f };
     // The voices' Vowel and Ensemble (Session 9; 0.5 = as designed, only the sung layers).
     float vowel = 0.5f, ensemble = 0.5f;
+    bool classic = false;      // Session 11: the sound before it (older sessions)
     float rate = 48000;
     double bpm = 120;
     uint64_t noiseAt = 0;
@@ -334,6 +335,21 @@ float placeTrimDb(int location, int sub) noexcept;
 // how much (Captures.h). Most send nothing.
 struct CaptureSend { int capture = CaptureNone; float send = 0; };
 CaptureSend captureOf(int index) noexcept;
+// Session 11: how an instrument sits in a song. The instruments mostly played in a mix
+// (brass, strings, drums, plucks) send less to their place's reverbs and echoes and the
+// reverb starts a little later (the dry hit first); the MIX sliders scale on top. 1, 1, 0
+// for the others.
+// `classic`: the sound before Session 11 (a session saved then opens with it, unchanged):
+// no fit, no designed Punch, the old brass.
+struct MixFit { float reverb = 1, echoes = 1, preDelayMs = 0; };
+MixFit mixFit(int index, bool classic = false) noexcept;
+// The instrument's own Punch (dB on the hit at Punch 100 %): high on the brass and the
+// drums, a little on the plucks, none on pads, choirs and organs.
+float designPunchDb(int index, bool classic = false) noexcept;
+// Punch (0..2: 0 none, 1 the instrument's own, 2 +12 dB) to the hit's boost in dB.
+float punchDb(int index, float punch, bool classic = false) noexcept;
+// The brass's presence (2-4 kHz) and steeper velocity response (Session 11).
+bool brassPresence(int index, bool classic = false) noexcept;
 
 struct Voice {
     std::array<Layer, 4> layer;
@@ -354,6 +370,9 @@ struct Voice {
     std::array<float, 8> state {};
     int step = 0;
     float tremPhase = 0, wheelLevel = 1;
+    // Session 11, Punch: the hit's boost (dB at the start), how long it takes to settle,
+    // where it is, and its gain over the current chunk (interpolated per sample).
+    float punchPeakDb = 0, punchSamples = 1, punchPos = 0, punchGain = 1, punchStep = 0;
     bool active() const { return on; }
 };
 
@@ -376,6 +395,11 @@ public:
     void setLevel(float gain) noexcept { level = gain; }
     // The voices' Vowel and Ensemble (0.5 = as designed), for notes that start from now.
     void setVoiceControls(float vowel, float ensemble) noexcept { voiceVowel = vowel; voiceEnsemble = ensemble; }
+    // Session 11: Punch (0..2, 1 = the instrument's own) and Punch Time (seconds), for
+    // notes that start from now.
+    void setPunch(float amount, float seconds) noexcept { punch = amount; punchSeconds = seconds; }
+    // The sound before Session 11 (no designed Punch, the old brass), for notes from now.
+    void setClassic(bool on) noexcept { classic = on; }
 
     // MIDI, at a sample position within the block being rendered.
     void noteOn(int key, float velocity) noexcept;
@@ -413,6 +437,8 @@ private:
     Performance perf;
     float rate = 48000, bendRange = 2, level = 1, bendNow = 0, modNow = 0;
     float voiceVowel = 0.5f, voiceEnsemble = 0.5f;
+    float punch = 1.0f, punchSeconds = 0.12f;
+    bool classic = false;
     double tempo = 120;
     int designNow = 0, counter = 0, orderCounter = 0;
     uint64_t noteCount = 0;

@@ -221,8 +221,9 @@ void testInstrumentEngine(Suite& s) {
                 "the effect has none of the instrument's parameters (its IDs are as before)");
         s.check(instrument.parameters.getParameter(dc::ids::instrument) != nullptr && instrument.parameters.getParameter(dc::ids::instMacros[4]) != nullptr,
                 "the instrument has Instrument, Lock and five macros");
-        // Eight since Direction Update 3, three more in Session 9 (Level, Vowel, Ensemble).
-        s.check(fx.getParameters().size() + 11 == instrument.getParameters().size(), "the instrument adds exactly eleven parameters",
+        // Eight since Direction Update 3, three more in Session 9 (Level, Vowel, Ensemble),
+        // two in Session 11 (Punch, Punch Time).
+        s.check(fx.getParameters().size() + 13 == instrument.getParameters().size(), "the instrument adds exactly thirteen parameters",
                 std::to_string(fx.getParameters().size()) + " / " + std::to_string(instrument.getParameters().size()));
         // Every place has its own instrument, and back.
         std::set<int> seen;

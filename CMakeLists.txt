@@ -37,7 +37,7 @@ set(DC_SOURCES
     Source/DSP/Relics.cpp Source/DSP/Signature.cpp Source/DSP/Vault.cpp Source/DSP/Convolver.cpp Source/DSP/Ensemble.cpp Source/DSP/Atmosphere.cpp Source/World/Locations.cpp Source/World/Search.cpp
     Source/Instrument/SampleBank.cpp Source/Instrument/Synth.cpp Source/Instrument/Designs.cpp Source/Instrument/Captures.cpp Source/UI/InstrumentPanel.cpp
     Source/UI/EngravedLookAndFeel.cpp Source/UI/Engraving.cpp Source/UI/Scenes.cpp Source/UI/ScenePlaces.cpp Source/UI/SceneCache.cpp
-    Source/UI/Painted.cpp Source/UI/SearchPanel.cpp)
+    Source/UI/Painted.cpp Source/UI/SearchPanel.cpp Source/UI/MixPanel.cpp)
 # Fonts (SIL Open Font License, assets/fonts): Cinzel for titles, Cormorant Garamond for labels.
 juce_add_binary_data(DungeonCrawlerFonts NAMESPACE DungeonCrawlerFonts SOURCES
     assets/fonts/CormorantGaramond-SemiBold.ttf assets/fonts/CormorantGaramond-Bold.ttf assets/fonts/Cinzel-SemiBold.ttf)

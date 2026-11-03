@@ -78,8 +78,9 @@ InstrumentPanel::InstrumentPanel(DungeonCrawlerProcessor& p) : processor(p), key
 
     // The sliders: the five macros (named by the instrument), Vowel, Ensemble, Level, Intensity.
     const std::array<const char*, sliderCount> ids { dc::ids::instMacros[0], dc::ids::instMacros[1], dc::ids::instMacros[2], dc::ids::instMacros[3],
-                                                     dc::ids::instMacros[4], dc::ids::instVowel, dc::ids::instEnsemble, dc::ids::instLevel, dc::ids::intensity };
-    const std::array<const char*, sliderCount> names { "Macro", "Macro", "Macro", "Macro", "Macro", "Vowel", "Ensemble", "Level", "Intensity" };
+                                                     dc::ids::instMacros[4], dc::ids::instVowel, dc::ids::instEnsemble, dc::ids::instLevel, dc::ids::intensity,
+                                                     dc::ids::instPunch, dc::ids::instPunchTime };
+    const std::array<const char*, sliderCount> names { "Macro", "Macro", "Macro", "Macro", "Macro", "Vowel", "Ensemble", "Level", "Intensity", "Punch", "Time" };
     for (std::size_t k = 0; k < sliders.size(); ++k) {
         auto& s = sliders[k];
         s.setSliderStyle(juce::Slider::LinearVertical);
@@ -105,6 +106,12 @@ InstrumentPanel::InstrumentPanel(DungeonCrawlerProcessor& p) : processor(p), key
     sliders[ensembleSlot].setTooltip("The voices: one singer at 0 %, the instrument's choir at 50 %, a full choir at 100 %");
     sliders[levelSlot].setTooltip("The instrument's level into its place");
     sliders[intensitySlot].setTooltip("How strongly the place's effects apply");
+    sliders[punchSlot].setTooltip("Punch: each note hits louder and settles back (100 %: the instrument's own, 200 %: +12 dB, 0 %: none)");
+    sliders[punchTimeSlot].setTooltip("Punch Time: how long the hit takes to settle (20-500 ms)");
+    mix.setClickingTogglesState(true);
+    mix.setTooltip("Mix: how much reverb, echoes, modulation, character and atmosphere; the reverbs' helpers");
+    mix.onClick = [this] { if (onMix) onMix(); };
+    addAndMakeVisible(mix);
 
     // The Effects roller: the panel's most prominent control.
     if (auto* parameter = processor.parameters.getParameter(dc::ids::effects)) effects.attach(*parameter);
@@ -270,14 +277,16 @@ void InstrumentPanel::resized() {
     lock.setBounds(10, 82, 140, 24);
     bendRangeLabel.setBounds(150, 82, 42, 24);
     bendRange.setBounds(196, 82, 60, 24);
-    int x = 278;
+    // Eleven sliders (Session 11: Punch and its Time after Intensity), grouped by gaps.
+    int x = 270;
     for (std::size_t k = 0; k < sliders.size(); ++k) {
-        macroLabels[k].setBounds(x - 8, 24, 64, 16);
-        sliders[k].setBounds(x, 40, 48, 66);
-        x += (k == 4 || k == 6) ? 66 : 56;
+        macroLabels[k].setBounds(x - 10, 24, 62, 16);
+        sliders[k].setBounds(x, 40, 42, 66);
+        x += (k == 4 || k == 6 || k == 8) ? 53 : 46;
     }
     effects.setBounds(816, 8, 62, 98);
-    status.setBounds(884, 22, getWidth() - 888, 84);
+    status.setBounds(884, 22, getWidth() - 888, 58);
+    mix.setBounds(884, 82, getWidth() - 892, 24);
     bendLabel.setBounds(8, 113, 34, 14);
     modLabel.setBounds(44, 113, 34, 14);
     bend.setBounds(10, 127, 30, 62);

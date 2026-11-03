@@ -21,11 +21,15 @@ struct LevelMatcher {
         reset();
     }
     void reset() noexcept { referenceSlow = referenceFast = outputSlow = 0; gain = target = 1; counter = 0; }
-    void process(const float* refL, const float* refR, float* l, float* r, int n, bool enabled, bool agile = false) noexcept {
+    // `subL`/`subR` (optional, Session 11): subtracted from the output after it is measured
+    // (what the reverb helpers take away), so they never move the gain.
+    void process(const float* refL, const float* refR, float* l, float* r, int n, bool enabled, bool agile = false,
+                 const float* subL = nullptr, const float* subR = nullptr) noexcept {
         const float windowCoefficient = agile ? agileSlow : slow, glideCoefficient = agile ? agileGlide : glide;
         for (int i = 0; i < n; ++i) {
             const float referencePower = 0.5f * (refL[i] * refL[i] + refR[i] * refR[i]);
             const float outputPower = 0.5f * (l[i] * l[i] + r[i] * r[i]);
+            if (subL != nullptr) { l[i] -= subL[i]; r[i] -= subR[i]; }
             referenceSlow += windowCoefficient * (referencePower - referenceSlow);
             referenceFast += fast * (referencePower - referenceFast);
             outputSlow += windowCoefficient * (outputPower - outputSlow);
