@@ -383,3 +383,20 @@ validated.
       as loud.
 - [ ] Automate it in Logic; save it in a user preset; open an older project: it is at 100 %.
 - [ ] Double-click: back to 100 %. Scroll wheel moves it.
+
+## Session 10: Search
+
+- [ ] Both plug-ins: the magnifier (top right) and Cmd+F open the search; Esc, the
+      magnifier again, or a click outside close it. Click a landmark with it open: it
+      closes and you travel there.
+- [ ] Type slowly "crypt": results at every letter, no lag on the Air. Try typos
+      ("crpyt", "dwarvn", "kalimab") and moods ("eerie", "sacred").
+- [ ] Arrow down through the results (the description follows), Enter: you land as if
+      you had clicked there (map: the path and the zoom; in a scene: the morph).
+- [ ] Instrument: search "war drums", Enter: the panel shows War Drums, locked. Hold a
+      note while choosing another result: it rings on.
+- [ ] Instrument: Hold to hear on a few instruments: a short phrase, sensible level,
+      stops when you let go; with the song playing it does nothing.
+- [ ] Chips: Instruments, Places, Presets, Dark, Epic, Eerie, Sacred filter the list.
+- [ ] Close the search with nothing typed: Recent shows what you chose; save and reopen
+      the project: still there. Close and reopen the window after a search: same place.

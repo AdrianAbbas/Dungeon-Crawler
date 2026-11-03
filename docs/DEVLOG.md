@@ -2589,3 +2589,87 @@ results panel over the scene. Checklist (resume from the first open item after a
 - [x] 3. Instrument preview (hold to hear a short phrase; never while the host plays)
 - [x] 4. Tests (`search` group): findable by name and 3 tags, typos, Enter == by hand (state compare), keyboard, cost; snapshots in docs/snapshots/session10
 - [ ] 5. README, MANUAL_TEST, DEVLOG handoff; final push without `[skip ci]`, CI green
+
+### 1. The index (`Source/World/Search.*`)
+
+Built once per plug-in kind at load (the processor's constructor asks for it): the ten
+locations (choosing one lands at its scene, as its landmark does), all 40 places, the 40
+instruments (the instrument plug-in only) and every factory preset and journey of the
+plug-in's own list. Each has where it belongs, a family (instruments: Strings, Brass,
+Voices, Organ, Bells...; presets: their category), 5 to 10 tags of sound and mood, the
+developer's recordings it plays (Session 8's table: guitar, banjo, djembe, piano,
+violin, kalimba, voice, whispers, breaths, soft pad) and a one-line description. Place
+tags and descriptions follow the sound design comments in `Locations.cpp`; presets take
+their place's (and instrument's) tags, journeys the first three of each stop's plus
+"journey", roaming presets their location's plus "roam".
+
+**Matching**: names, tags, recordings, family, where and extra words (a place's
+instrument, a journey's stops) are normalised (lower case, apostrophes dropped:
+"Witch's" -> "witchs") and split into words. A query word matches a word exactly (1),
+as its start (0.82-0.95), inside it (0.62, 3+ letters), with one typo (0.72; two for 7+
+letters; optimal string alignment, so a swap like "crpyt" is one) or a typo in a
+partial word (0.55). Weights: name x3, tags and recordings x2, where x1.5, extra x1.
+Every query word must match (stop words like "the" are dropped). Bonuses for the whole
+query as the name (+4), its start (+1.2) or inside it (+1), and for a tag phrase typed
+in full ("war drums"). Results are grouped by kind, the groups ordered by their best
+result (instruments +0.3, places +0.2, so "choir" lists the choirs before "Choir in the
+Observatory"). Cost: building 0.5-1.5 ms, a search 0.15-0.3 ms (this container).
+
+### 2. The panel (`Source/UI/SearchPanel.*`) and the view
+
+A magnifier (`SearchButton`, a HoverButton) at the top right, left of the place list;
+Cmd+F in the view and in the editor (keys from the instrument panel go up to it). The
+panel (470 x 452, under the magnifier) is dark stone with an iron frame, rivets and a
+crimson top edge; the field an inset well; the chips pills (crimson when on); results
+two lines each: an icon (note: instrument, pin: place, tower: location, sparkle:
+preset, dotted path: journey), the name, where, the tags and the recordings; the
+selected row a crimson bar; the description below. It is opaque (the scene behind is not
+repainted for it); typing repaints only the list and the description.
+
+Keys: the field's `keyPressed` hands Up, Down, Page Up/Down, Enter and Esc to the panel
+first. Hover selects (so the description follows the mouse). Esc, the magnifier, a click
+outside (`pointerDown`: the click is not consumed, so a landmark still travels) or a click
+on the instrument panel (a mouse listener the editor adds) close it.
+
+**Choosing** (`DungeonCrawlerView::chooseSearchResult`): a place calls
+`travelManually` and, on the map, starts the zoom exactly as a landmark's click (path
+drawn, zoom after 0.55 s; at once if already the shown location); inside a scene the
+place changes as the list does (the crossfade). An instrument: `chooseInstrument` (as
+the chooser: played here, locked), then the panel refreshes. A preset: `choosePreset`
+(as the menu). Then `storeViewState`, so Session 9's restore keeps working.
+
+**Recent**: the last eight results chosen (`e:key`) and searches closed unfinished
+(`q:text`), in the processor (a reopened window has them) and saved in the session as a
+`Search` child (older versions ignore it).
+
+### 3. The preview (instrument)
+
+"Hold to hear" under an instrument's description: G3 C4 E4 G4, 190 ms apart, held while
+the button is down (at most 3 s), velocity 0.6. The notes go through the panel's
+lock-free queue as a new kind (4: key, velocity, instrument): the audio thread sets the
+instrument for that note only (voices keep their own instrument, so nothing playing is
+cut and the next notes play the current one). The place, the parameters and the lock
+are untouched; the current macros apply. `hostPlaying` (written on the audio thread
+from the play head) refuses note-ons while the transport runs; note-offs always pass.
+
+### 4. Tests (`--only search`, in CI shard 1) and snapshots
+
+93 checks, both plug-ins: the index holds everything; every entry found by its name
+(first three) and by at least three of its own tags; descriptions; typos and partial
+words (crpyt, dwarvn, cathedrl, graveyrd, obsevatory, mausoluem, pilgrimmage, kalimab,
+harpsicord, crys, obs, WITCH...); instruments by family and location; the recordings;
+the filters; grouping; the panel (open, close, click-through, Cmd+F from the instrument
+panel, as you type, keyboard, hover, chips, Recent incl. the session and a reopened
+window, the preview: plays, level, release, refused while the host plays, changes
+nothing); **landing**: two windows side by side, one by hand (map, landmark, list; the
+preset menu; the instrument chooser), one by search (typed, arrowed, Enter), compared
+after every step (every parameter, the route, the view, the instrument and lock, the
+preset name, the window state): every place from inside a scene and from the map, every
+preset and journey, every instrument (106 comparisons in the FX, 176 in the
+instrument); the window reopens where a search went; a held note rings on through each
+kind of jump; Lock respected. Cost: index build < 50 ms, search < 2 ms, keystroke
+refresh < 5 ms (measured 0.5-1.5 / 0.15-0.3 / 0.6 ms).
+
+Snapshots: `docs/snapshots/session10/` (`--search-snapshots dir`): the FX map with a
+typo, the FX panel "eerie", the instrument window with Recent and with "choir", the
+panel "choir" and "dwarvn" at 2x, Instruments + Dark chips.

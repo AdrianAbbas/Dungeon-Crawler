@@ -148,6 +148,33 @@ window (if you see plain sliders, switch the window's view menu from "Controls" 
 3. Automate **Location** and **Sub-location** to move through the world over the song;
    or use a **Journey** (below).
 
+## Search (both plug-ins)
+
+The magnifier at the top right of the window (or **Cmd+F**) opens the search over the
+scene. Type a name, a sound or a mood: results appear as you type (any case, partial
+words, typos: "crpyt" finds the Crypt, "dwarvn" the Dwarven Hall and Dwarven Chant).
+They are grouped as **Instruments**, **Places** and **Presets**, each with a small icon,
+where it belongs and its tags.
+
+- **What it searches**: the ten locations and all 40 places, the 40 instruments (name,
+  family, location; the instrument only), every factory preset and journey, and their
+  tags: sound and mood ("choir", "chant", "war drums", "organ", "bells", "pad", "drone",
+  "echo", "dark", "sinister", "epic", "eerie", "sacred", "watery", "huge", "intimate"...)
+  and the recordings they use ("guitar", "banjo", "djembe", "piano", "violin",
+  "kalimba", "voice", "whispers").
+- **Choosing**: arrow keys and Enter, or a click. It does what choosing it by hand does:
+  a place travels there (the path on the map and the zoom, or the morph from scene to
+  scene), an instrument is loaded as the panel's chooser loads it (played here, locked),
+  a preset loads as from the preset menu. Held notes ring on, Lock instrument is kept
+  when you travel, and the window reopens where the search took you.
+- **Hover** (or arrow to) a result to read its description. Instruments have a **Hold to
+  hear** button: a short phrase while you hold it (never while the host plays).
+- **Chips** under the field: Instruments, Places, Presets, and the moods Dark, Epic,
+  Eerie, Sacred (click again to clear). With nothing typed, **Recent** lists your last
+  eight searches and results (saved with the project).
+- **Esc** or a click outside closes it; the click still reaches the map.
+- The FX searches places, journeys and presets (it has no instruments).
+
 ## Controls
 
 | Control | What it does |
@@ -167,6 +194,7 @@ window (if you see plain sliders, switch the window's view menu from "Controls" 
 | **A / B, A→B** | Compare two complete settings; copy the current one to the other slot. |
 | **↶ ↷** | Undo / redo of your edits in the window. |
 | **⚙** | Window size (75–200 %, or drag the corner) and Quality: Eco (lightest: no animation, mono spectral layer), Standard, High (smoothest animation). |
+| **Magnifier** (top right), Cmd+F | Search places, instruments, presets and sounds (see Search above). |
 | **▾** (above the controls) | Hide the controls to see the whole picture. |
 
 **Journey panel:**
