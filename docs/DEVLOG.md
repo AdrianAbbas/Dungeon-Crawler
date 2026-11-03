@@ -2578,3 +2578,14 @@ window is 196 px taller in the instrument (as in LIGHT SEEKER), so at 200 % it i
 1512. Vowel and Ensemble act on the next notes, not on the notes already sounding. At
 150 % a few very wet places (the Bog, the Boss Lair) change less than the others: they
 are already almost fully wet at 100 %.
+
+## Session 10: Search (2026-11-03, unattended)
+
+A search tool in both plug-ins: a magnifier at the top of the window (and Cmd+F) opens a
+results panel over the scene. Checklist (resume from the first open item after a limit):
+
+- [x] 1. Search index (`Source/World/Search.*`): every place, instrument, preset and journey with tags (sound, mood, recordings), descriptions; fuzzy matcher
+- [x] 2. Search panel (`Source/UI/SearchPanel.*`): field, chips, grouped results, description, Recent, keyboard; wired into the view (button, Cmd+F, Esc, click outside); jumps exactly as by hand
+- [x] 3. Instrument preview (hold to hear a short phrase; never while the host plays)
+- [x] 4. Tests (`search` group): findable by name and 3 tags, typos, Enter == by hand (state compare), keyboard, cost; snapshots in docs/snapshots/session10
+- [ ] 5. README, MANUAL_TEST, DEVLOG handoff; final push without `[skip ci]`, CI green

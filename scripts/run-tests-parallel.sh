@@ -11,7 +11,7 @@ tests="${1:?the DungeonCrawlerTests binary}"
 logs="${2:-build/test-logs}"
 mkdir -p "$logs"
 
-"$tests" --only smoke,parameters,state,layouts,transparency,art,levels,instrumenteditor,window > "$logs/1-basics.txt" 2>&1 &
+"$tests" --only smoke,parameters,state,layouts,transparency,art,levels,instrumenteditor,window,search > "$logs/1-basics.txt" 2>&1 &
 "$tests" --only rates,extremes,realtime,place,journeys,atmosphere,navigation,instrument,effects > "$logs/2-robustness.txt" 2>&1 &
 "$tests" --only locations,travel,modules,musicality > "$logs/3-locations.txt" 2>&1 &
 "$tests" --only qa > "$logs/5-qa.txt" 2>&1 &

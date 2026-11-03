@@ -20,6 +20,7 @@
 #include "UI/InstrumentPanel.h"
 #include "UI/Hover.h"
 #include "UI/EffectsRoller.h"
+#include "UI/SearchPanel.h"
 
 class DungeonCrawlerView final : public juce::Component, private juce::Timer, private juce::AudioProcessorParameter::Listener {
 public:
@@ -42,6 +43,21 @@ public:
     juce::Button& locationButton(int index) { return *landmarks[static_cast<std::size_t>(index)]; }
     juce::Button& subLocationButton(int index) { return *subs[static_cast<std::size_t>(index)]; }
     juce::Button& hotspotButton(int index) { return *hotspots[static_cast<std::size_t>(index)]; }
+    // Session 10: search. The magnifier (top right) or Cmd+F opens the panel over the
+    // scene; a chosen result does exactly what choosing it by hand does (travel, the
+    // instrument chooser, the preset menu) and the panel closes.
+    void openSearch();
+    void closeSearch();
+    bool searchOpen() const { return searchPanel.isVisible(); }
+    dc::ui::SearchPanel& searchPanelForTest() { return searchPanel; }
+    juce::Button& searchButtonForTest() { return searchButton; }
+    void chooseSearchResult(const dc::search::Entry&);
+    // The editor refreshes the instrument panel when a search chose an instrument.
+    std::function<void()> onInstrumentChosen;
+    // Tests: the preview phrase's player (no message loop: stepped by hand).
+    bool previewPlaying() const noexcept { return previewer.isTimerRunning() || previewer.instrument >= 0; }
+    void stepPreviewForTest(double seconds) { previewer.advance(seconds); }
+    std::vector<int> previewKeysForTest() const { return previewer.sounding; }
     // Tests (Session 9, hover): what each place-list entry, hotspot and landmark shows; a
     // sweep with the mouse at a screen point.
     bool placeHoverShown(int index) const { return subs[static_cast<std::size_t>(index)]->hot(); }
@@ -225,6 +241,24 @@ private:
         DungeonCrawlerView& editor;
     };
     void followSteering();
+    // Session 10: the search preview's phrase (G3 C4 E4 G4, 190 ms apart, held while the
+    // button is down, at most 3 s), through the processor's lock-free preview notes.
+    class PreviewPlayer final : public juce::Timer {
+    public:
+        explicit PreviewPlayer(DungeonCrawlerProcessor& p) : processor(p) {}
+        ~PreviewPlayer() override { stop(); }
+        void start(int design);
+        void stop();
+        void timerCallback() override;
+        void advance(double seconds);   // tests
+        int instrument = -1;
+        std::vector<int> sounding;
+    private:
+        void play(double elapsed);
+        DungeonCrawlerProcessor& processor;
+        double startedAt = 0, offset = 0;
+        int step = 0;
+    };
     // Hotfix 1: a manual choice of place (map, landmark, list, hotspot, breadcrumb)
     // always wins: it stops a Journey or Roam, sets the place and shows it.
     void travelManually(int location, int sub);
@@ -347,6 +381,9 @@ private:
     juce::Label notice;
     double noticeUntil = 0;
     Follower follower { *this };
+    dc::ui::SearchButton searchButton;
+    dc::ui::SearchPanel searchPanel;
+    PreviewPlayer previewer { processor };
     bool wasSteering = false;
     int shown = -1, shownSub = -1;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DungeonCrawlerView)
@@ -366,9 +403,18 @@ public:
     void setScale(float);
     int baseHeight() const noexcept { return defaultHeight + (panel != nullptr ? dc::ui::InstrumentPanel::panelHeight : 0); }
     dc::ui::InstrumentPanel* instrumentPanel() noexcept { return panel.get(); }
+    // Cmd+F from anywhere in the window (the instrument panel too).
+    bool keyPressed(const juce::KeyPress&) override;
 private:
+    // A click on the instrument panel closes the search (it is outside it).
+    struct PanelClicks final : juce::MouseListener {
+        explicit PanelClicks(DungeonCrawlerView& v) : view(v) {}
+        void mouseDown(const juce::MouseEvent&) override { view.closeSearch(); }
+        DungeonCrawlerView& view;
+    };
     DungeonCrawlerProcessor& processor;
     DungeonCrawlerView content;
+    PanelClicks panelClicks { content };   // before the panel: it outlives it
     std::unique_ptr<dc::ui::InstrumentPanel> panel;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DungeonCrawlerEditor)
 };

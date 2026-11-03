@@ -183,6 +183,17 @@ public:
     std::atomic<float> shownBend { 0 }, shownMod { 0 };
     std::atomic<bool> shownSustain { false };
 
+    // Session 10: search. The last eight searches and results chosen ("q:text", "e:key"),
+    // kept here so a reopened window has them, and saved with the session.
+    juce::StringArray searchRecent() const;
+    void setSearchRecent(const juce::StringArray&);
+    // The search's preview (message thread): a note on any instrument, lock-free into the
+    // next audio block, the place and everything else unchanged (voices keep their own
+    // instrument, so what plays is not cut). Refused (false) while the host plays.
+    bool previewNote(int instrument, int key, float velocity);
+    // Whether the host's transport is playing (written on the audio thread).
+    std::atomic<bool> hostPlaying { false };
+
 private:
     void process(juce::AudioBuffer<float>&, bool forcedBypass, juce::MidiBuffer* midi);
     void renderInstrument(juce::AudioBuffer<float>&, int outputs, juce::MidiBuffer* midi);
@@ -191,6 +202,7 @@ private:
     void postPanel(int packed);
     mutable juce::SpinLock viewLock;
     ViewState view;
+    juce::StringArray recentSearches;   // guarded by viewLock
     dc::dsp::Smoothed instGain;   // the instrument's Level
     juce::AbstractFifo keyFifo { 256 };
     std::array<int, 256> keyQueue {};

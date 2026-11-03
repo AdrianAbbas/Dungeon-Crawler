@@ -188,7 +188,8 @@ void DungeonCrawlerView::PlaceButton::paintHover(juce::Graphics& g, bool hover, 
 
 DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
     : processor(p), cache([this] { sceneReady(); }), drawer(p.parameters),
-      journeyPanel(p, [this] { return dc::Stop { shown, dc::clampSubLocation(shown, shownSub) }; }) {
+      journeyPanel(p, [this] { return dc::Stop { shown, dc::clampSubLocation(shown, shownSub) }; }),
+      searchPanel(dc::search::index(p.isInstrument())) {
     setLookAndFeel(&look);
     setOpaque(true);
     auto* locationParameter = processor.parameters.getParameter(dc::ids::location);
@@ -379,6 +380,24 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
     addAndMakeVisible(controlsToggle);
     addChildComponent(drawer);
 
+    // Session 10: search.
+    searchButton.setTooltip(juce::String::fromUTF8("Search places, instruments, presets and sounds (\xe2\x8c\x98F)"));
+    searchButton.onClick = [this] { if (searchPanel.isVisible()) closeSearch(); else openSearch(); };
+    addAndMakeVisible(searchButton);
+    searchPanel.getRecent = [this] { return processor.searchRecent(); };
+    searchPanel.setRecent = [this](const juce::StringArray& r) { processor.setSearchRecent(r); };
+    searchPanel.onChoose = [this](const dc::search::Entry& e) { chooseSearchResult(e); };
+    searchPanel.onClose = [this] {
+        previewer.stop();
+        searchButton.setToggleState(false, juce::dontSendNotification);
+        if (isShowing()) grabKeyboardFocus();
+    };
+    if (processor.isInstrument()) {
+        searchPanel.onPreview = [this](int design, bool down) { if (down) previewer.start(design); else previewer.stop(); };
+        searchPanel.previewAllowed = [this] { return !processor.hostPlaying.load(); };
+    }
+    addChildComponent(searchPanel);
+
     locationAttachment->sendInitialUpdate();
     subLocationAttachment->sendInitialUpdate();
     // Clicks anywhere in the window (on any child) can close an open panel.
@@ -510,8 +529,90 @@ void DungeonCrawlerView::closePanels() {
 }
 
 bool DungeonCrawlerView::keyPressed(const juce::KeyPress& key) {
+    if (key.getModifiers().isCommandDown() && juce::CharacterFunctions::toLowerCase(static_cast<juce::juce_wchar>(key.getKeyCode())) == 'f') {
+        openSearch();
+        return true;
+    }
+    if (key == juce::KeyPress::escapeKey && searchPanel.isVisible()) { closeSearch(); return true; }
     if (key == juce::KeyPress::escapeKey && (journeyPanel.isVisible() || drawer.isVisible())) { closePanels(); return true; }
     return false;
+}
+
+void DungeonCrawlerView::openSearch() {
+    // Cmd+F with the panel open goes back to the field (its text selected).
+    if (!searchPanel.isVisible()) searchPanel.open();
+    else if (searchPanel.isShowing()) searchPanel.fieldForTest().grabKeyboardFocus();
+    searchButton.setToggleState(true, juce::dontSendNotification);
+    searchPanel.toFront(searchPanel.isShowing());
+}
+
+void DungeonCrawlerView::closeSearch() {
+    if (searchPanel.isVisible()) searchPanel.close();
+    searchButton.setToggleState(false, juce::dontSendNotification);
+}
+
+void DungeonCrawlerView::chooseSearchResult(const dc::search::Entry& e) {
+    using dc::search::Kind;
+    if (e.kind == Kind::Instrument) {
+        // As the instrument chooser: played here, locked (the place stays).
+        if (e.instrument != processor.instrumentIndex()) processor.chooseInstrument(e.instrument);
+        updateCrumbs();
+        refreshToolbar();
+        if (onInstrumentChosen) onInstrumentChosen();
+    } else if (e.kind == Kind::Place) {
+        // As the map and the place list: on the map, the path is drawn and the view zooms
+        // in (a landmark's click); inside a scene, the place morphs into the next.
+        const bool onMap = (pending ? pendingView : view) == View::Map && zoomAt <= 0;
+        const bool already = e.location == shown;
+        travelManually(e.location, e.sub);
+        if (onMap) {
+            if (already) goTo(View::Place, { e.location, e.sub }, 1);
+            else { zoomAt = nowSeconds() + 0.55; wakeTimer(); }
+        }
+        if (onInstrumentChosen) onInstrumentChosen();
+    } else {
+        // As the preset menu.
+        choosePreset(e.preset);
+        updateCrumbs();
+        if (onInstrumentChosen) onInstrumentChosen();
+    }
+    storeViewState();
+}
+
+void DungeonCrawlerView::PreviewPlayer::start(int design) {
+    stop();
+    instrument = design;
+    startedAt = nowSeconds();
+    offset = 0;
+    step = 0;
+    play(0);
+    if (instrument >= 0) startTimerHz(60);
+}
+
+void DungeonCrawlerView::PreviewPlayer::stop() {
+    stopTimer();
+    for (int key : sounding) processor.previewNote(juce::jmax(0, instrument), key, 0.0f);
+    sounding.clear();
+    instrument = -1;
+}
+
+void DungeonCrawlerView::PreviewPlayer::timerCallback() { play(nowSeconds() - startedAt + offset); }
+
+void DungeonCrawlerView::PreviewPlayer::advance(double seconds) {
+    offset += seconds;
+    play(offset);
+}
+
+void DungeonCrawlerView::PreviewPlayer::play(double elapsed) {
+    if (instrument < 0) return;
+    static constexpr int phrase[] { 55, 60, 64, 67 };
+    while (step < 4 && elapsed >= 0.19 * step) {
+        const int key = phrase[step++];
+        // The host started playing: the preview gives way.
+        if (!processor.previewNote(instrument, key, 0.6f)) { stop(); return; }
+        sounding.push_back(key);
+    }
+    if (elapsed >= 3.0) stop();
 }
 
 void DungeonCrawlerView::mouseDown(const juce::MouseEvent& e) { pointerDown(e.eventComponent); }
@@ -522,6 +623,9 @@ void DungeonCrawlerView::pointerDown(juce::Component* target) {
     const auto within = [target](juce::Component& c) { return target == &c || c.isParentOf(target); };
     if (journeyPanel.isVisible() && !within(journeyPanel) && target != &journeyToggle) journeyPanel.onClose();
     if (drawer.isVisible() && !within(drawer) && target != &advancedToggle) drawer.onClose();
+    // The search closes on a click outside it; the click still does what it does (a
+    // landmark travels, a place is chosen): the panel never takes clicks from the map.
+    if (searchPanel.isVisible() && !within(searchPanel) && target != &searchButton) closeSearch();
 }
 
 void DungeonCrawlerView::SteerBadge::paint(juce::Graphics& g) {
@@ -543,6 +647,9 @@ void DungeonCrawlerView::SteerBadge::resized() {
 
 DungeonCrawlerView::~DungeonCrawlerView() {
     storeViewState();
+    previewer.stop();
+    searchPanel.onPreview = nullptr;
+    searchPanel.onClose = nullptr;
     for (auto* parameter : processor.getParameters()) parameter->removeListener(this);
     follower.stopTimer();
     stopTimer();
@@ -1153,6 +1260,10 @@ void DungeonCrawlerView::layoutOverlays() {
     const int badgeX = juce::jlimit(0, getWidth() - 200 - 236, juce::jmax((getWidth() - 236) / 2, crumbText + 12));
     steerBadge.setBounds(badgeX, 14, 236, 28);
     notice.setBounds(badgeX, 46, 236, 24);
+    // The magnifier: top right, left of the place list; the panel opens under it.
+    searchButton.setBounds(getWidth() - 14 - 172 - 8 - 34, 11, 34, 34);
+    const int panelHeight = juce::jmin(dc::ui::SearchPanel::maxHeight, getHeight() - 50 - 10);
+    searchPanel.setBounds(searchButton.getRight() - dc::ui::SearchPanel::panelWidth, 50, dc::ui::SearchPanel::panelWidth, panelHeight);
 }
 
 void DungeonCrawlerView::paintTransition(juce::Graphics& g, double now) {
@@ -1598,11 +1709,23 @@ DungeonCrawlerEditor::DungeonCrawlerEditor(DungeonCrawlerProcessor& p) : AudioPr
         addAndMakeVisible(*panel);
     }
     content.onScaleChosen = [this](float s) { setScale(s); };
+    if (panel != nullptr) {
+        content.onInstrumentChosen = [this] { panel->refresh(); };
+        panel->addMouseListener(&panelClicks, true);
+    }
     setResizable(true, true);
     const int h = baseHeight();
     setResizeLimits(defaultWidth / 2, h / 2, defaultWidth * 2, h * 2);
     if (auto* constrainer = getConstrainer()) constrainer->setFixedAspectRatio(static_cast<double>(defaultWidth) / h);
     setSize(juce::roundToInt(static_cast<float>(defaultWidth) * scale), juce::roundToInt(static_cast<float>(h) * scale));
+}
+
+bool DungeonCrawlerEditor::keyPressed(const juce::KeyPress& key) {
+    if (key.getModifiers().isCommandDown() && juce::CharacterFunctions::toLowerCase(static_cast<juce::juce_wchar>(key.getKeyCode())) == 'f') {
+        content.openSearch();
+        return true;
+    }
+    return false;
 }
 
 void DungeonCrawlerEditor::setScale(float scale) {

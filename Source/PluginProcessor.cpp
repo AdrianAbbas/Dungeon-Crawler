@@ -1,4 +1,5 @@
 #include "PluginProcessor.h"
+#include "World/Search.h"
 #include "PluginEditor.h"
 #include "World/Presets.h"
 #include "Instrument/Presets.h"
@@ -61,6 +62,8 @@ DungeonCrawlerProcessor::DungeonCrawlerProcessor(PluginKind k)
     // The developer's recordings load on a background thread (once per process). The FX
     // ships the voice it uses in its places (Session 8); without them it sounds as before.
     wb::samples::Bank::get().load();
+    // Session 10: the search index, built once (per plug-in kind and process) at load.
+    dc::search::index(isInstrument());
     markPresetBaseline();   // a new instance is "Init", unmodified
 }
 
@@ -100,6 +103,28 @@ void DungeonCrawlerProcessor::panelBend(float bipolar) {
 }
 void DungeonCrawlerProcessor::panelMod(float unit) { postPanel((2 << 24) | juce::jlimit(0, 127, juce::roundToInt(unit * 127.0f))); }
 void DungeonCrawlerProcessor::panelSustain(bool down) { postPanel((3 << 24) | (down ? 1 : 0)); }
+
+bool DungeonCrawlerProcessor::previewNote(int instrument, int key, float velocity) {
+    if (!isInstrument() || key < 0 || key > 127) return false;
+    const int v = juce::jlimit(0, 127, juce::roundToInt(velocity * 127.0f));
+    // A note-off always goes through (a preview let go while the host started).
+    if (v > 0 && hostPlaying.load(std::memory_order_relaxed)) return false;
+    postPanel((4 << 24) | (juce::jlimit(0, dc::inst::instrumentCount - 1, instrument) << 16) | (v << 8) | key);
+    return true;
+}
+
+juce::StringArray DungeonCrawlerProcessor::searchRecent() const {
+    const juce::SpinLock::ScopedLockType sl(viewLock);
+    return recentSearches;
+}
+
+void DungeonCrawlerProcessor::setSearchRecent(const juce::StringArray& items) {
+    juce::StringArray clean;
+    for (const auto& item : items)
+        if ((item.startsWith("q:") || item.startsWith("e:")) && item.length() < 120 && !clean.contains(item) && clean.size() < 8) clean.add(item);
+    const juce::SpinLock::ScopedLockType sl(viewLock);
+    recentSearches = clean;
+}
 
 void DungeonCrawlerProcessor::postPanel(int packed) {
     if (!isInstrument()) return;
@@ -485,6 +510,18 @@ void DungeonCrawlerProcessor::renderInstrument(juce::AudioBuffer<float>& buffer,
                 case 1: synth.setPitchBend(static_cast<float>((packed & 0x3fff) - 8192) / 8192.0f); return;
                 case 2: synth.setModWheel(static_cast<float>(packed & 0x7f) / 127.0f); return;
                 case 3: synth.setSustain((packed & 1) != 0); return;
+                case 4: {
+                    // The search's preview: the note starts on its own instrument (it keeps
+                    // it while it rings); the next notes play the current one again.
+                    const int key = packed & 0xff, velocity = (packed >> 8) & 0x7f, design = (packed >> 16) & 0xff;
+                    if (velocity > 0) {
+                        const int now = synth.currentDesign();
+                        synth.setDesign(design);
+                        synth.noteOn(key, static_cast<float>(velocity) / 127.0f);
+                        synth.setDesign(now);
+                    } else synth.noteOff(key);
+                    return;
+                }
                 default: break;
             }
             const int key = packed & 0xff, velocity = (packed >> 8) & 0x7f;
@@ -537,6 +574,7 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
                 if (std::isfinite(*tempo)) bpm = juce::jlimit(20.0, 400.0, *tempo);
             if (auto sig = pos->getTimeSignature())
                 if (sig->numerator > 0 && sig->denominator > 0) beatsPerBar = juce::jlimit(1.0, 32.0, sig->numerator * 4.0 / sig->denominator);
+            hostPlaying.store(pos->getIsPlaying(), std::memory_order_relaxed);
             if (pos->getIsPlaying())
                 if (auto ppq = pos->getPpqPosition())
                     if (std::isfinite(*ppq)) hostBeats = *ppq;
@@ -732,6 +770,12 @@ void DungeonCrawlerProcessor::getStateInformation(juce::MemoryBlock& data) {
         w.setProperty("journeyScroll", v.journeyScroll, nullptr);
         state.appendChild(w, nullptr);
     }
+    // Session 10: the search's Recent list (older versions ignore it).
+    if (const auto recent = searchRecent(); !recent.isEmpty()) {
+        juce::ValueTree r("Search");
+        r.setProperty("recent", recent.joinIntoString("\n"), nullptr);
+        state.appendChild(r, nullptr);
+    }
     if (auto xml = state.createXml()) copyXmlToBinary(*xml, data);
 }
 
@@ -775,6 +819,8 @@ void DungeonCrawlerProcessor::setStateInformation(const void* data, int size) {
             v.journeyScroll = juce::jlimit(0, 100000, static_cast<int>(w.getProperty("journeyScroll", 0)));
         });
     }
+    if (const auto r = incoming.getChildWithName("Search"); r.isValid())
+        setSearchRecent(juce::StringArray::fromLines(r.getProperty("recent").toString()));
     // The journey route (version 3); older states have none.
     std::vector<dc::Stop> stops;
     for (const auto& token : juce::StringArray::fromTokens(incoming.getProperty("route").toString(), ",", ""))
