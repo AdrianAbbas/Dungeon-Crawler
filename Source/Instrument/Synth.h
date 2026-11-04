@@ -277,7 +277,8 @@ struct BrassVoice {
     float bite = 0, biteSeconds = 0.07f;
     // The section's presence: a band at `presenceHz` (Q 0.8) added to the held note
     // (`presence`) and more on the hit (`hitPresence`, fading over ~120 ms), so the recorded
-    // brass speaks through a mix (the recordings are darker than the synthesis was).
+    // brass speaks through a mix (the recordings are darker than the synthesis was); a held
+    // `presence` below 0 rounds the held note instead (the bright trumpets), the hit still lifted.
     float presence = 0, hitPresence = 0, presenceHz = 2900, hitThin = 0;
     // The staccato's level against the sustain at the same velocity (dB), and how fast it
     // dies away under the held note (60 dB over `stacDecaySeconds`: only its transient counts).

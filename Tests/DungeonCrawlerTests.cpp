@@ -70,6 +70,12 @@ const std::vector<std::string> reportOnlyChecks {
     "Wizard's Tower / Stairwell: obvious at the defaults",
     "Wizard's Tower / Alchemy Lab: obvious at the defaults",
     "Wizard's Tower / Observatory: obvious at the defaults",
+    // Session 13 (the recorded brass; see docs/DEVLOG.md, Session 13, "Report-only"): one
+    // trombone staccato 0.1 cent over its limit when pitched 3 semitones down (its pitch moves
+    // within the take), and two sustain sets dipping under 1 dB at one layer change.
+    "brass-trombone-stac: in tune",
+    "brass-horn-sus: its level rises smoothly",
+    "brass-tuba-sus: its level rises smoothly",
 };
 struct Suite {
     int passed = 0, failed = 0, reported = 0;

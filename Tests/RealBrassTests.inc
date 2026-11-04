@@ -467,6 +467,16 @@ int realBrassReport() {
             std::cout << "horn section " << names[stage] << ": " << line(brassmetrics::measure({ out.l, out.r, 48000.0, 0 })) << ", click " << fmt(click, 1) << "x at " << fmt(at, 4) << " s\n";
         }
     }
+    if (const auto look = juce::SystemStats::getEnvironmentVariable("DC_REALBRASS_LOOKUP", {}); look.isNotEmpty()) {
+        const auto* inst = wb::samples::Bank::get().instrument(look.toRawUTF8());
+        for (int key : { 70, 72, 76 })
+            for (float vel : { 0.25f, 0.75f })
+                for (float pick : { 0.0f, 0.3f, 0.6f, 0.99f }) {
+                    const auto* z = inst->find(key, vel, pick);
+                    std::cout << look << " key " << key << " vel " << vel << " pick " << pick << ": root " << fmt(z->root, 2) << " layer " << z->layer << " keys " << z->loKey << "-" << z->hiKey << "\n";
+                }
+        return 0;
+    }
     if (const auto curve = juce::SystemStats::getEnvironmentVariable("DC_REALBRASS_CURVE", {}); curve.isNotEmpty()) {
         const auto* inst = wb::samples::Bank::get().instrument(curve.toRawUTF8());
         const int key = juce::SystemStats::getEnvironmentVariable("DC_REALBRASS_KEY", juce::String(int(std::lround(0.5f * (inst->lowRoot + inst->highRoot))))).getIntValue();
@@ -481,10 +491,10 @@ int realBrassReport() {
         return 0;
     }
     if (const auto ve = juce::SystemStats::getEnvironmentVariable("DC_REALBRASS_VENV", "-1").getIntValue(); ve >= 0) {
-        for (float vel : { 0.45f, 0.5f }) {
-            const auto p = perform(ve, dc::inst::SoundRealBrass, true, { { 0.0, 0.9, 60, vel } }, 1.2, 0.0f);
+        for (float vel : { 0.45f, 0.5f, 0.9f }) {
+            const auto p = perform(ve, dc::inst::SoundRealBrass, true, { { 0.0, 1.3, juce::SystemStats::getEnvironmentVariable("DC_REALBRASS_KEY", "60").getIntValue(), vel } }, 1.5, 0.0f);
             std::cout << "velocity " << vel << ":";
-            for (int f = 0; f < 50; ++f) {
+            for (int f = 0; f < 70; ++f) {
                 double e = 0;
                 for (int i = 0; i < 960; ++i) { const auto k = p.onset + std::size_t(f * 960 + i); e += double(p.l[k]) * p.l[k] + double(p.r[k]) * p.r[k]; }
                 std::cout << " " << fmt(10.0 * std::log10(e / 1920.0 + 1e-20), 0);

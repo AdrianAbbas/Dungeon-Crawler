@@ -291,8 +291,8 @@ void BrassVoice::tick(float& l, float& r) {
         sr += m * (driveRef * std::tanh(sr * g * inv) - sr);
         biteNow *= biteMul;
     }
-    const float p = presence + hitPresence * h;
-    if (p > 1.0e-4f) {
+    const float p = presence + hitPresence * h;   // a held `presence` below 0 rounds the held note
+    if (std::abs(p) > 1.0e-4f) {
         sl += p * presL.bandpass(sl);
         sr += p * presR.bandpass(sr);
     }

@@ -555,10 +555,13 @@ void greatHall(Voice& v, const Note& n) {
         addBrass(*b, "trumpet", 12.0f, 0.0f, 0.8f, -0.3f);
         addBrass(*b, "trumpet", 12.0f, -7.0f, 0.55f + 0.3f * sig(n), 0.3f, 9.0f, -3.0f);   // another recording
         if (sig(n) > 0.02f) addBrass(*b, "trombone", 0.0f, 3.0f, 0.45f * sig(n) * 2.0f, 0.0f, 4.0f);
-        b->stacLevel = 0.85f;
-        b->stacLiftDb = 0.0f;   // the trumpets' staccatos are bright and hot already
+        // The hit follows velocity more steeply than the others (full on hard chords, less
+        // on the medium notes of a line: bright trumpets otherwise sound louder overall).
+        b->stacLevel = 0.85f * std::pow(d::clamp01(n.velocity), 2.0f);
+        b->stacLiftDb = -1.0f;   // the trumpets' staccatos are bright and hot already
+        b->stacDecaySeconds = 0.18f;   // a short, sharp hit: the fanfare's notes are short
         b->susDuck = 0.5f;
-        const float share = startBrass(v.layer[3], n.hz * 2.0f, n, { 2.2f, 0.6f, 2.4f, 0.6f, 1000.0f, 1.2f, 3.2f });
+        const float share = startBrass(v.layer[3], n.hz, n, { 1.8f, 0.0f, 1.9f, 0.4f, 700.0f, 0.0f, 2.0f });
         for (int k = 0; k < 3; ++k) weigh(v.layer[std::size_t(k)], share, 0.12f);
     }
 }
@@ -1528,7 +1531,7 @@ float realBrassTrimDb(int index) noexcept {
     if (index >= 0 && index < instrumentCount && !std::isnan(trimOverrides()[std::size_t(index)])) return trimOverrides()[std::size_t(index)];
     switch (index) {
         case 4: return 10.1f;    // Doom Brass & Choir
-        case 6: return -2.8f;    // Brass Fanfare
+        case 6: return 9.0f;    // Brass Fanfare
         case 9: return 18.9f;    // Heroic Horn
         case 21: return 16.7f;   // Hoard Gong (its growl)
         case 32: return 11.1f;   // Dwarven Chant (its low brass)

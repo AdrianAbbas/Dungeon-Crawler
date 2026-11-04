@@ -72,21 +72,25 @@ LAYER_NAMES = ["p", "mp", "mf", "f", "ff"]
 
 
 def loudness(audio, art):
-    """How loud a take sounds as the instrument plays it (K-weighted, LUFS-like): a
-    sustain by its loudest 400 ms in its first second (a note as it is played: its attack
-    and how it settles), a staccato by its hit and body (its loudest 150 ms in the first
-    350 ms: it dies away under the sustain). The
-    sampler levels every take onto its velocity curve by this, so a layer change does not
-    step (prepare.py's loudest 400 ms rates a short staccato and a swelling sustain by
-    different parts of them)."""
-    y = P.k_weight(audio[:int(1.0 * RATE)])
-    win = int((0.4 if art == "sus" else 0.15) * RATE)
-    head = y[:int((1.0 if art == "sus" else 0.35) * RATE)]
-    if len(head) <= win:
-        return float(-0.691 + 10 * np.log10(np.mean(head ** 2) + 1e-24))
-    total = np.cumsum(np.concatenate(([0.0], head ** 2)))
-    power = (total[win:] - total[:-win]) / win
-    return float(-0.691 + 10 * np.log10(max(power.max(), 0.0) + 1e-24))
+    """How loud a take sounds as the instrument plays it (K-weighted, LUFS-like). A sustain:
+    the mean (in dB) of its loudest 400 ms in its first second (a short note: its attack and
+    how it settles) and of its held part (0.3-1.3 s: a held note), so neither a take that
+    attacks hard and settles low nor one that swells is misjudged (each alone was tried: the
+    first left some held notes 8 dB quiet, the second stepped at a layer change). A
+    staccato: its hit and body (its loudest 150 ms in the first 350 ms: it dies away under
+    the sustain). The sampler levels every take onto its velocity curve by this."""
+    y = P.k_weight(audio[:int(1.4 * RATE)])
+    lufs = lambda p: float(-0.691 + 10 * np.log10(max(p, 0.0) + 1e-24))
+    def loudest(seg, win):
+        if len(seg) <= win:
+            return lufs(np.mean(seg ** 2))
+        total = np.cumsum(np.concatenate(([0.0], seg ** 2)))
+        return lufs(((total[win:] - total[:-win]) / win).max())
+    if art != "sus":
+        return loudest(y[:int(0.35 * RATE)], int(0.15 * RATE))
+    short = loudest(y[:int(1.0 * RATE)], int(0.4 * RATE))
+    held = y[int(0.3 * RATE):int(1.3 * RATE)]
+    return 0.5 * (short + (lufs(np.mean(held ** 2)) if len(held) > RATE // 4 else short))
 
 
 def parse(fn):

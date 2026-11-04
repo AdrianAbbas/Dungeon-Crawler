@@ -3092,7 +3092,7 @@ presets get 13.
 | instrument | the recorded section | synthesis kept for weight |
 |---|---|---|
 | Heroic Horn (Tower Top) | horn; a second horn (another recording, +4 cents, 11 ms late; Bell Up) | its two synth horns at 30 % |
-| Brass Fanfare (Great Hall) | two trumpets an octave up (-7 cents, 9 ms, another recording), the trombone (Section) | its three synth layers at 12 % |
+| Brass Fanfare (Great Hall) | two trumpets an octave up (-7 cents, 9 ms, another recording), the trombone on the key (Section); its hit steeper with velocity, a short staccato (0.18 s), its brightening on the hit only | its three synth layers at 12 % |
 | Doom Brass & Choir (Final Boss Lair) | horn + trombone (+9 cents) on the note, tuba an octave below | the synth octave below at 15 %; post drive 0.35 -> 0.15 |
 | Dwarven Chant (Dwarven Hall) | tuba + trombone (+7 cents) an octave below the chant (Brass) | its synth brass at 35 % |
 | Hoard Gong (Dragon's Hoard) | trombone + tuba an octave below, a blat on the strike, the held note swelling in over 120 ms (Growl) | its synth growl at 40 % |
@@ -3102,3 +3102,75 @@ level measure) 0.5 dB under sound 12's, found by bisection (Punch, the drive and
 clipper make it nonlinear). In their places a measured make-up on top of Session 12's
 (fanfare +1.1, doom +3.1, chant +0.7 dB: the recorded hit is shorter, the space takes a
 little more).
+
+**A bug found by the mix test** (Session 11's "at the same sustain level"): the fanfare's
+trumpets were transposed twice (the note passed an octave up and the players +12), so they
+played two octaves above the key and the trombone an octave too high; a held C4 came out
+10.8 dB quiet. Fixed (the voice gets the key; the trumpets +12, the trombone on it). The
+fanfare's earlier tuning had been fighting that bug: retuned afterwards (above).
+
+### 5. Tests (`--only realbrass`, CI shard `12-realbrass`) and renders
+
+94 checks (`Tests/RealBrassTests.inc`), the recordings' ones required in CI (`DC_REQUIRE_BRASS`):
+the licence (docs/LICENSES text, source URL, version, commit; the DEVLOG; the fetch script's
+pin and licence check; the licence shipped with the notes); sound 12 and a build without the
+samples play the synthesis sample for sample; the eight sets loaded, every sustain looped;
+**in tune** (every set every other key, soft and loud, the held part within 8 cents, the
+staccato's body within 15; each instrument low to high within 10); **velocity smooth**
+(every sustain set in steps of 0.05: under 1.5 dB, never falling more than 0.3; each
+instrument from 0.2 to 1: under 2.5 dB, never falling more than 0.5); **the hit** against
+sound 12 (attack-to-sustain and 2-4 kHz presence +1.5 dB or more, the held chord not
+louder, the peak under full scale, the melody within 1 dB); **level-matched** (dry within
+3 dB of the 40 instruments' median, in its place as sound 12 was within 1.5 dB); **clean**
+(six-second holds over several loop turns and the release add no jump beyond the
+recordings' own; the horn phrase dry and in its place without clicks and never above
+-0.1 dBFS; Punch 200 %, Level +12 dB, velocity 1 chords never clip). The click checks
+compare against the recordings' own steepest fronts: a loud trombone's waveform steepens
+into near shock fronts (in the library's WAVs too: 0.03 -> 0.28 in two samples, every
+period), which a second difference sees like a click. The Session 12 checks that a new
+instance, Init and a preset get sound 12 now expect the latest (13).
+
+Development aids in the same file: `--realbrass-report` (every number, per set and per
+instrument; `DC_REALBRASS_ONLY=index` and others for one at a time), `--realbrass-calibrate`
+(the trims by bisection), `--realbrass-dump index seconds`.
+
+Renders (CI test-logs `realbrass/`, `--listen-realbrass dir`): each of the five, the horn phrase
+(the Hoard Gong an octave down at full velocity, so its brass growls), sound 12 then 13, dry
+and in its place (20 WAV files), with `realbrass-report.txt` and the preparation's log.
+
+### Results and handoff (end of session 13)
+
+Measured here (Linux, the recorded brass, no private recordings): a held C major chord at
+velocity 0.95, dry, default Punch, sound 12 -> 13:
+
+| | attack-to-sustain | 2-4 kHz presence | held chord | melody against sound 12 |
+|---|---|---|---|---|
+| Heroic Horn | 11.3 -> 14.2 dB | -6.0 -> -3.7 dB | -14.2 -> -16.3 dBFS | -0.5 dB |
+| Brass Fanfare | 11.3 -> 14.2 dB | -4.3 -> -2.6 dB | -14.8 -> -17.0 dBFS | +0.5 dB |
+| Doom Brass & Choir | 14.0 -> 16.2 dB | -5.3 -> -3.6 dB | -18.3 -> -18.7 dBFS | -0.5 dB |
+| Dwarven Chant | 7.6 -> 10.4 dB | -15.0 -> -12.4 dB | -13.6 -> -14.3 dBFS | -0.6 dB |
+
+Every peak at -0.5 dBFS (the hit clipper's ceiling) or under; in their places as loud against
+dry as before (within 0.8 dB). The Hoard Gong: the gong's strike unchanged, its growl now
+real trombone and tuba; its melody 0.8 dB under sound 12's.
+
+**Report-only** (small misses after two or more attempts each, listed in `reportOnlyChecks`):
+- `brass-trombone-stac: in tune`: one take 15.1 cents out (limit 15) when pitched 3 semitones
+  down; its pitch moves within the take. Tried: three pitch windows, the same estimator in the
+  preparation and the test, measuring unmeasurable takes.
+- `brass-horn-sus` / `brass-tuba-sus: its level rises smoothly`: one dip of 0.85 / 0.91 dB (limit
+  0.3) at one layer change. Tried: four loudness ratings, one take per note instead of a
+  crossfade (that fixed the 2.5 dB dips), the attack and the held part averaged. The
+  instruments built on them pass their own smoothness checks.
+
+**Listen to** (test-logs `realbrass/`, MANUAL_TEST "Session 13"): each `-dry-2-after` against
+its `-dry-1-before`, then the `-in-its-place-` pair. In the Final Boss Lair the long held
+chord at the phrase's end blooms more in the reverb than before (its melody measures the
+same).
+
+**Known limits**: tuned by measurement, not by ear. The library's horn has three usable
+dynamics (no ff sustain except two notes), the trumpet sustain two (p, f), so a soft and a
+loud note change tone at one velocity each. Keys beyond the recordings (horn above F5, tuba
+below F#1, trumpet above C6) fade over 6 semitones into the synthesis. The Doom Brass and the
+Dwarven Chant use the developer's voice in CI (not here): their numbers there may differ.
+Nothing seen on a Mac yet.
