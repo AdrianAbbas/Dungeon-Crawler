@@ -24,9 +24,11 @@ mkdir -p "$logs"
 "$tests" --only mix > "$logs/10-mix.txt" 2>&1 &
 # Session 12: the horns that hit, LIGHT SEEKER's Punch UI.
 "$tests" --only brass > "$logs/11-brass.txt" 2>&1 &
-# Session 13: the recorded brass (VSCO 2 CE, CC0).
-"$tests" --only realbrass > "$logs/12-realbrass.txt" 2>&1 &
 wait
+# Session 13: the recorded brass (VSCO 2 CE, CC0), after the shards: as an eleventh concurrent
+# shard it slowed the others enough that the navigation group's journey notice (a 2.5 s
+# wall-clock timer) had gone before its check read it.
+"$tests" --only realbrass > "$logs/12-realbrass.txt" 2>&1
 "$tests" --only editor,workflow > "$logs/8-timed.txt" 2>&1
 "$tests" --only cpu > "$logs/4-cpu.txt" 2>&1
 

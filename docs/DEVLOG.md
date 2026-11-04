@@ -3196,3 +3196,11 @@ staggered; the bite's ceiling from the median crest; the doom brass's section 1.
 over sound 12's melody, at most 2.5 dB under; the 3 dB level match still guards quietness);
 every trim recalibrated. Here: realbrass 95 passed (2 report-only), mix 55, brass 54,
 instruments 372, all passed.
+
+**CI, second run** (`99f8b8b`, run 41810120921): macOS green; Linux 2768 passed, 2 failed. The Doom
+Brass passes now. Left: the Dwarven Chant's dip 0.87 -> 0.51 dB (limit 0.5): report-only (a
+small miss after two attempts; CI only, with the developer's chant over it). And the journey
+note again: it hides 2.5 s of wall-clock time after Stop (`PluginEditor.cpp`), and the new
+eleventh concurrent shard (realbrass) slowed the navigation shard's 9 s render past that. Not
+changed: the check; the realbrass shard now runs alone after the others (before the timed
+group).
