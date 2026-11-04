@@ -2849,7 +2849,7 @@ Checklist (resume from the first open item after a limit):
 - [x] 2. Sound 12: a harder, faster, brighter brass transient (bite, edge, upper-mid presence on the attack), higher Punch with a larger range, stronger velocity-to-attack, drier attack (less reverb, later pre-delay, ducked on the hit); same sustain, no clipping; sessions saved at sound 10/11 unchanged
 - [x] 3. Punch UI copied from LIGHT SEEKER (labels, readouts, placement, behaviour) in DC's dark style; snapshot in docs/snapshots/
 - [x] 4. Tests (attack-to-sustain and rise before/after and against LIGHT SEEKER, sustain, peak, old sessions, Punch UI), `--listen-brass` renders and CI step
-- [ ] 5. README / MANUAL_TEST / DEVLOG handoff (done); final push, CI green
+- [x] 5. README / MANUAL_TEST / DEVLOG handoff; final push, CI green
 
 ### 1. Measured first: LIGHT SEEKER's brass and DC's (the same code)
 
@@ -2986,3 +2986,6 @@ on a Mac yet.
 without the recordings, +4.1: the recorded choir stab carries more of Session 11's hit).
 Attempt 1: the doom brass's own Punch 18 dB (was 17), its top 21 dB so the slider still
 climbs above it (here +4.6 dB; expected about +4.4 in CI).
+
+**CI, Session 12 second run: green** (macOS and Linux, run 41758534430): the Doom Brass's hit
+check passes with its own Punch at 18 dB.
