@@ -2989,3 +2989,36 @@ climbs above it (here +4.6 dB; expected about +4.4 in CI).
 
 **CI, Session 12 second run: green** (macOS and Linux, run 41758534430): the Doom Brass's hit
 check passes with its own Punch at 18 dB.
+
+## Session 13: real brass from a CC0 library (2026-11-04, unattended)
+
+The brass instruments (the Tower Top horn, the Great Hall fanfare, the Final Boss Lair's
+doom brass, the Dwarven Hall's low brass, and the Hoard Gong's growling brass) play real
+recorded horn, trumpet, trombone and tuba from **VSCO 2 Community Edition** (Versilian
+Studios, CC0 1.0), layered and processed into DUNGEON CRAWLER's own sound; the synthesis
+stays as the stand-in for builds without the samples. The samples are never committed
+here: CI fetches them from the official source at a pinned commit (cached).
+Checklist (resume from the first open item after a limit):
+
+- [x] 1. Licence: downloaded, read (LICENSE is CC0 1.0 Universal; Readme.txt: any purpose, commercial included), recorded in `docs/LICENSES/VSCO-2-CE.txt` (text, source URL, version, commit) and here
+- [ ] 2. Fetch + prepare: `scripts/ci-fetch-brass.sh` (official source, pinned commit, cached in CI), `tools/sample-prep/brass.py` (mono FLAC notes, tuned, trimmed to the onset, loops and release tails, velocity layers, one gain per instrument), merged into the samples folder with the licence
+- [ ] 3. Engine: a brass sampler voice (staccato hit into the sustain, velocity layers crossfaded, players doubled and detuned, attack bite), sound 13
+- [ ] 4. Instruments: horn, fanfare, doom brass, Dwarven Hall low brass, Hoard Gong growl from the recordings + a little synthesis for weight; Punch, presence, place; synthesis when the samples are missing
+- [ ] 5. Tests (in tune, velocity smooth, attack-to-sustain and presence vs before, level-matched, no clicks or clipping, licence) and listening renders (`--listen-realbrass`, CI step)
+- [ ] 6. README / MANUAL_TEST / DEVLOG handoff; final push, CI green
+
+### 1. The licence
+
+Downloaded from https://github.com/sgossner/VSCO-2-CE (master, commit `4403009`, 2020-08-04;
+the library's version 1.1.0, tag `2809277`). Its `LICENSE` is the full **CC0 1.0 Universal**
+text (SHA-256 `36ffd9dc…af39673`), and `Readme.txt` says "You are permitted to use these
+samples for ANY purpose" (it asks for credit and that the samples are not sold on their own:
+both honoured). So the check passed and the work went on. The whole record, with the licence
+text as downloaded: [LICENSES/VSCO-2-CE.txt](LICENSES/VSCO-2-CE.txt). Used: `Brass/F Horn`,
+`Trumpet`, `Tenor Trombone`, `Tuba`, sustains and staccatos (343 WAVs, 223 MB, 44.1 kHz 16-bit
+stereo; the dynamics: horn 1-4 per note, trumpet sustains 2 (v1, v3) and staccatos 3,
+trombone 2-3 / 4, tuba 3 / 2).
+
+**Where they come from in the build**: fetched in CI from the official source (pinned commit,
+cached), not added to `AdrianAbbas/Samples`: that keeps the private repository untouched and
+lets every build have the brass, with or without the SAMPLES_TOKEN secret.
