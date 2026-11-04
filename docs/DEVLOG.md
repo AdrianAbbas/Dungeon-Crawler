@@ -2849,7 +2849,7 @@ Checklist (resume from the first open item after a limit):
 - [x] 2. Sound 12: a harder, faster, brighter brass transient (bite, edge, upper-mid presence on the attack), higher Punch with a larger range, stronger velocity-to-attack, drier attack (less reverb, later pre-delay, ducked on the hit); same sustain, no clipping; sessions saved at sound 10/11 unchanged
 - [x] 3. Punch UI copied from LIGHT SEEKER (labels, readouts, placement, behaviour) in DC's dark style; snapshot in docs/snapshots/
 - [x] 4. Tests (attack-to-sustain and rise before/after and against LIGHT SEEKER, sustain, peak, old sessions, Punch UI), `--listen-brass` renders and CI step
-- [ ] 5. README / MANUAL_TEST / DEVLOG handoff; final push, CI green
+- [ ] 5. README / MANUAL_TEST / DEVLOG handoff (done); final push, CI green
 
 ### 1. Measured first: LIGHT SEEKER's brass and DC's (the same code)
 
@@ -2965,3 +2965,18 @@ now also writes `mini-song-3-session12.wav`; its "after" stays Session 11's soun
 here: `mini-song-1-before`, `mini-song-2-after`, `brass-punch-0` and `brass-punch-default`
 rendered by this build and by Session 11's (a worktree of `f316444`) are byte-identical, so
 a Session 11 project plays exactly as it did.
+
+### Results and handoff (end of session 12)
+
+**Linux (this container, no recordings)**: the whole suite 2637 passed, 0 failed (brass 54,
+mix 55, instruments 373). The strength and LIKE gates unchanged. Every listening render's
+peak at or under -0.3 dBFS (dry: -0.5, the clipper's ceiling).
+
+**Listen to** (test-logs `brass/`, MANUAL_TEST "Session 12"): each horn's `-2-after` against
+its `-1-before`, then against `light-seeker-heroic-horns-*.ogg` / `light-seeker-fanfare-trumpets-*.ogg`.
+
+**Known limits**: tuned by measurement, not by ear. The fanfare's attack edge is held back by
+the level check (+0.6 dB, reported). The Doom Brass and the Dwarven Chant use the developer's
+voices in CI (not here): their numbers there may differ. In their places the loudest horn
+chords still reach the output limiter (the place's wet adds to the shaped hit). Nothing seen
+on a Mac yet.
