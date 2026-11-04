@@ -9,6 +9,8 @@
 #include "Synth.h"
 #include "Trims.h"
 #include "../World/Locations.h"
+#include <cstdio>
+#include <limits>
 
 namespace dc::inst {
 namespace {
@@ -72,6 +74,66 @@ void brassBite(Layer& L, const Note& n, float amount = 1.0f) {
     }
     L.synth.bite = amount * (0.6f + 1.2f * n.velocity);
     L.synth.biteSeconds = 0.09f;
+}
+
+// Session 13: the recorded brass (horn, trumpet, tenor trombone, tuba; BrassVoice) on a
+// layer, or nullptr (sound before 13, or a build without the samples: the caller's
+// synthesis plays alone, exactly as in sound 12). Add players, then startBrass().
+const wb::samples::Instrument* brassSus(const char* inst) {
+    char id[40];
+    std::snprintf(id, sizeof id, "brass-%s-sus", inst);
+    return sampled(id);
+}
+const wb::samples::Instrument* brassStac(const char* inst) {
+    char id[40];
+    std::snprintf(id, sizeof id, "brass-%s-stac", inst);
+    return sampled(id);
+}
+float dbToGainTrim(int index) { return d::dbToGain(realBrassTrimDb(index)); }
+BrassVoice* realBrass(Layer& L, const Note& n, float gain, float pan = 0) {
+    if (n.sound < SoundRealBrass || brassSus("horn") == nullptr) return nullptr;
+    L.use(M::Brass, gain, pan);
+    L.brass.reset();
+    return &L.brass;
+}
+bool addBrass(BrassVoice& b, const char* inst, float semis, float cents, float gain, float pan, float delayMs = 0, float lookup = 0) {
+    return b.addPlayer(brassSus(inst), brassStac(inst), semis, cents, gain, pan, delayMs, lookup);
+}
+// How a brass instrument's recorded section is made its own (BrassVoice): the bite on the
+// hit, the presence band (held, and more on the hit), the hit's low end thinned (below
+// `thinHz`), the exciter's brightness (held, and more on the hit). The hit amounts follow
+// the velocity.
+struct BrassTone { float bite = 1, presence = 0.8f, hitPresence = 2, thin = 0.4f, thinHz = 500, excite = 0.8f, hitExcite = 2; };
+// Starts it: the recorded attack as it is (the Attack macro above the middle fades it in
+// and softens the hit; `susAttack` > 0: the held note swells in over that long instead).
+// Returns how much of the note the recordings carry (1, falling to 0 over the 6 semitones
+// beyond their range, where the instrument's synthesis takes over).
+float startBrass(Layer& L, float hz, const Note& n, const BrassTone& tone, float susAttack = 0) {
+    auto& b = L.brass;
+    const float v = d::clamp01(n.velocity), hit = 0.3f + 0.7f * std::pow(v, 1.5f);
+    b.presence = tone.presence;
+    b.hitPresence = tone.hitPresence * hit;
+    b.hitThin = std::clamp(tone.thin * hit, 0.0f, 0.9f);
+    b.thinHz = tone.thinHz;
+    b.excite = tone.excite;
+    b.hitExcite = tone.hitExcite * hit;
+    const float attackScale = n.scale(1);
+    const float attack = susAttack > 0.0f ? susAttack * attackScale : 0.001f + 0.05f * std::max(0.0f, attackScale - 1.0f);
+    b.stacLevel *= std::clamp(1.0f / attackScale, 0.35f, 1.2f);
+    b.bite = tone.bite * (0.4f + 2.6f * std::pow(v, 1.5f));
+    b.biteSeconds = 0.045f;
+    if (!b.start(midiOf(hz), v, n.random, n.rate, attack)) {
+        L.use(M::None);
+        return 0.0f;
+    }
+    const float share = 1.0f - d::smoothstep(1.0f, 6.0f, b.beyond);
+    L.gain *= share;
+    return share;
+}
+// The synthesis under the recordings: a little of it for weight (`keep`), all of it where
+// the recordings run out.
+void weigh(Layer& L, float share, float keep) {
+    if (L.model == M::Synth) L.gain *= keep + (1.0f - keep) * (1.0f - share);
 }
 
 void choir(Layer& L, float hz, float attack, float vowel, float bright, float breath, float detune, const Note& n, float gain = 1, float pan = 0) {
@@ -383,17 +445,41 @@ void treasureRoomControl(Voice& v, const Note& n, float dt) {
 // octave below, driven; a choir shouting the note for a moment (Choir).
 void finalBossLair(Voice& v, const Note& n) {
     const float a = brassAttack(0.04f * n.scale(1), n);
-    synth(v.layer[0], d::SynthBrass, n.hz, a, 1.0f, 1.0f, n, 0.9f, -0.15f);
-    brassBite(v.layer[0], n);
-    v.layer[0].synth.detuneCents = 9;
-    v.layer[0].synth.cutoff = 700.0f * std::exp2(n.offset(0));
-    v.layer[0].synth.formantHz = 650;
+    // Session 13: the recorded section, horn and trombone on the note (a little apart) and
+    // the tuba an octave below; the synthesised octave below stays under it for weight.
+    float share = 0.0f;
+    if (auto* b = realBrass(v.layer[0], n, dbToGainTrim(4), -0.05f)) {
+        addBrass(*b, "horn", 0.0f, 0.0f, 0.85f, -0.3f);
+        addBrass(*b, "trombone", 0.0f, 9.0f, 0.8f, 0.3f, 6.0f);
+        addBrass(*b, "tuba", -12.0f, -4.0f, 0.9f, 0.0f);
+        b->stacLevel = 1.0f;
+        b->stacLiftDb = 7.0f;
+        b->susDuck = 0.6f;
+        share = startBrass(v.layer[0], n.hz, n, { 3.5f, 1.2f, 3.0f, 0.6f, 700.0f, 1.5f, 4.0f });
+        // The recordings need less of the post's drive (it was the synthesis's grit; the
+        // bite gives the recorded hit its own): the held note less squashed under the hit.
+        if (share > 0.0f) v.drive = v.baseDrive = 0.15f;
+    }
+    if (share <= 0.0f) {
+        synth(v.layer[0], d::SynthBrass, n.hz, a, 1.0f, 1.0f, n, 0.9f, -0.15f);
+        brassBite(v.layer[0], n);
+        v.layer[0].synth.detuneCents = 9;
+        v.layer[0].synth.cutoff = 700.0f * std::exp2(n.offset(0));
+        v.layer[0].synth.formantHz = 650;
+    } else if (share < 1.0f) {
+        synth(v.layer[3], d::SynthBrass, n.hz, a, 1.0f, 1.0f, n, 0.9f * (1.0f - share), -0.15f);
+        brassBite(v.layer[3], n);
+        v.layer[3].synth.detuneCents = 9;
+        v.layer[3].synth.cutoff = 700.0f * std::exp2(n.offset(0));
+        v.layer[3].synth.formantHz = 650;
+    }
     // Session 12: the octave below speaks with the upper horns (it lagged by half again).
     synth(v.layer[1], d::SynthBrass, n.hz * 0.5f, n.sound >= SoundHorns ? a : a * 1.5f, 1.0f, 1.0f, n, 0.8f, 0.15f);
     v.layer[1].synth.detuneCents = 6;
     v.layer[1].synth.cutoff = 600.0f * std::exp2(n.offset(0));
     v.layer[1].synth.formantHz = 420;
     brassBite(v.layer[1], n, 0.7f);
+    if (share > 0.0f) weigh(v.layer[1], share, 0.15f);
     if (sig(n) > 0.02f) {
         // The choir stab: the developer's full aah and ooh stacks shouted together, six
         // voices tight in time, the gritty voice under them (stand-in: the formant choir).
@@ -411,7 +497,7 @@ void finalBossLair(Voice& v, const Note& n) {
     }
     // The doom piano: a low piano struck an octave below with the brass (Weight).
     const float weight = d::clamp01(2.0f * n.macro[3]);
-    if (weight > 0.02f) sample(v.layer[3], "piano", n.hz * 0.5f, n, 0.0f, 3.0f * n.scale(2), 0.0f, 0.5f, 0, 0, 0.42f * weight, 0.1f, true);
+    if (weight > 0.02f && v.layer[3].model == M::None) sample(v.layer[3], "piano", n.hz * 0.5f, n, 0.0f, 3.0f * n.scale(2), 0.0f, 0.5f, 0, 0, 0.42f * weight, 0.1f, true);
 }
 void finalBossLairControl(Voice& v, const Note&, float) {
     // The stab: the choir lets go after a moment, the brass stays.
@@ -463,6 +549,18 @@ void greatHall(Voice& v, const Note& n) {
     // comes from Punch and the clipper; the instruments' level check holds).
     const float bite = n.sound >= SoundHorns ? 0.55f : 1.0f;
     for (int k = 0; k < 3; ++k) brassBite(v.layer[std::size_t(k)], n, k == 2 ? 0.6f * bite : bite);
+    // Session 13: the recorded section, two trumpets an octave above the key (7 cents apart,
+    // the second a moment late) and the trombone on it (Section); the synthesis for weight.
+    if (auto* b = realBrass(v.layer[3], n, dbToGainTrim(6))) {
+        addBrass(*b, "trumpet", 12.0f, 0.0f, 0.8f, -0.3f);
+        addBrass(*b, "trumpet", 12.0f, -7.0f, 0.55f + 0.3f * sig(n), 0.3f, 9.0f, -3.0f);   // another recording
+        if (sig(n) > 0.02f) addBrass(*b, "trombone", 0.0f, 3.0f, 0.45f * sig(n) * 2.0f, 0.0f, 4.0f);
+        b->stacLevel = 0.85f;
+        b->stacLiftDb = 0.0f;   // the trumpets' staccatos are bright and hot already
+        b->susDuck = 0.5f;
+        const float share = startBrass(v.layer[3], n.hz * 2.0f, n, { 2.2f, 0.6f, 2.4f, 0.6f, 1000.0f, 1.2f, 3.2f });
+        for (int k = 0; k < 3; ++k) weigh(v.layer[std::size_t(k)], share, 0.12f);
+    }
 }
 
 // Throne Room: a regal string ensemble, violins and below them violas and cellos an
@@ -510,6 +608,18 @@ void towerTop(Voice& v, const Note& n) {
     v.layer[1].synth.formantLevel = 0.3f;
     brassBite(v.layer[0], n, 1.2f);
     brassBite(v.layer[1], n, 1.0f);
+    // Session 13: two recorded horns, the second 4 cents up and a moment late (Bell Up: how
+    // much of it, and a harder hit); the synthesised horns stay under them for weight.
+    if (auto* b = realBrass(v.layer[2], n, dbToGainTrim(9))) {
+        addBrass(*b, "horn", 0.0f, 0.0f, 1.0f, -0.1f);
+        addBrass(*b, "horn", 0.0f, 4.0f, 0.3f + 0.5f * sig(n), 0.2f, 11.0f, 3.0f);   // another recording
+        b->stacLevel = 0.8f + 0.4f * sig(n);
+        b->susDuck = 0.45f;
+        // The horn is dark: its presence and brightness made (the exciter), its hit thinned.
+        const float share = startBrass(v.layer[2], n.hz, n, { 1.4f + 0.6f * sig(n), 1.2f, 3.0f, 0.6f, 800.0f, 1.0f, 2.5f });
+        weigh(v.layer[0], share, 0.3f);
+        weigh(v.layer[1], share, 0.3f);
+    }
 }
 
 // ======================================================================================
@@ -657,6 +767,19 @@ void dragonsHoard(Voice& v, const Note& n) {
         v.layer[1].synth.detuneCents = 11;
         v.layer[1].synth.cutoff = 500.0f * std::exp2(n.offset(0));
         v.layer[1].synth.formantHz = 380;
+        // Session 13: a recorded trombone and tuba (an octave below) growling out of it,
+        // their sustains swelling in after the strike (no staccato: it rises, it does not
+        // hit), pushed hard; the synthesis under them for weight.
+        if (auto* b = realBrass(v.layer[2], n, 1.2f * growl * dbToGainTrim(21))) {
+            addBrass(*b, "trombone", 0.0f, 11.0f, 0.9f, -0.2f);
+            addBrass(*b, "tuba", -12.0f, 0.0f, 0.7f, 0.2f, 15.0f);
+            // A blat on the strike, then the held brass swelling in over 120 ms.
+            b->stacLevel = 0.8f;
+            b->stacLiftDb = 6.0f;
+            b->susDuck = 0.0f;
+            const float share = startBrass(v.layer[2], n.hz, n, { 2.5f, 1.2f, 2.0f, 0.3f, 400.0f, 0.8f, 1.5f }, 0.12f);
+            weigh(v.layer[1], share, 0.4f);
+        }
     }
 }
 
@@ -912,6 +1035,20 @@ void frozenPeak(Voice& v, const Note& n) {
     if (sig(n) > 0.02f) drum(v.layer[1], d::DrumTwoTone, n.hz * 4.0f, 1.0f, 0.02f, 0.0f, 0.06f * vel(n) * sig(n), 8500.0f, 3.0f, 0.12f, n);
 }
 
+// Session 13: the Dwarven Hall's low brass recorded: a tuba and a trombone an octave below
+// the chant (the trombone a little apart), the synthesis under them for weight.
+void dwarvenBrass(Voice& v, const Note& n) {
+    if (auto* b = realBrass(v.layer[2], n, 0.7f * sig(n) * 2.0f * dbToGainTrim(32))) {
+        addBrass(*b, "tuba", 0.0f, 0.0f, 1.0f, -0.1f);
+        addBrass(*b, "trombone", 0.0f, 7.0f, 0.55f, 0.15f, 8.0f);
+        b->stacLevel = 1.0f;
+        b->stacLiftDb = 4.0f;
+        b->susDuck = 0.6f;
+        const float share = startBrass(v.layer[2], n.hz * 0.5f, n, { 2.0f, 0.8f, 3.0f, 0.5f, 400.0f, 0.8f, 2.0f });
+        weigh(v.layer[1], share, 0.35f);
+    }
+}
+
 // Dwarven Hall: a dwarven chant (deep voices on "oh") over low brass an octave below
 // (Brass).
 void dwarvenHall(Voice& v, const Note& n) {
@@ -933,6 +1070,7 @@ void dwarvenHall(Voice& v, const Note& n) {
                 v.layer[1].synth.formantHz = 420;
                 v.layer[1].synth.detuneCents = 7;
                 brassBite(v.layer[1], n);
+                dwarvenBrass(v, n);
             }
             return;
         }
@@ -945,6 +1083,7 @@ void dwarvenHall(Voice& v, const Note& n) {
         v.layer[1].synth.formantHz = 420;
         v.layer[1].synth.detuneCents = 7;
         brassBite(v.layer[1], n);
+        dwarvenBrass(v, n);
     }
 }
 
@@ -1284,6 +1423,14 @@ Role roleOf(int index) noexcept {
 MixFit mixFit(int index, int sound) noexcept {
     // The Weary Guitar's Tavern is a small, nearly dry room: nothing to take back there.
     if (sound < SoundMix || index == 23) return {};
+    // Session 13: the recorded brass loses a little more to its drier, ducked place than the
+    // synthesis did (its hit is shorter, its held note darker): measured with the melody,
+    // in its place against dry, sound 13 against 12, given back.
+    if (designUsesRealBrass(index, sound)) {
+        auto fit = mixFit(index, SoundHorns);
+        fit.makeupDb += index == 6 ? 1.1f : index == 4 ? 3.1f : index == 32 ? 0.7f : 0.0f;
+        return fit;
+    }
     const bool horns = sound >= SoundHorns;
     switch (roleOf(index)) {
         // Session 12: the brass drier still, its reverb later and dipping under the hit
@@ -1359,5 +1506,33 @@ bool designUsesVoice(int index) noexcept {
     for (auto* f : { &finalBossLair, &cloister, &crypt, &witchsHut, &dwarvenHall, &gates })
         if (start == f) return true;
     return false;
+}
+
+bool designUsesRealBrass(int index, int sound) noexcept {
+    if (sound < SoundRealBrass || brassSus("horn") == nullptr) return false;
+    return index == 4 || index == 6 || index == 9 || index == 21 || index == 32;
+}
+
+// The recorded section's level in each brass instrument (dB, measured with the horn phrase
+// dry, sound 12 against 13: the brass as loud as its synthesis was).
+namespace {
+std::array<float, instrumentCount>& trimOverrides() {
+    static std::array<float, instrumentCount> t = [] { std::array<float, instrumentCount> a {}; a.fill(std::numeric_limits<float>::quiet_NaN()); return a; }();
+    return t;
+}
+}
+void overrideRealBrassTrimDb(int index, float db) noexcept {
+    if (index >= 0 && index < instrumentCount) trimOverrides()[std::size_t(index)] = db;
+}
+float realBrassTrimDb(int index) noexcept {
+    if (index >= 0 && index < instrumentCount && !std::isnan(trimOverrides()[std::size_t(index)])) return trimOverrides()[std::size_t(index)];
+    switch (index) {
+        case 4: return 10.1f;    // Doom Brass & Choir
+        case 6: return -2.8f;    // Brass Fanfare
+        case 9: return 18.9f;    // Heroic Horn
+        case 21: return 16.7f;   // Hoard Gong (its growl)
+        case 32: return 11.1f;   // Dwarven Chant (its low brass)
+        default: return 0.0f;
+    }
 }
 }

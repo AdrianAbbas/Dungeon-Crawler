@@ -3001,9 +3001,9 @@ here: CI fetches them from the official source at a pinned commit (cached).
 Checklist (resume from the first open item after a limit):
 
 - [x] 1. Licence: downloaded, read (LICENSE is CC0 1.0 Universal; Readme.txt: any purpose, commercial included), recorded in `docs/LICENSES/VSCO-2-CE.txt` (text, source URL, version, commit) and here
-- [ ] 2. Fetch + prepare: `scripts/ci-fetch-brass.sh` (official source, pinned commit, cached in CI), `tools/sample-prep/brass.py` (mono FLAC notes, tuned, trimmed to the onset, loops and release tails, velocity layers, one gain per instrument), merged into the samples folder with the licence
-- [ ] 3. Engine: a brass sampler voice (staccato hit into the sustain, velocity layers crossfaded, players doubled and detuned, attack bite), sound 13
-- [ ] 4. Instruments: horn, fanfare, doom brass, Dwarven Hall low brass, Hoard Gong growl from the recordings + a little synthesis for weight; Punch, presence, place; synthesis when the samples are missing
+- [x] 2. Fetch + prepare: `scripts/ci-fetch-brass.sh` (official source, pinned commit, cached in CI), `tools/sample-prep/brass.py` (mono FLAC notes, tuned, trimmed to the onset, loops and release tails, velocity layers, one gain per instrument), merged into the samples folder with the licence
+- [x] 3. Engine: a brass sampler voice (staccato hit into the sustain, velocity layers crossfaded, players doubled and detuned, attack bite), sound 13
+- [x] 4. Instruments: horn, fanfare, doom brass, Dwarven Hall low brass, Hoard Gong growl from the recordings + a little synthesis for weight; Punch, presence, place; synthesis when the samples are missing
 - [ ] 5. Tests (in tune, velocity smooth, attack-to-sustain and presence vs before, level-matched, no clicks or clipping, licence) and listening renders (`--listen-realbrass`, CI step)
 - [ ] 6. README / MANUAL_TEST / DEVLOG handoff; final push, CI green
 
