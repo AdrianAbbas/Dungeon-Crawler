@@ -3004,8 +3004,9 @@ Checklist (resume from the first open item after a limit):
 - [x] 2. Fetch + prepare: `scripts/ci-fetch-brass.sh` (official source, pinned commit, cached in CI), `tools/sample-prep/brass.py` (mono FLAC notes, tuned, trimmed to the onset, loops and release tails, velocity layers, one gain per instrument), merged into the samples folder with the licence
 - [x] 3. Engine: a brass sampler voice (staccato hit into the sustain, velocity layers crossfaded, players doubled and detuned, attack bite), sound 13
 - [x] 4. Instruments: horn, fanfare, doom brass, Dwarven Hall low brass, Hoard Gong growl from the recordings + a little synthesis for weight; Punch, presence, place; synthesis when the samples are missing
-- [ ] 5. Tests (in tune, velocity smooth, attack-to-sustain and presence vs before, level-matched, no clicks or clipping, licence) and listening renders (`--listen-realbrass`, CI step)
-- [ ] 6. README / MANUAL_TEST / DEVLOG handoff; final push, CI green
+- [x] 5. Tests (in tune, velocity smooth, attack-to-sustain and presence vs before, level-matched, no clicks or clipping, licence) and listening renders (`--listen-realbrass`, CI step)
+- [x] 6a. README / MANUAL_TEST / DEVLOG handoff; final push
+- [ ] 6b. CI green
 
 ### 1. The licence
 
@@ -3174,3 +3175,9 @@ loud note change tone at one velocity each. Keys beyond the recordings (horn abo
 below F#1, trumpet above C6) fade over 6 semitones into the synthesis. The Doom Brass and the
 Dwarven Chant use the developer's voice in CI (not here): their numbers there may differ.
 Nothing seen on a Mac yet.
+
+**Linux (this container, the recorded brass, no private recordings)**: the whole suite
+2736 passed, 0 failed (realbrass 94, 3 report-only). One fix on the way: the recordings
+tests took "the bank is loaded" for "the developer's recordings are here"; with the brass
+alone in the bank (any CI run without SAMPLES_TOKEN) four FX voice checks failed instead of
+being skipped. They now ask for the developer's sets (`developerRecordings()`).

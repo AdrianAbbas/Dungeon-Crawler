@@ -521,7 +521,13 @@ void testInstrumentPresets(Suite& s) {
 // Without the recordings and captures (a build without SAMPLES_TOKEN, or --no-samples)
 // the instruments that use them play stand-ins: their sound-quality checks are reported,
 // not judged (the stand-ins keep the instrument playable, not identical).
-bool standInBuild() { return !wb::samples::Bank::get().ready() || dc::inst::capturesLoaded() == 0; }
+// Session 13: the bank can hold the recorded brass (CC0, fetched in every CI run) without the
+// developer's private recordings: those are what "recordings" means here.
+bool developerRecordings() {
+    const auto& bank = wb::samples::Bank::get();
+    return bank.ready() && (bank.instrument("voice-aah") != nullptr || bank.instrument("piano") != nullptr || bank.instrument("guitar") != nullptr);
+}
+bool standInBuild() { return !developerRecordings() || dc::inst::capturesLoaded() == 0; }
 bool affectedByRecordings(int k) { return dc::inst::usesRecordings(k) || dc::inst::captureOf(k).capture != dc::inst::CaptureNone; }
 void judge(Suite& s, bool okay, bool affected, const std::string& name, const std::string& detail) {
     if (!okay && affected && standInBuild()) {
@@ -650,7 +656,7 @@ int calibrateInstruments(const juce::String& path) {
         const auto p = renderMelody(k, true, 3.0);   // the tail the in-place check measures (a swell can peak after the melody)
         placed.push_back(loudness(p.l, p.r, p.sr));
     }
-    const bool recordings = wb::samples::Bank::get().ready();
+    const bool recordings = developerRecordings();
     wb::samples::Bank::bypassForTests(true);
     for (int k = 0; k < dc::inst::instrumentCount; ++k)
         if (dc::inst::usesRecordings(k)) {

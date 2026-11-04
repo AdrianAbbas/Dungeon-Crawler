@@ -129,7 +129,7 @@ void testRecordings(Suite& s) {
     // The bank loads when the first processor is made; this group may run first.
     wb::samples::Bank::get().load();
     wb::samples::Bank::get().waitUntilLoaded(20000);
-    const bool recordings = wb::samples::Bank::get().ready();
+    const bool recordings = developerRecordings();   // not the recorded brass alone (Session 13)
     s.section("recordings: the new sample sets are loaded");
     for (const char* id : { "voice-ooh", "voice-aah", "voice-ee", "voice-mm", "voice-oh", "choir-ooh", "choir-aah", "choir-mm", "drone-hum", "drone-chant", "drone-aah",
                             "voice-grit", "voice-whispers", "voice-breaths", "voice-shh", "banjo", "banjo-muted", "banjo-g5", "djembe-big-bass", "djembe-small-mslap",
