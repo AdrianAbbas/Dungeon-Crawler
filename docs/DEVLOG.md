@@ -3006,7 +3006,7 @@ Checklist (resume from the first open item after a limit):
 - [x] 4. Instruments: horn, fanfare, doom brass, Dwarven Hall low brass, Hoard Gong growl from the recordings + a little synthesis for weight; Punch, presence, place; synthesis when the samples are missing
 - [x] 5. Tests (in tune, velocity smooth, attack-to-sustain and presence vs before, level-matched, no clicks or clipping, licence) and listening renders (`--listen-realbrass`, CI step)
 - [x] 6a. README / MANUAL_TEST / DEVLOG handoff; final push
-- [ ] 6b. CI green
+- [x] 6b. CI green: run 41814905456 (macOS + Linux)
 
 ### 1. The licence
 
@@ -3204,3 +3204,7 @@ note again: it hides 2.5 s of wall-clock time after Stop (`PluginEditor.cpp`), a
 eleventh concurrent shard (realbrass) slowed the navigation shard's 9 s render past that. Not
 changed: the check; the realbrass shard now runs alone after the others (before the timed
 group).
+
+**CI, third run: green** (`6cc5738`, run 41814905456, macOS and Linux): Linux 2769 passed,
+0 failed; the brass library fetched at its pin (343 WAVs), its licence verified (CC0 1.0,
+SHA-256 matches); the journey note passes with the realbrass shard run after the others.
