@@ -1530,11 +1530,11 @@ void overrideRealBrassTrimDb(int index, float db) noexcept {
 float realBrassTrimDb(int index) noexcept {
     if (index >= 0 && index < instrumentCount && !std::isnan(trimOverrides()[std::size_t(index)])) return trimOverrides()[std::size_t(index)];
     switch (index) {
-        case 4: return 10.1f;    // Doom Brass & Choir
+        case 4: return 8.8f;    // Doom Brass & Choir
         case 6: return 9.0f;    // Brass Fanfare
         case 9: return 18.9f;    // Heroic Horn
-        case 21: return 16.7f;   // Hoard Gong (its growl)
-        case 32: return 11.1f;   // Dwarven Chant (its low brass)
+        case 21: return 15.0f;   // Hoard Gong (its growl)
+        case 32: return 11.3f;   // Dwarven Chant (its low brass)
         default: return 0.0f;
     }
 }

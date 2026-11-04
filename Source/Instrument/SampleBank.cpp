@@ -43,6 +43,15 @@ void Instrument::index() {
         std::nth_element(levels.begin(), levels.begin() + std::ptrdiff_t(levels.size() / 2), levels.end());
         layerMedianDb[std::size_t(layer)] = levels[levels.size() / 2];
     }
+    {
+        std::vector<float> crest;
+        for (const auto& z : zones)
+            if (z.peakDb < 0.0f) crest.push_back(z.peakDb - z.loudnessDb);
+        if (!crest.empty()) {
+            std::nth_element(crest.begin(), crest.begin() + std::ptrdiff_t(crest.size() / 2), crest.end());
+            medianCrestDb = crest[crest.size() / 2];
+        }
+    }
     lowKey = std::clamp(lowKey, 0, 127);
     highKey = std::clamp(highKey, lowKey, 127);
     table.assign(std::size_t(128 * layers), Slot {});

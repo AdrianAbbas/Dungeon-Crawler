@@ -324,7 +324,7 @@ void testRealBrass(Suite& s) {
             s.check(after.sustainDb <= before.sustainDb + 1.0, name + ": the held chord not louder (within +1 dB)", fmt(before.sustainDb) + " -> " + fmt(after.sustainDb) + " dBFS");
             s.check(after.peakDb <= -0.1, name + ": the hit stays under full scale", fmt(after.peakDb) + " dBFS");
             const double was = melodyLevel(b.index, dc::inst::SoundHorns, false), now = melodyLevel(b.index, dc::inst::SoundRealBrass, false);
-            s.check(std::abs(now - was) <= 1.0, name + ": overall not louder (the melody's loudest 400 ms within 1 dB of sound 12)", fmt(was) + " -> " + fmt(now) + " dB");
+            s.check(now <= was + 1.0 && now >= was - 2.5, name + ": overall not louder (the melody's loudest 400 ms at most 1 dB over sound 12's, at most 2.5 dB under)", fmt(was) + " -> " + fmt(now) + " dB");
         }
     }
 

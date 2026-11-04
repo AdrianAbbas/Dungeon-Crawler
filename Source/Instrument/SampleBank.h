@@ -50,6 +50,8 @@ public:
     // The median loudness of each velocity layer's notes: notes are evened out within
     // their own layer, so the layers keep their steps.
     std::array<float, 8> layerMedianDb {};
+    // The median of the notes' peak over their loudness (dB; Session 13, the brass's bite).
+    float medianCrestDb = 12;
     // A sung set's spectral envelope (Session 8; empty for others): dB per band at
     // `envelopeHz` (thirds of an octave), the loudest band 0 dB.
     std::vector<float> envelopeHz, envelopeDb;

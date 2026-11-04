@@ -3159,10 +3159,11 @@ real trombone and tuba; its melody 0.8 dB under sound 12's.
 - `brass-trombone-stac: in tune`: one take 15.1 cents out (limit 15) when pitched 3 semitones
   down; its pitch moves within the take. Tried: three pitch windows, the same estimator in the
   preparation and the test, measuring unmeasurable takes.
-- `brass-horn-sus` / `brass-tuba-sus: its level rises smoothly`: one dip of 0.85 / 0.91 dB (limit
-  0.3) at one layer change. Tried: four loudness ratings, one take per note instead of a
-  crossfade (that fixed the 2.5 dB dips), the attack and the held part averaged. The
-  instruments built on them pass their own smoothness checks.
+- `Heroic Horn: smooth from velocity`: one step of 3.1 dB (limit 2.5) at its first layer change
+  (velocity 0.33); without the doubling horn 1.4 dB. Tried: the doubling player's layer
+  changing at another velocity, the bite's ceiling from the instrument's median crest (no
+  step where a take changes), the staccato rated like the sustain. Its sets alone rise
+  smoothly.
 
 **Listen to** (test-logs `realbrass/`, MANUAL_TEST "Session 13"): each `-dry-2-after` against
 its `-dry-1-before`, then the `-in-its-place-` pair. In the Final Boss Lair the long held
@@ -3181,3 +3182,17 @@ Nothing seen on a Mac yet.
 tests took "the bank is loaded" for "the developer's recordings are here"; with the brass
 alone in the bank (any CI run without SAMPLES_TOKEN) four FX voice checks failed instead of
 being skipped. They now ask for the developer's sets (`developerRecordings()`).
+
+**CI, Session 13 first run** (`656b5ae`, run 41800360099): macOS green. Linux 2765 passed, 4
+failed. With the developer's voice, piano and dark-hall capture (CI only) the Doom Brass held
+its chord 1.0 dB hotter (limit +1.0) and its hit rose only +0.8 dB; the Dwarven Chant dipped
+0.87 dB at the tuba's layer change; and "Stop ends the journey where it is (Castle / Great
+Hall) with a note" found the note already gone (a wall-clock timer, the shard under load;
+passes here). Attempt 1: the sustains rated again by their loudest 400 ms in the first 0.9 s
+(the "8 dB quiet held note" that rating was blamed for was the fanfare's double transposition):
+every set rises smoothly, both set-level report-only entries gone; the doubling player's layer
+staggered; the bite's ceiling from the median crest; the doom brass's section 1.3 dB lower
+(8.8 dB) for its CI context; the overall check one-sided as asked ("not louder": at most 1 dB
+over sound 12's melody, at most 2.5 dB under; the 3 dB level match still guards quietness);
+every trim recalibrated. Here: realbrass 95 passed (2 report-only), mix 55, brass 54,
+instruments 372, all passed.

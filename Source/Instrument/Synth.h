@@ -265,7 +265,7 @@ struct BrassVoice {
     };
     struct Reader {
         SampleVoice s;
-        float weight = 0, l = 0.7071f, r = 0.7071f, duck = 0, duckStep = 0;
+        float weight = 0, l = 0.7071f, r = 0.7071f, duck = 0, duckStep = 0, crestDb = 12;
         int delay = 0;
         bool used = false;
     };

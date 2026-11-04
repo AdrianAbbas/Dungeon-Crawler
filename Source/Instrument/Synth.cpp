@@ -143,9 +143,11 @@ bool BrassVoice::start(float noteMidi, float velocity, float pick, float sampleR
     // far between them, and the level there (between the layers' median loudness, a little
     // below the softest: -6 dB at velocity 0; above the loudest: +2 dB at 1).
     struct Place { int l0, l1; float t, levelDb; };
-    const auto placeOf = [&](const wb::samples::Instrument& inst) {
+    const auto placeOf = [&](const wb::samples::Instrument& inst, float shift = 0.0f) {
         const int layers = std::max(1, inst.layers);
-        const float pos = std::clamp(velocity * float(layers) - 0.5f, -0.5f, float(layers) - 0.5f);
+        // `shift`: a doubling player picks its dynamic a little softer (its layer changes at
+        // another velocity than the lead's, so the two steps never add up); its level does not move.
+        const float pos = std::clamp((velocity + shift) * float(layers) - 0.5f, -0.5f, float(layers) - 0.5f);
         const int l0 = std::clamp(int(std::floor(pos)), 0, layers - 1), l1 = std::min(l0 + 1, layers - 1);
         const float t = l1 == l0 ? 0.0f : std::clamp(pos - float(l0), 0.0f, 1.0f);
         // The level follows the velocity along a smooth curve (about 13 dB from velocity 0.2
@@ -160,7 +162,7 @@ bool BrassVoice::start(float noteMidi, float velocity, float pick, float sampleR
     // so they are not independent) and dip in level between the layers; one take levelled
     // onto the curve rises smoothly, its tone changing at the layer's edge.
     const auto addReaders = [&](const wb::samples::Instrument& inst, const Player& p, float midi, float weight, float levelDb, float attack, bool duck, float pickHere, float decay) {
-        const auto at = placeOf(inst);
+        const auto at = placeOf(inst, p.lookup != 0.0f ? -0.12f : 0.0f);
         const int layers = std::max(1, inst.layers);
         int key = std::clamp(int(std::lround(midi)), inst.lowKey, inst.highKey);
         if (p.lookup != 0.0f) {
@@ -193,6 +195,7 @@ bool BrassVoice::start(float noteMidi, float velocity, float pick, float sampleR
             rd.s.exactTail = true;
             if (!rd.s.start(inst, midi, layerVel, pickHere, rate, attack, decay, 0.0f, 1.0f, 0, 0, key)) return;   // evened fully: on the curve
             rd.used = true;
+            rd.crestDb = inst.medianCrestDb;
             rd.weight = weight * w * d::dbToGain(levelDb - inst.medianDb(layer));
             rd.s.cents = p.cents;
             rd.s.update();
@@ -222,11 +225,12 @@ bool BrassVoice::start(float noteMidi, float velocity, float pick, float sampleR
         if (p.sus != nullptr) addReaders(*p.sus, p, midi, p.gain, susLevel, attackSeconds, hit, pk, 0.0f);
         if (hit) addReaders(*p.stac, p, midi, p.gain * stacWeight, p.sus != nullptr ? susLevel + stacLiftDb : susLevel, 0.0f, false, pk, p.sus != nullptr ? stacDecaySeconds : 0.0f);
     }
-    // The bite's ceiling: the section's own peak as played (every take's recorded peak at
-    // the gain it plays at), so a spiky loud take is pushed no harder than a round soft one.
+    // The bite's ceiling: the section's peak as played, from every take's level and its
+    // instrument's median crest (not the take's own peak: the ceiling then follows the
+    // velocity curve, with no step where a take changes).
     for (int k = 0; k < readers; ++k) {
         const auto& rd = reader[std::size_t(k)];
-        if (rd.used) reference += rd.weight * rd.s.gain * d::dbToGain(rd.s.zone->peakDb);
+        if (rd.used) reference += rd.weight * rd.s.gain * d::dbToGain(rd.s.zone->loudnessDb + rd.crestDb);
     }
     driveRef = std::max(1.0e-5f, 0.7f * reference);
     biteNow = bite;

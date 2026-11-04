@@ -73,12 +73,10 @@ LAYER_NAMES = ["p", "mp", "mf", "f", "ff"]
 
 def loudness(audio, art):
     """How loud a take sounds as the instrument plays it (K-weighted, LUFS-like). A sustain:
-    the mean (in dB) of its loudest 400 ms in its first second (a short note: its attack and
-    how it settles) and of its held part (0.3-1.3 s: a held note), so neither a take that
-    attacks hard and settles low nor one that swells is misjudged (each alone was tried: the
-    first left some held notes 8 dB quiet, the second stepped at a layer change). A
-    staccato: its hit and body (its loudest 150 ms in the first 350 ms: it dies away under
-    the sustain). The sampler levels every take onto its velocity curve by this."""
+    its loudest 400 ms in its first 0.9 s (a note as it is played: its attack and how it
+    settles; rating by the held part alone stepped at layer changes). A staccato: its hit and
+    body (its loudest 150 ms in the first 350 ms: it dies away under the sustain). The
+    sampler levels every take onto its velocity curve by this."""
     y = P.k_weight(audio[:int(1.4 * RATE)])
     lufs = lambda p: float(-0.691 + 10 * np.log10(max(p, 0.0) + 1e-24))
     def loudest(seg, win):
@@ -88,9 +86,7 @@ def loudness(audio, art):
         return lufs(((total[win:] - total[:-win]) / win).max())
     if art != "sus":
         return loudest(y[:int(0.35 * RATE)], int(0.15 * RATE))
-    short = loudest(y[:int(1.0 * RATE)], int(0.4 * RATE))
-    held = y[int(0.3 * RATE):int(1.3 * RATE)]
-    return 0.5 * (short + (lufs(np.mean(held ** 2)) if len(held) > RATE // 4 else short))
+    return loudest(y[:int(0.9 * RATE)], int(0.4 * RATE))
 
 
 def parse(fn):
