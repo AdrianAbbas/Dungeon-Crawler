@@ -207,6 +207,34 @@ double-click for the default.
 Projects saved with the Session 11 version keep that sound and their Punch settings exactly;
 new instances, Init and the factory presets play the Session 12 horns.
 
+**Real brass (Session 13)**: the brass plays recorded horn, trumpet, tenor trombone and tuba
+(sustains and staccatos, every dynamic the recordings have), made the instrument's own:
+- **Heroic Horn** (Tower Top): two horns, the second another recording a few cents up and a
+  moment late (Bell Up: how much of it); the synthesised horns stay under them for weight.
+- **Brass Fanfare** (Great Hall): two trumpets an octave above the key and the trombone on it
+  (Section).
+- **Doom Brass & Choir** (Final Boss Lair): horn and trombone on the note, the tuba an octave
+  below, the synthesised octave below for weight, then the choir stab and the doom piano.
+- **Dwarven Chant** (Dwarven Hall): its low brass a tuba and a trombone (Brass).
+- **Hoard Gong** (Dragon's Hoard): played hard, a trombone and a tuba growl out of the gong.
+
+Every note is the staccato's hit with the sustain under it (dipped under the hit, then
+looped, with its own recorded release), levelled on a smooth velocity curve; then the
+section is processed as DUNGEON CRAWLER brass: the hit's low end thinned, the lips pushed
+(a saturation on the attack, up to the note's own peak), the upper-mid presence band, an
+exciter that adds the 2-4 kHz brightness a horn played hard has, and on top the brass's
+Punch, presence, attack edge, hit shaping and its place, as in Session 12. The hit is
+harder and brighter; the whole is no louder (the melody 0.5 dB under Session 12's, held
+notes a little lower). Keys beyond the recordings hand over to the synthesis.
+
+The recordings are **VSCO 2 Community Edition** (Versilian Studios; CC0 1.0, public domain:
+[docs/LICENSES/VSCO-2-CE.txt](docs/LICENSES/VSCO-2-CE.txt)). They are not in this repository:
+CI fetches them from the official source at a pinned commit (`scripts/ci-fetch-brass.sh`,
+cached), checks the licence, and `tools/sample-prep/brass.py` prepares them into the
+instrument's bundle (with the licence). A build without them plays the Session 12 synthesis,
+sample for sample. Projects saved before this version keep their sound (sound 12: the
+synthesised horns); new instances, Init and the factory presets play the recorded brass.
+
 ## Search (both plug-ins)
 
 The magnifier at the top right of the window (or **Cmd+F**) opens the search over the
@@ -314,6 +342,13 @@ build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --signatures    
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --calibrate-instruments Source/Instrument/Trims.h   # the instruments' level trims
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-instruments build/instruments   # one melody on every instrument
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-recordings build/recordings     # the instruments with the new recordings; the FX's voice places before/after
+build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-realbrass build/realbrass       # every brass instrument before / after the recorded brass, dry and in its place
+```
+
+The recorded brass (Session 13, CC0) for a local build:
+
+```bash
+bash scripts/ci-fetch-brass.sh build/vsco-2-ce build/samples   # fetches the library (pinned), checks its licence, prepares it
 ```
 
 The instrument's sampled instruments use the developer's recordings (the private

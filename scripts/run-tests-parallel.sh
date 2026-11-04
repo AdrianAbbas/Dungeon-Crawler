@@ -5,7 +5,7 @@
 # Standard), so they also run alone, after the shards: with the seventh shard
 # (instruments, Direction Update 3) they failed under contention on the 4-core runner.
 # Together the shards cover every test group and every location (9-recordings: Session 8;
-# 10-mix: Session 11; 11-brass: Session 12).
+# 10-mix: Session 11; 11-brass: Session 12; 12-realbrass: Session 13).
 # Usage: scripts/run-tests-parallel.sh path/to/DungeonCrawlerTests [log directory]
 set -u
 tests="${1:?the DungeonCrawlerTests binary}"
@@ -24,6 +24,8 @@ mkdir -p "$logs"
 "$tests" --only mix > "$logs/10-mix.txt" 2>&1 &
 # Session 12: the horns that hit, LIGHT SEEKER's Punch UI.
 "$tests" --only brass > "$logs/11-brass.txt" 2>&1 &
+# Session 13: the recorded brass (VSCO 2 CE, CC0).
+"$tests" --only realbrass > "$logs/12-realbrass.txt" 2>&1 &
 wait
 "$tests" --only editor,workflow > "$logs/8-timed.txt" 2>&1
 "$tests" --only cpu > "$logs/4-cpu.txt" 2>&1

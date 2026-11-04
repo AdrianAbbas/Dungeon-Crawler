@@ -8,7 +8,8 @@
 //              the same code (Tests/BrassMetrics.h, tools/brass-reference)
 //   place      in its place the dry hit lands first (the reverb drier, later, ducked)
 //   sessions   a session saved in Session 11 keeps its sound and its Punch; one saved
-//              before keeps the classic sound; new instances, Init and presets get sound 12
+//              before keeps the classic sound; new instances, Init and presets get the latest
+//              (sound 12 then; 13 since Session 13, the recorded brass)
 //   punch ui   Punch and Punch Time as in LIGHT SEEKER: names, dB / ms readouts that
 //              follow the instrument, typed values, double-click default, their place
 
@@ -246,7 +247,8 @@ void testBrassSessions(Suite& s) {
     const auto punchOf = [](DungeonCrawlerProcessor& p) { auto* q = p.parameters.getParameter(dc::ids::instPunch); return q->convertFrom0to1(q->getValue()); };
     {
         DungeonCrawlerProcessor fresh(PluginKind::Instrument);
-        s.check(fresh.soundGenerationUsed() == dc::inst::SoundHorns && std::abs(punchOf(fresh) - 1.0f) < 1.0e-6f, "a new instance plays sound 12 at Punch 100 % (the horns' +12 dB)");
+        // Session 13: the latest sound is 13 (the recorded brass; its Punch the same as 12's).
+        s.check(fresh.soundGenerationUsed() == dc::inst::SoundLatest && std::abs(punchOf(fresh) - 1.0f) < 1.0e-6f, "a new instance plays the latest sound at Punch 100 % (the horns' +12 dB)");
     }
     for (int sound : { int(dc::inst::SoundMix), int(dc::inst::SoundHorns) }) {
         const auto block = saved(sound, 1.37f, true);
@@ -285,10 +287,10 @@ void testBrassSessions(Suite& s) {
         DungeonCrawlerProcessor p(PluginKind::Instrument);
         p.setSoundGeneration(dc::inst::SoundMix);
         p.applyFactoryPreset(1);
-        const bool preset = p.soundGenerationUsed() == dc::inst::SoundHorns;
+        const bool preset = p.soundGenerationUsed() == dc::inst::SoundLatest;
         p.setSoundGeneration(dc::inst::SoundMix);
         p.applyInit();
-        s.check(preset && p.soundGenerationUsed() == dc::inst::SoundHorns, "a factory preset and Init bring sound 12");
+        s.check(preset && p.soundGenerationUsed() == dc::inst::SoundLatest, "a factory preset and Init bring the latest sound");
     }
 }
 

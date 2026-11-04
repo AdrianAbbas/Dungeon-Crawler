@@ -435,3 +435,22 @@ validated.
       Punch values are kept.
 - [ ] Listen: test-logs `brass/` (each horn before / after, dry and in its place, and
       LIGHT SEEKER's with the same phrase).
+
+## Session 13: real brass
+
+- [ ] Heroic Horn, Brass Fanfare, Doom Brass & Choir, Dwarven Chant with Brass up, Hoard Gong
+      struck hard: real horn, trumpets, trombone and tuba now? Do they still sound like
+      DUNGEON CRAWLER (the crack on the hit, bright, a little gritty) and not like a stock
+      orchestral library? Too harsh, too thin on the attack anywhere?
+- [ ] Play each slowly from soft to hard (velocity 20 to 127): the level rises evenly; where
+      the tone changes to the next recorded dynamic, nothing jumps or drops.
+- [ ] Long held notes (10 s and more) low and high: no click or pulse as the loop turns;
+      let go: the recorded release, no click.
+- [ ] The extremes: the horn above F5, the tuba below F#1, the trumpets above C6: the note
+      hands over to the synthesis smoothly, nothing pitched into chipmunk or growl.
+- [ ] In a mix with strings, choir and drums: does the brass cut through without being
+      louder than before? In their places: the dry hit first, the tail between the notes.
+- [ ] Loud chords, Punch 200 %, Level +12 dB: nothing clips.
+- [ ] A project saved with the Session 12 version: the synthesised horns exactly as before.
+- [ ] Listen: test-logs `realbrass/` (each instrument `-dry-1-before` / `-dry-2-after`, then
+      `-in-its-place-`), and `realbrass-report.txt` for the numbers.

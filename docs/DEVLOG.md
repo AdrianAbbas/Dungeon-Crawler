@@ -3022,3 +3022,83 @@ trombone 2-3 / 4, tuba 3 / 2).
 **Where they come from in the build**: fetched in CI from the official source (pinned commit,
 cached), not added to `AdrianAbbas/Samples`: that keeps the private repository untouched and
 lets every build have the brass, with or without the SAMPLES_TOKEN secret.
+
+### 2. Fetch and preparation
+
+`scripts/ci-fetch-brass.sh` (both CI jobs, after the private samples): a sparse, blobless
+fetch of `Brass/{F Horn,Trumpet,Tenor Trombone,Tuba}/{sus,stac}`, `LICENSE` and `Readme.txt` at
+the pinned commit, kept in `actions/cache` (`vsco-2-ce-<commit>`; a complete checkout is not
+fetched again). It stops the build if `LICENSE` is not the recorded CC0 text (SHA-256), then
+runs `tools/sample-prep/brass.py` into the same samples folder (merged into `index.json`, the
+licence copied to `Samples/licenses/brass-samples-CC0.txt`, so it ships in the bundle) and
+sets `DC_REQUIRE_BRASS=1` for the tests. About 60 s; 13.2 MB of FLAC.
+
+`brass.py` (its docstring has the steps): mono, DC off, **trimmed to the onset** (the
+library's files start up to 80 ms early), pitch by YIN and the harmonics (the file names are
+an octave under the sounding note: `MOHorn_sus_C3` sounds C4), a staccato by its first 170 ms
+(its pitch falls as it dies; refined by the same multi-period autocorrelation the tests use),
+**takes without one pitch dropped** (harmonics spread > 15 cents held, > 25 staccato: the
+tuba's F1 pedal, two horn and one tuba staccato), sustains looped (prepare.py's loop search
+and crossfade) with the hold after the loop cut out: past the loop's end the note plays on
+as the loop would, then crosses into the recorded release (the first version kept the
+original continuation there, and a key let go mid-loop read through a jump: found by the
+click tests), one gain per instrument for both articulations, the dynamics most notes have
+(a note lacking one borrows its nearest, levelled), key ranges halfway to the neighbours.
+Each take's loudness for the sampler is what the instrument plays of it: a sustain's loudest
+400 ms in its first second, a staccato's loudest 150 ms in its first 350 ms.
+
+Sets: horn sustain 33 notes (p/mp/mf; the two v4 takes dropped: only two notes have one) and
+staccato 62, trumpet 20 (p/f) and 66, trombone 33 and 56 (p/mp/mf/f), tuba 24 and 63.
+
+### 3. The engine: `BrassVoice` (Model::Brass), sound 13
+
+Up to three players per note (instrument, interval, detune, pan, late entry, and a
+**doubling player plays another recording**: the nearest other recorded note, transposed;
+the sustains have one take per note, and the same take doubled 9-11 ms late comb-filtered:
+the fanfare's level dipped 2 dB at a layer change). Each player: its staccato as the hit
+(levelled against the sustain at the same velocity, `stacLiftDb`, dying 60 dB over 0.5 s
+under the held note) and its sustain under it (dipped under the hit, rising over 80 ms),
+the **one dynamic nearest the velocity**, levelled exactly onto a smooth velocity curve
+(0.16 + 0.84 v^1.6 from the loudest layer). Two adjacent dynamics crossfaded at constant power
+were tried first: their attacks start alike, so they interfere, and the level dipped up to
+2.5 dB between the layers.
+
+Then the section is processed, in this order (found by measuring each stage alone; the
+recordings are far darker than the synthesis was: the horn's 2-4 kHz share -12.5 dB as
+recorded, the synth horn's -6.0):
+1. **Thin** the hit's low end (a low-pass subtracted, fading over 120 ms).
+2. **Bite**: the hit driven up to 5x into a tanh whose ceiling is the section's own peak as
+   played (every take's recorded peak at its gain): denser and louder, its peak no higher.
+   The first version referenced the note's RMS and divided by its drive: it compressed the
+   hit instead; then a soft clip flattened the Hoard Gong's growl into a square (a click the
+   tests found); then a loud trumpet's spiky waveform was clipped harder than a soft one's.
+3. **Presence**: an upper-mid band (2.9 kHz, Q 0.7), held and more on the hit.
+4. **Exciter**: the 0.9-2 kHz band full-wave rectified (an octave up into 2-4 kHz), band-limited
+   and added: what EQ could not do (there is little 2-4 kHz content to lift), and what a horn
+   played hard does. Placed after the bite (a saturator flattens EQ placed before it).
+
+After the voice: the brass's Session 12 chain (its presence body, attack edge, Punch, hit
+clipper, mix fit) unchanged. Keys beyond a set's recordings hand over to the synthesis over
+6 semitones. `SampleVoice::exactTail` (the brass only): crossing into the release tail lands
+on the tail's next sample (the copied sampler skipped one).
+
+**Sound 13** (`SoundRealBrass`, the latest): the brass plays the recordings when they are
+in the build; without them, or in a session saved at 12, it plays the Session 12 synthesis,
+sample for sample (tested). Projects keep their sound; new instances, Init and the factory
+presets get 13.
+
+### 4. The instruments
+
+| instrument | the recorded section | synthesis kept for weight |
+|---|---|---|
+| Heroic Horn (Tower Top) | horn; a second horn (another recording, +4 cents, 11 ms late; Bell Up) | its two synth horns at 30 % |
+| Brass Fanfare (Great Hall) | two trumpets an octave up (-7 cents, 9 ms, another recording), the trombone (Section) | its three synth layers at 12 % |
+| Doom Brass & Choir (Final Boss Lair) | horn + trombone (+9 cents) on the note, tuba an octave below | the synth octave below at 15 %; post drive 0.35 -> 0.15 |
+| Dwarven Chant (Dwarven Hall) | tuba + trombone (+7 cents) an octave below the chant (Brass) | its synth brass at 35 % |
+| Hoard Gong (Dragon's Hoard) | trombone + tuba an octave below, a blat on the strike, the held note swelling in over 120 ms (Growl) | its synth growl at 40 % |
+
+Their levels (`realBrassTrimDb`) by `--realbrass-calibrate`: the dry melody (the instruments'
+level measure) 0.5 dB under sound 12's, found by bisection (Punch, the drive and the hit
+clipper make it nonlinear). In their places a measured make-up on top of Session 12's
+(fanfare +1.1, doom +3.1, chant +0.7 dB: the recorded hit is shorter, the space takes a
+little more).
