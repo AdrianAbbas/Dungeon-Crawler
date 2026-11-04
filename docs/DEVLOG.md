@@ -2845,8 +2845,123 @@ LIGHT SEEKER's Fanfare Trumpets and Heroic Horns feel right. And LIGHT SEEKER's 
 should be copied into the instrument panel (LIGHT SEEKER read only, never modified).
 Checklist (resume from the first open item after a limit):
 
-- [ ] 1. Measure: LIGHT SEEKER's brass with the same metrics and phrase (`tools/brass-reference`, out of tree), DC's brass before
-- [ ] 2. Sound 12: a harder, faster, brighter brass transient (bite, edge, upper-mid presence on the attack), higher Punch with a larger range, stronger velocity-to-attack, drier attack (less reverb, later pre-delay, ducked on the hit); same sustain, no clipping; sessions saved at sound 10/11 unchanged
-- [ ] 3. Punch UI copied from LIGHT SEEKER (labels, readouts, placement, behaviour) in DC's dark style; snapshot in docs/snapshots/
-- [ ] 4. Tests (attack-to-sustain and rise before/after and against LIGHT SEEKER, sustain, peak, old sessions, Punch UI), `--listen-brass` renders and CI step
+- [x] 1. Measure: LIGHT SEEKER's brass with the same metrics and phrase (`tools/brass-reference`, out of tree), DC's brass before
+- [x] 2. Sound 12: a harder, faster, brighter brass transient (bite, edge, upper-mid presence on the attack), higher Punch with a larger range, stronger velocity-to-attack, drier attack (less reverb, later pre-delay, ducked on the hit); same sustain, no clipping; sessions saved at sound 10/11 unchanged
+- [x] 3. Punch UI copied from LIGHT SEEKER (labels, readouts, placement, behaviour) in DC's dark style; snapshot in docs/snapshots/
+- [x] 4. Tests (attack-to-sustain and rise before/after and against LIGHT SEEKER, sustain, peak, old sessions, Punch UI), `--listen-brass` renders and CI step
 - [ ] 5. README / MANUAL_TEST / DEVLOG handoff; final push, CI green
+
+### 1. Measured first: LIGHT SEEKER's brass and DC's (the same code)
+
+`Tests/BrassMetrics.h` (plain C++): attack-to-sustain (the loudest 5 ms RMS frame of the
+first 200 ms against 0.8-1.3 s, LIGHT SEEKER's `--brass-report` measure), rise (10 % to 90 %
+of the peak, 2 ms frames, LIGHT SEEKER's), the hit's arrival (onset to within 3 dB of the
+peak: steadier where detuned layers beat), sustain, sample peak, 2-4 kHz presence and the
+attack's "edge" (the 2-4 kHz share of 30-120 ms against the held note's). LIGHT SEEKER is
+measured by `tools/brass-reference`: an out-of-tree CMake project that builds LIGHT SEEKER's
+own sources from a read-only checkout (its test file included whole, its `main` renamed;
+nothing in that repository is written). Its numbers match its own DEVLOG (Fanfare 8.5 dB,
+Heroic 10.7 dB). A held C major chord (60 64 67), velocity 0.95, dry, default Punch,
+synthesised layers (no recordings here):
+
+| | attack-to-sustain | rise | hit within 3 dB | sustain | peak |
+|---|---|---|---|---|---|
+| LIGHT SEEKER Fanfare Trumpets | 8.5 dB | 8 ms | | -18.6 dBFS | -0.3 dBFS |
+| LIGHT SEEKER Heroic Horns | 10.7 dB | 12 ms | | -17.0 dBFS | -0.3 dBFS |
+| DC Heroic Horn, Session 11 -> 12 | 7.2 -> 11.3 dB | 22 -> 12 ms | 20 -> 12 ms | -14.2 -> -14.2 dBFS | -0.3 -> -0.5 dBFS |
+| DC Brass Fanfare | 7.2 -> 11.3 dB | 4 -> 4 ms | 8 -> 6 ms | -14.8 -> -14.8 dBFS | -0.3 -> -0.5 dBFS |
+| DC Doom Brass & Choir | 9.5 -> 13.6 dB | 14 -> 4 ms | 18 -> 8 ms | -18.3 -> -18.3 dBFS | -4.1 -> -0.6 dBFS |
+| DC Dwarven Chant (Brass) | 4.8 -> 7.6 dB | 50 -> 28 ms | 66 -> 24 ms | -13.6 -> -13.6 dBFS | -1.3 -> -0.9 dBFS |
+
+Single notes at velocity 0.95: Heroic Horn 9.9 -> 13.4 dB, Brass Fanfare 11.1 -> 13.1 dB,
+Doom Brass 8.0 -> 15.1 dB, Dwarven Chant 3.0 -> 7.2 dB (LIGHT SEEKER: Fanfare 12.0, Heroic
+11.4). Every horn's hit is at least LIGHT SEEKER's Heroic Horns' (the fanfare: its Fanfare
+Trumpets', by 2.8 dB) at the same or a quicker rise.
+
+**Why Session 11's horns did not punch**: DC's dry brass chords sustain 3-4 dB hotter than
+LIGHT SEEKER's (-14 against -17/-18.6 dBFS), so a +9 dB hit at velocity 0.95 reached the
+output's safety limiter (instant attack, 80 ms release) and was pulled down for its first
+~100 ms: the peak sat at -0.3 dBFS, the limiter's ceiling, in every chord. Raising Punch alone
+would only have pumped harder. The sustain stays where it is (the brief), so the hit has to
+be denser below full scale rather than taller.
+
+### 2. Sound 12: the horns
+
+A new generation of the instrument's sound, `dc::inst::Sound` (10 classic, 11 Session 11,
+12 now), saved as the state's `sound` (it was 10 or 11). A session keeps the generation it
+was saved with: one saved in Session 11 plays its brass and its Punch exactly as then
+(bit-identical, tested; Punch values untouched); one saved before plays the classic sound;
+new instances, Init and the factory presets play 12. Everything below is sound 12 only.
+
+- **The final values** came after the instruments' level check (every instrument's dry
+  melody, its loudest 400 ms, within 3 dB of the median) failed on a first version: the
+  fanfare +6.7 dB, the horn +3.7 (Session 11: +1.7, +0.7). The window holds the whole hit, so
+  a hit that stays up for 120 ms on every 0.4 s note is louder overall. Fixes: the horns'
+  Punch falls steeply after the crack (the raised cosine to the 4th power, still settled at
+  Punch Time: it holds the first ~10 ms, half its dB by ~20 % of the time), the bite 70 ms,
+  the edge 80 ms; and the fanfare, the brightest and hottest, gets a lighter bite (0.55), a
+  lighter edge (0.5) and +10 dB of its own Punch. Now: horn +2.0, fanfare +2.1, doom +0.8,
+  chant +1.5 dB against the median.
+- **Faster**: the brass rises in 0.2 x WORLDBUILDER's attack (0.4 in Session 11); the Doom
+  Brass's octave-below layer no longer lags by half again.
+- **Bite and edge** (`brassBite`, `SynthVoice::biteDrive`): the brightness opens up to
+  0.5 + 3.3 v^1.5 times further on the hit (0.6 + 1.2 v before), over 70 ms; the lips are
+  driven harder over the same time (1 + 4 v^2) and that extra drive is *not* normalised away
+  (`driveNorm` = the base drive's), so the hit is louder and grittier; the blat's burst
+  1 + 1.2 v louder. A per-voice **attack edge**: a 3.2 kHz band (Q 0.9) added on the hit and
+  fading over 80 ms (0.5 + 2.5 v^2; the fanfare 0.5 x; the Dwarven Chant 0.45 x). The held note is untouched: every sustain within 0.02 dB.
+- **Punch**: the horn's own +12 dB (+9 in Session 11), the Doom Brass +17 (under its choir
+  stab and piano), the fanfare +10, the Dwarven Chant +7 (+4); on the horns (not the chant)
+  the boost falls steeply after the crack (above); Punch at 200 % reaches +18 dB on the brass
+  (`punchMaxDb`; +12 elsewhere). Velocity: 0.12 + 0.88 v^1.6 of it on the brass and chant
+  (0.3 + 0.7 v before): as much at the top, much less when soft.
+- **The hit clipper** (`Synth`, `hitClipShape`): while a sound-12 horn sounds, the synth's sum
+  (after Level) goes through a soft knee: identity below -5 dBFS, a tanh towards -0.5 dBFS
+  above. The punched hit becomes density under the ceiling instead of meeting the output
+  limiter (which pulled the whole hit down and pumped back over 80 ms). The sustain never
+  reaches the knee. It switches on with a horn's first sample (the note starts from silence)
+  and fades out over ~5 ms after the horns stop. First try faded it in over 5 ms too: the
+  fanfare's 3 ms hit went through at +5.4 dBFS (fixed, tested).
+- **Drier attack in its place** (`mixFit`): brass reverb 0.5 (0.6), echoes 0.65 (0.75),
+  pre-delay +45 ms (+30), and a new duck under its own hits (35 %; Dwarven Chant 0.75 / 0.85
+  / +30 ms / 15 %), combined with the MIX Duck as 1 - (1 - user)(1 - own). Measured: the hit
+  against its reverb in the first 120 ms (the same place with MIX Reverb 0 % as the
+  reference): 5-9 dB clearer than in Session 11. The drier space took 1.4-3.6 dB from the
+  horn phrase in its place, so a measured make-up (`MixFit::makeupDb`: fanfare 4.4, doom 3.8,
+  horn 2.3, chant 2.1 dB, times the Effects roller, so the dry instrument is unchanged)
+  brings it back: in its place each phrase now changes exactly as it does dry (+0.5 to
+  +0.9 dB, the louder hit). In their places the fanfare and the horn reach the output
+  limiter on the loudest chords, as the fanfare did in Session 11; nothing clips.
+
+### 3. Punch UI from LIGHT SEEKER
+
+Copied from LIGHT SEEKER's `InstrumentPanel` (read only): the labels **Punch** and **Punch
+Time** (DC said "Time"), the readouts bright (ivory, the other sliders' stay ash) and
+editable (type "+6 dB", "Off", "250"), the Punch read in dB on the hit *for the instrument
+playing* ("+12.0 dB" on the fanfare, "Off" on the organ; LIGHT SEEKER's text functions, with
+DC's 0-200 % range kept so no session moves), the readout refreshed when the instrument
+changes, double-click for the default, both after Intensity in their own group. Restyled:
+DC's dark stone, crimson text highlight; the two slots 54 px wide (the readout "+18.0 dB"
+needs it), the other nine 40 px (were 42) so all eleven still end before the Effects roller.
+Snapshots: `docs/snapshots/session12/` (`--punch-snapshots dir`).
+
+### 4. Tests (`--only brass`, CI shard `11-brass`) and renders
+
+54 checks: per horn against Session 11 (hit over sustain +4 dB or more, the chant +2; the hit
+arrives sooner; sustain within 0.5 dB; never above -0.1 dBFS; edge +1 dB; the velocity span
+of the hit +1 dB more; the fanfare's edge reported only, +0.6 dB: see above) and against LIGHT SEEKER (attack-to-sustain at least its Heroic Horns'
+/ Fanfare Trumpets', rise within 2 ms of it); Punch 200 % + Level +12 dB + velocity 1 chords
+never clip; the phrase in its place changes as it does dry; the Punch values (sound 11's and the classic's unchanged); in-place dryness;
+sessions (new, sound 11, sound 12, no sound; Punch 137 % kept; a Session 11 session plays
+exactly as sound 11 and not as 12; Init and a preset bring 12); the Punch UI (labels,
+readouts, Off / +18.0 dB, typing, double-click, follows the instrument, placement).
+
+Renders (CI test-logs `brass/`, `--listen-brass dir`): each of the four, the same horn phrase
+(two G-C-E-G calls, three chord stabs, a held chord; `brassmetrics::hornPhrase`), Session 11
+then 12, dry and in its place (16 WAV files); LIGHT SEEKER's Fanfare Trumpets and Heroic Horns
+with the same phrase, dry and in their places (`Tests/reference/brass/*.ogg`, rendered once by
+`tools/brass-reference`, copied in by CI), their numbers and `brass-report.txt`. `--listen-mix`
+now also writes `mini-song-3-session12.wav`; its "after" stays Session 11's sound. Checked
+here: `mini-song-1-before`, `mini-song-2-after`, `brass-punch-0` and `brass-punch-default`
+rendered by this build and by Session 11's (a worktree of `f316444`) are byte-identical, so
+a Session 11 project plays exactly as it did.

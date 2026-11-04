@@ -181,14 +181,31 @@ gives the place's full space and more.
 has a quicker, brighter, harder attack, more presence (2-4 kHz) and a stronger velocity
 response, at the same sustain level.
 
-**Punch** and **Time** (instrument panel): every note hits louder and settles back to its
+**Punch** and **Punch Time** (instrument panel): every note hits louder and settles back to its
 sustain level over Punch Time (20-500 ms). 100 % is the instrument's own amount: about
-+9 dB on the brass, +2 dB on the War Drums (more would make their recorded velocity layers step), a little on the plucks, none on pads, choirs and
-organs. 200 % is +12 dB on any instrument and 0 % is off. It responds to velocity, it is
++10 to +17 dB on the brass (Session 11: +9 dB), +2 dB on the War Drums (more would make their recorded velocity layers step), a little on the plucks, none on pads, choirs and
+organs. The top of the slider is +12 dB on any instrument (+18 dB on the brass) and the bottom is off. It responds to velocity, it is
 click-free, and a safety limiter keeps it from ever clipping.
 
 Projects and user presets saved before this version open exactly as they sounded,
 including the instrument's old defaults. Init or any factory preset brings the new sound.
+
+**The horns hit (Session 12)**: Tower Top's Heroic Horn, the Great Hall's Brass Fanfare, the
+Final Boss Lair's Doom Brass & Choir and the Dwarven Hall's low brass crack on the hit: a
+faster rise, the lips driven harder and an upper-mid edge for the first ~120 ms, a steeper
+velocity response, and a soft shaping of the hit just under full scale so that a loud chord
+keeps its punch instead of being pulled down by the output's safety limiter. Their own
+Punch is now +12 dB on the horn (the Doom Brass +17 dB, the fanfare +10 dB, the Dwarven
+Chant +7 dB), falling away steeply after the crack, and Punch at the top reaches +18 dB on
+the brass. In their places their reverb is drier, starts later and dips
+under each hit, so the dry attack lands first. The held note is exactly as loud as before.
+
+**Punch** and **Punch Time** read and work as in LIGHT SEEKER: Punch shows the hit in dB for
+the instrument playing (Off at none), Punch Time in ms; type a value into either, or
+double-click for the default.
+
+Projects saved with the Session 11 version keep that sound and their Punch settings exactly;
+new instances, Init and the factory presets play the Session 12 horns.
 
 ## Search (both plug-ins)
 

@@ -418,3 +418,20 @@ validated.
 - [ ] Punch 0 / 100 / 200 % and Time 20 / 120 / 500 ms on the brass, the War Drums and a pad.
       Nothing clips at 200 % with chords.
 - [ ] Open a project saved before this version: it sounds exactly as before.
+
+## Session 12: horns that hit, Punch UI
+
+- [ ] Heroic Horn (Tower Top), Brass Fanfare (Great Hall), Doom Brass & Choir (Final Boss Lair),
+      Dwarven Chant with Brass up (Dwarven Hall): does the hit crack now, at least as hard as
+      LIGHT SEEKER's Heroic Horns and Fanfare Trumpets? Too harsh anywhere?
+- [ ] Hard and soft playing: soft notes blow in, hard ones bite. The held note no louder.
+- [ ] Loud chords (velocity 120+), Punch at the top, Level +12 dB: nothing clips, no pumping.
+- [ ] In their places, in a song: the dry hit lands before the reverb; the tail blooms
+      between the notes.
+- [ ] Punch and Punch Time on the instrument panel: the readout in dB follows the instrument
+      (Off on the organ, +12.0 dB on the fanfare), typing "+6" or "Off" works, double-click
+      resets. They look right next to Intensity?
+- [ ] A project saved with the Session 11 version: the brass sounds exactly as it did and its
+      Punch values are kept.
+- [ ] Listen: test-logs `brass/` (each horn before / after, dry and in its place, and
+      LIGHT SEEKER's with the same phrase).

@@ -178,6 +178,16 @@ jobs:
       - name: Listening renders (mini-song before and after, brass Punch, WAV)
         if: always()
         run: build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-mix build/test-logs/mix
+      # Session 12: every horn and brass (Tower Top, Great Hall, Final Boss Lair, Dwarven Hall)
+      # playing one horn phrase, Session 11 then 12, dry and in its place, as WAV; next to them
+      # LIGHT SEEKER's Fanfare Trumpets and Heroic Horns with the same phrase (Tests/reference,
+      # rendered by tools/brass-reference) and the brass report.
+      - name: Listening renders (horns and brass before and after, LIGHT SEEKER reference)
+        if: always()
+        run: |
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-brass build/test-logs/brass
+          cp Tests/reference/brass/* build/test-logs/brass/
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --brass-report > build/test-logs/brass/brass-report.txt
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4
