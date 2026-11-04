@@ -36,6 +36,16 @@ jobs:
         env:
           SAMPLES_TOKEN: ${{ secrets.SAMPLES_TOKEN }}
         run: bash scripts/ci-fetch-samples.sh "${{ runner.temp }}/samples-src" "${{ runner.temp }}/samples"
+      # Session 13: the recorded brass, VSCO 2 Community Edition (CC0 1.0, docs/LICENSES),
+      # fetched from its official source at a pinned commit (cached), its licence checked,
+      # prepared into the same samples folder. Never committed to this repository.
+      - name: Brass library source cache (VSCO 2 CE, CC0)
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/vsco-2-ce
+          key: vsco-2-ce-440300901dfe9275fd84e0b7763af1f8443ae62e
+      - name: Fetch and prepare the recorded brass (official source, CC0)
+        run: bash scripts/ci-fetch-brass.sh "${{ runner.temp }}/vsco-2-ce" "${{ runner.temp }}/samples"
       # JUCE is fetched once and kept (the configure step otherwise clones its whole history).
       - name: JUCE source cache
         id: juce
@@ -131,6 +141,16 @@ jobs:
         env:
           SAMPLES_TOKEN: ${{ secrets.SAMPLES_TOKEN }}
         run: bash scripts/ci-fetch-samples.sh "${{ runner.temp }}/samples-src" "${{ runner.temp }}/samples"
+      # Session 13: the recorded brass, VSCO 2 Community Edition (CC0 1.0, docs/LICENSES),
+      # fetched from its official source at a pinned commit (cached), its licence checked,
+      # prepared into the same samples folder. Never committed to this repository.
+      - name: Brass library source cache (VSCO 2 CE, CC0)
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/vsco-2-ce
+          key: vsco-2-ce-440300901dfe9275fd84e0b7763af1f8443ae62e
+      - name: Fetch and prepare the recorded brass (official source, CC0)
+        run: bash scripts/ci-fetch-brass.sh "${{ runner.temp }}/vsco-2-ce" "${{ runner.temp }}/samples"
       - name: Dependencies
         run: sudo apt-get update && sudo apt-get install -y ninja-build libasound2-dev libfreetype6-dev libfontconfig1-dev libx11-dev libxcomposite-dev libxcursor-dev libxext-dev libxinerama-dev libxrandr-dev libxrender-dev libgl1-mesa-dev
       - name: JUCE source cache
@@ -188,6 +208,16 @@ jobs:
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-brass build/test-logs/brass
           cp Tests/reference/brass/* build/test-logs/brass/
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --brass-report > build/test-logs/brass/brass-report.txt
+      # Session 13: every brass instrument (Tower Top horn, Great Hall fanfare, Final Boss Lair
+      # doom brass, Dwarven Hall low brass, Hoard Gong growl) playing the horn phrase before
+      # (sound 12, the synthesis) and after (sound 13, the recorded brass), dry and in its place,
+      # as WAV, and the numbers behind the checks.
+      - name: Listening renders (recorded brass before and after, dry and in its place)
+        if: always()
+        run: |
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-realbrass build/test-logs/realbrass
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --realbrass-report > build/test-logs/realbrass/realbrass-report.txt || true
+          cp "${{ runner.temp }}/samples.brass.log" build/test-logs/realbrass/brass-prep.txt || true
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4

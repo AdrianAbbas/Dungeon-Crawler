@@ -122,7 +122,7 @@ function(dc_add_plugin target)
                 add_custom_command(TARGET ${dc_target} POST_BUILD
                     COMMAND ${CMAKE_COMMAND} -E rm -rf "${dc_res}/Samples"
                     COMMAND ${CMAKE_COMMAND} -E copy_directory "${DC_SAMPLES_DIR}" "${dc_res}/Samples"
-                    COMMAND ${CMAKE_COMMAND} -E rm -f "${dc_res}/Samples/report.json" "${dc_res}/Samples/index-fx.json"
+                    COMMAND ${CMAKE_COMMAND} -E rm -f "${dc_res}/Samples/report.json" "${dc_res}/Samples/index-fx.json" "${dc_res}/Samples/brass-report.json"
                     VERBATIM)
             elseif(DC_SAMPLES_DIR AND DC_FX_SAMPLE_SETS)
                 # The effect ships only the voice it uses in its places (Session 8): the
@@ -161,6 +161,7 @@ if(DC_BUILD_TESTS)
     set_target_properties(DungeonCrawlerTests PROPERTIES COMPILE_DEFINITIONS "${dc_test_definitions}")
     target_sources(DungeonCrawlerTests PRIVATE Tests/DungeonCrawlerTests.cpp)
     target_link_libraries(DungeonCrawlerTests PRIVATE DungeonCrawlerFX juce::juce_audio_utils)
-    target_compile_definitions(DungeonCrawlerTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
+    target_compile_definitions(DungeonCrawlerTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0
+        DC_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
     add_test(NAME dungeon_crawler_tests COMMAND DungeonCrawlerTests)
 endif()
