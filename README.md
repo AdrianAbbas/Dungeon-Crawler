@@ -183,7 +183,7 @@ response, at the same sustain level.
 
 **Punch** and **Punch Time** (instrument panel): every note hits louder and settles back to its
 sustain level over Punch Time (20-500 ms). 100 % is the instrument's own amount: about
-+10 to +17 dB on the brass (Session 11: +9 dB), +2 dB on the War Drums (more would make their recorded velocity layers step), a little on the plucks, none on pads, choirs and
++10 to +18 dB on the brass (Session 11: +9 dB), +2 dB on the War Drums (more would make their recorded velocity layers step), a little on the plucks, none on pads, choirs and
 organs. The top of the slider is +12 dB on any instrument (+18 dB on the brass) and the bottom is off. It responds to velocity, it is
 click-free, and a safety limiter keeps it from ever clipping.
 
@@ -195,9 +195,9 @@ Final Boss Lair's Doom Brass & Choir and the Dwarven Hall's low brass crack on t
 faster rise, the lips driven harder and an upper-mid edge for the first ~120 ms, a steeper
 velocity response, and a soft shaping of the hit just under full scale so that a loud chord
 keeps its punch instead of being pulled down by the output's safety limiter. Their own
-Punch is now +12 dB on the horn (the Doom Brass +17 dB, the fanfare +10 dB, the Dwarven
+Punch is now +12 dB on the horn (the Doom Brass +18 dB, the fanfare +10 dB, the Dwarven
 Chant +7 dB), falling away steeply after the crack, and Punch at the top reaches +18 dB on
-the brass. In their places their reverb is drier, starts later and dips
+the brass (+21 on the Doom Brass). In their places their reverb is drier, starts later and dips
 under each hit, so the dry attack lands first. The held note is exactly as loud as before.
 
 **Punch** and **Punch Time** read and work as in LIGHT SEEKER: Punch shows the hit in dB for

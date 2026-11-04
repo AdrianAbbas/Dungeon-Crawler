@@ -355,7 +355,8 @@ MixFit mixFit(int index, int sound = SoundLatest) noexcept;
 // The instrument's own Punch (dB on the hit at Punch 100 %): high on the brass and the
 // drums, a little on the plucks, none on pads, choirs and organs.
 float designPunchDb(int index, int sound = SoundLatest) noexcept;
-// The most Punch can add (Punch 200 %): 12 dB, 18 dB on the brass from sound 12.
+// The most Punch can add (Punch 200 %): 12 dB, 18 dB on the brass from sound 12 (the Doom
+// Brass 21).
 float punchMaxDb(int index, int sound = SoundLatest) noexcept;
 // Punch (0..2: 0 none, 1 the instrument's own, 2 the most) to the hit's boost in dB.
 float punchDb(int index, float punch, int sound = SoundLatest) noexcept;

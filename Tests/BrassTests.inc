@@ -153,7 +153,7 @@ void testBrassHit(Suite& s) {
         // Punch: the brass's own is higher, its range larger; the others as before.
         using namespace dc::inst;
         s.check(designPunchDb(9) >= 12.0f && designPunchDb(4) >= 15.0f && designPunchDb(6) > designPunchDb(6, SoundMix) && designPunchDb(32) > designPunchDb(32, SoundMix),
-                "Punch 100 %: the brass's own higher (horn +12, doom +17, fanfare +10 dB; Session 11: +9), the Dwarven Chant's more");
+                "Punch 100 %: the brass's own higher (horn +12, doom +18, fanfare +10 dB; Session 11: +9), the Dwarven Chant's more");
         s.check(punchDb(6, 2.0f) == 18.0f && punchDb(10, 2.0f) == 12.0f && punchDb(30, 2.0f) == 12.0f && punchDb(6, 0.0f) == 0.0f,
                 "Punch 200 %: +18 dB on the brass, +12 dB on the others; 0 % none");
         s.check(designPunchDb(6, SoundMix) == 9.0f && punchDb(6, 2.0f, SoundMix) == 12.0f && designPunchDb(6, SoundClassic) == 0.0f,

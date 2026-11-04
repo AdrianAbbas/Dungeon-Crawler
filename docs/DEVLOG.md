@@ -2910,7 +2910,7 @@ new instances, Init and the factory presets play 12. Everything below is sound 1
   (`driveNorm` = the base drive's), so the hit is louder and grittier; the blat's burst
   1 + 1.2 v louder. A per-voice **attack edge**: a 3.2 kHz band (Q 0.9) added on the hit and
   fading over 80 ms (0.5 + 2.5 v^2; the fanfare 0.5 x; the Dwarven Chant 0.45 x). The held note is untouched: every sustain within 0.02 dB.
-- **Punch**: the horn's own +12 dB (+9 in Session 11), the Doom Brass +17 (under its choir
+- **Punch**: the horn's own +12 dB (+9 in Session 11), the Doom Brass +18 (under its choir
   stab and piano), the fanfare +10, the Dwarven Chant +7 (+4); on the horns (not the chant)
   the boost falls steeply after the crack (above); Punch at 200 % reaches +18 dB on the brass
   (`punchMaxDb`; +12 elsewhere). Velocity: 0.12 + 0.88 v^1.6 of it on the brass and chant
@@ -2980,3 +2980,9 @@ the level check (+0.6 dB, reported). The Doom Brass and the Dwarven Chant use th
 voices in CI (not here): their numbers there may differ. In their places the loudest horn
 chords still reach the output limiter (the place's wet adds to the shaped hit). Nothing seen
 on a Mac yet.
+
+**CI, Session 12 first run** (`e98c165`): macOS green. Linux 2674 passed, 1 failed: "Doom Brass
+& Choir: the hit over the sustain 4 dB or more above Session 11's" 8.7 -> 12.6 dB (+3.9; here,
+without the recordings, +4.1: the recorded choir stab carries more of Session 11's hit).
+Attempt 1: the doom brass's own Punch 18 dB (was 17), its top 21 dB so the slider still
+climbs above it (here +4.6 dB; expected about +4.4 in CI).

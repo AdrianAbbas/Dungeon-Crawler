@@ -1308,9 +1308,10 @@ float designPunchDb(int index, int sound) noexcept {
     const bool horns = sound >= SoundHorns;
     switch (roleOf(index)) {
         // Session 12: the horns hit much harder (9 dB in Session 11).
-        // The Final Boss Lair's doom brass under its choir stab and piano: more (17 dB); the
+        // The Final Boss Lair's doom brass under its choir stab and piano: more (18 dB; with
+        // the recorded choir its hit grew only 3.9 dB at 17, CI); the
         // Great Hall's fanfare, already bright and hot, +10 (the instruments' level check).
-        case Role::Brass: return horns ? (index == 4 ? 17.0f : index == 6 ? 10.0f : 12.0f) : 9.0f;
+        case Role::Brass: return horns ? (index == 4 ? 18.0f : index == 6 ? 10.0f : 12.0f) : 9.0f;
         // The War Drums' recorded djembes change velocity layer as they get harder; a large
         // boost on the hard slap's sharp transient made that step jump (CI: 8.4 dB at 7 dB of
         // Punch, 6.8 at 3.5; the limit is 6.5): 2 dB.
@@ -1322,7 +1323,10 @@ float designPunchDb(int index, int sound) noexcept {
     }
 }
 
-float punchMaxDb(int index, int sound) noexcept { return sound >= SoundHorns && roleOf(index) == Role::Brass ? 18.0f : 12.0f; }
+float punchMaxDb(int index, int sound) noexcept {
+    if (sound < SoundHorns || roleOf(index) != Role::Brass) return 12.0f;
+    return index == 4 ? 21.0f : 18.0f;   // the doom brass's own is 18: room above it
+}
 
 float punchDb(int index, float punch, int sound) noexcept {
     const float own = designPunchDb(index, sound), most = punchMaxDb(index, sound);
