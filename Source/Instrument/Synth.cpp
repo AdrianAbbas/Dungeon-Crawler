@@ -422,8 +422,10 @@ void Synth::noteOn(int key, float velocity) noexcept {
     v.wheelLevel = 1;
     // Punch: the hit's boost, harder the harder the key is struck; it settles over Punch
     // Time along a raised cosine (in dB), so it never steps.
-    v.punchPeakDb = punchDb(designNow, punch, classic) * (0.3f + 0.7f * v.velocity);
+    // Session 12: the horns follow the velocity more steeply (punchVelocityScale).
+    v.punchPeakDb = punchDb(designNow, punch, sound) * punchVelocityScale(designNow, v.velocity, sound);
     v.punchSamples = std::max(1.0f, std::clamp(punchSeconds, 0.02f, 0.5f) * rate);
+    v.punchShape = sound >= SoundHorns && brassPresence(designNow, sound) ? 4.0f : 1.0f;   // the horns, not the chant
     v.punchPos = 0;
     v.punchGain = v.punchPeakDb > 0.0f ? std::pow(10.0f, v.punchPeakDb * 0.05f) : 1.0f;
     v.punchStep = 0;
@@ -436,7 +438,8 @@ void Synth::noteOn(int key, float velocity) noexcept {
     n.macro = macros;
     n.vowel = voiceVowel;
     n.ensemble = voiceEnsemble;
-    n.classic = classic;
+    n.classic = sound < SoundMix;
+    n.sound = sound;
     n.rate = rate;
     n.bpm = tempo;
     n.noiseAt = d::mix64(noteCount + 77) << 8;
@@ -458,11 +461,27 @@ void Synth::noteOn(int key, float velocity) noexcept {
         v.bodyGain[k] = p.body[k].hz > 0.0f ? p.body[k].gain * bodyAmount : 0.0f;
     }
     // Session 11: the brass's presence, a resonance at 2.9 kHz (its last body slot).
-    const bool presence = brassPresence(designNow, classic);
+    const bool presence = brassPresence(designNow, sound);
     if (presence) {
         v.body[2].reset();
         v.body[2].set(2900.0f, 1.1f, rate);
         v.bodyGain[2] = 0.75f * std::max(bodyAmount, 0.5f);
+    }
+    // Session 12: the horns' attack edge, an upper-mid band (3.2 kHz) added on the hit and
+    // fading over ~80 ms (more the harder the note): brightness and bite on the attack only,
+    // the held note as it was. Its gain is stepped per chunk (an exponential, no edge).
+    const float edge = attackEdge(designNow, sound);
+    v.edge.reset();
+    v.edgeGain = 0;
+    v.edgeDecay = 0;
+    v.hitClip = edge > 0.0f;
+    // A horn's hit is shaped from its first sample (the clipper fades out only, when the
+    // horns have stopped; the note itself starts from silence, so this never steps).
+    if (v.hitClip) clipMix = clipTarget = 1.0f;
+    if (edge > 0.0f) {
+        v.edge.set(3200.0f, 0.9f, rate);
+        v.edgeGain = edge * (0.5f + 2.5f * v.velocity * v.velocity);
+        v.edgeDecay = std::exp(-float(d::chunk) / (0.08f * rate));
     }
     v.drive = v.baseDrive = p.drive;
     v.gain = d::dbToGain(designTrimDb(designNow));
@@ -556,6 +575,10 @@ void Synth::controlChunk() noexcept {
     modNow += 0.35f * (perf.mod - modNow);
     const float chunkSeconds = float(d::chunk) / rate;
     const float bendSemis = bendNow * bendRange;
+    // The hit clipper follows the horns (in and out over ~5 ms).
+    bool horn = false;
+    for (const auto& v : voices) horn |= v.on && v.hitClip;
+    clipTarget = horn ? 1.0f : 0.0f;
     for (auto& v : voices) {
         if (!v.on) continue;
         v.age += chunkSeconds;
@@ -566,9 +589,15 @@ void Synth::controlChunk() noexcept {
                 v.punchStep = (1.0f - v.punchGain) / float(d::chunk);
                 if (v.punchPos >= v.punchSamples + float(d::chunk)) { v.punchPeakDb = 0; v.punchGain = 1; v.punchStep = 0; }
             } else {
-                const float db = v.punchPeakDb * 0.5f * (1.0f + std::cos(3.14159265f * v.punchPos / v.punchSamples));
+                float shape = 0.5f * (1.0f + std::cos(3.14159265f * v.punchPos / v.punchSamples));
+                if (v.punchShape != 1.0f) shape = std::pow(shape, v.punchShape);
+                const float db = v.punchPeakDb * shape;
                 v.punchStep = (std::pow(10.0f, db * 0.05f) - v.punchGain) / float(d::chunk);
             }
+        }
+        if (v.edgeGain > 0.0f) {
+            v.edgeGain *= v.edgeDecay;
+            if (v.edgeGain < 1.0e-4f) v.edgeGain = 0;
         }
         const auto& des = design(v.designIndex);
         if (des.control != nullptr) {
@@ -628,6 +657,14 @@ void Synth::controlChunk() noexcept {
     }
 }
 
+float hitClipShape(float x) noexcept {
+    constexpr float knee = 0.56f, ceiling = 0.944f;   // -5 dBFS, -0.5 dBFS
+    const float a = std::abs(x);
+    if (a <= knee) return x;
+    const float y = knee + (ceiling - knee) * std::tanh((a - knee) / (ceiling - knee));
+    return x < 0.0f ? -y : y;
+}
+
 void Synth::render(float* outL, float* outR, int n) noexcept {
     for (int at = 0; at < n; at += CaptureBus::block) renderBlock(outL + at, outR + at, std::min(CaptureBus::block, n - at));
 }
@@ -653,6 +690,11 @@ void Synth::renderBlock(float* outL, float* outR, int n) noexcept {
                     bl += b;
                     br += b;
                 }
+            if (v.edgeGain > 0.0f) {
+                const float e = v.edgeGain * v.edge.bandpass(mid);
+                bl += e;
+                br += e;
+            }
             l = bl;
             r = br;
             // One low-pass for both sides would smear the image; the tone filter runs on the
@@ -684,8 +726,15 @@ void Synth::renderBlock(float* outL, float* outR, int n) noexcept {
             sumR += r * g;
             if (v.capture != CaptureNone) captures.send(v.capture, i, 0.5f * (l + r) * g * v.captureSend);
         }
-        outL[i] += sumL * level;
-        outR[i] += sumR * level;
+        if (clipMix != clipTarget) clipMix = clipTarget > clipMix ? std::min(clipTarget, clipMix + 0.004f) : std::max(clipTarget, clipMix - 0.004f);
+        if (clipMix > 0.0f) {
+            const float yl = sumL * level, yr = sumR * level;
+            outL[i] += yl + clipMix * (hitClipShape(yl) - yl);
+            outR[i] += yr + clipMix * (hitClipShape(yr) - yr);
+        } else {
+            outL[i] += sumL * level;
+            outR[i] += sumR * level;
+        }
     }
     // The captures' wet joins the instrument (before its place), at the same level.
     if (level != 1.0f) {

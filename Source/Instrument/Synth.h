@@ -294,6 +294,7 @@ struct Note {
     // The voices' Vowel and Ensemble (Session 9; 0.5 = as designed, only the sung layers).
     float vowel = 0.5f, ensemble = 0.5f;
     bool classic = false;      // Session 11: the sound before it (older sessions)
+    int sound = 12;            // Session 12: which generation of the sound (see Sound)
     float rate = 48000;
     double bpm = 120;
     uint64_t noiseAt = 0;
@@ -338,18 +339,34 @@ CaptureSend captureOf(int index) noexcept;
 // Session 11: how an instrument sits in a song. The instruments mostly played in a mix
 // (brass, strings, drums, plucks) send less to their place's reverbs and echoes and the
 // reverb starts a little later (the dry hit first); the MIX sliders scale on top. 1, 1, 0
-// for the others.
-// `classic`: the sound before Session 11 (a session saved then opens with it, unchanged):
-// no fit, no designed Punch, the old brass.
-struct MixFit { float reverb = 1, echoes = 1, preDelayMs = 0; };
-MixFit mixFit(int index, bool classic = false) noexcept;
+// for the others. Session 12: the brass's reverb also dips under its hits (`duck`).
+// Which generation of the instrument's sound a note plays (saved with the session as
+// "sound"): 10 before Session 11 (no fit, no designed Punch, the old brass); 11 Session 11's
+// mix defaults, brass and Punch; 12 Session 12's horns (a harder, brighter, faster hit, more
+// Punch, a drier attack). A session keeps the sound it was saved with; new instances, Init
+// and the factory presets play the latest.
+enum Sound : int { SoundClassic = 10, SoundMix = 11, SoundHorns = 12, SoundLatest = SoundHorns };
+// The instrument's reverb (and its pre-delay and duck under the hit) in a song.
+// `makeupDb`: the level the drier, ducked space takes away from the instrument in its place,
+// given back (measured: the same phrase in its place as loud, against its dry self, as in
+// Session 11); it follows the Effects roller, so the dry instrument is unchanged.
+struct MixFit { float reverb = 1, echoes = 1, preDelayMs = 0, duck = 0, makeupDb = 0; };
+MixFit mixFit(int index, int sound = SoundLatest) noexcept;
 // The instrument's own Punch (dB on the hit at Punch 100 %): high on the brass and the
 // drums, a little on the plucks, none on pads, choirs and organs.
-float designPunchDb(int index, bool classic = false) noexcept;
-// Punch (0..2: 0 none, 1 the instrument's own, 2 +12 dB) to the hit's boost in dB.
-float punchDb(int index, float punch, bool classic = false) noexcept;
+float designPunchDb(int index, int sound = SoundLatest) noexcept;
+// The most Punch can add (Punch 200 %): 12 dB, 18 dB on the brass from sound 12.
+float punchMaxDb(int index, int sound = SoundLatest) noexcept;
+// Punch (0..2: 0 none, 1 the instrument's own, 2 the most) to the hit's boost in dB.
+float punchDb(int index, float punch, int sound = SoundLatest) noexcept;
 // The brass's presence (2-4 kHz) and steeper velocity response (Session 11).
-bool brassPresence(int index, bool classic = false) noexcept;
+bool brassPresence(int index, int sound = SoundLatest) noexcept;
+// Session 12: the brass's attack edge (an upper-mid lift on the first ~100 ms only), 0 for
+// the others; and how strongly velocity scales the hit (the Punch's share of velocity).
+float attackEdge(int index, int sound = SoundLatest) noexcept;
+float punchVelocityScale(int index, float velocity, int sound = SoundLatest) noexcept;
+// Session 12: the hit clipper's curve (identity below -5 dBFS, never above -0.5 dBFS).
+float hitClipShape(float x) noexcept;
 
 struct Voice {
     std::array<Layer, 4> layer;
@@ -373,6 +390,13 @@ struct Voice {
     // Session 11, Punch: the hit's boost (dB at the start), how long it takes to settle,
     // where it is, and its gain over the current chunk (interpolated per sample).
     float punchPeakDb = 0, punchSamples = 1, punchPos = 0, punchGain = 1, punchStep = 0;
+    // Session 12: the horns' Punch falls steeply after the crack (the raised cosine to the
+    // power `punchShape`; 1 = Session 11's curve), settling at the same Punch Time.
+    float punchShape = 1;
+    // Session 12, the brass's attack edge: a 3.2 kHz band added on the hit, fading out.
+    d::Svf edge;
+    float edgeGain = 0, edgeDecay = 0;
+    bool hitClip = false;   // a sound-12 horn: the synth's hit clipper engages while it sounds
     bool active() const { return on; }
 };
 
@@ -398,8 +422,9 @@ public:
     // Session 11: Punch (0..2, 1 = the instrument's own) and Punch Time (seconds), for
     // notes that start from now.
     void setPunch(float amount, float seconds) noexcept { punch = amount; punchSeconds = seconds; }
-    // The sound before Session 11 (no designed Punch, the old brass), for notes from now.
-    void setClassic(bool on) noexcept { classic = on; }
+    // Which generation of the sound (Sound: 10, 11, 12), for notes from now.
+    void setSound(int generation) noexcept { sound = std::clamp(generation, int(SoundClassic), int(SoundLatest)); }
+    int soundGeneration() const noexcept { return sound; }
 
     // MIDI, at a sample position within the block being rendered.
     void noteOn(int key, float velocity) noexcept;
@@ -438,7 +463,12 @@ private:
     float rate = 48000, bendRange = 2, level = 1, bendNow = 0, modNow = 0;
     float voiceVowel = 0.5f, voiceEnsemble = 0.5f;
     float punch = 1.0f, punchSeconds = 0.12f;
-    bool classic = false;
+    int sound = SoundLatest;
+    // Session 12: the hit clipper. While a sound-12 horn sounds, the synth's sum is shaped
+    // above -5 dBFS by a soft knee towards -0.5 dBFS: the punched hit turns into density
+    // (louder for the same peak) instead of meeting the output limiter, which would pull
+    // it down and pump back. Below the knee (the held notes) nothing changes.
+    float clipMix = 0, clipTarget = 0;
     double tempo = 120;
     int designNow = 0, counter = 0, orderCounter = 0;
     uint64_t noteCount = 0;

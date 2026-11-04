@@ -49,15 +49,27 @@ void synth(Layer& L, int model, float hz, float attack, float decay, float susta
     L.synth.velocity = d::clamp01(n.velocity);
     L.synth.pan = d::panGains(pan);
     L.synth.bite = 0;
+    L.synth.biteDrive = 0;
     L.synth.start(hz, attack, decay, sustain, n.rate);
 }
 
 // Session 11: brass that cuts through a mix. Its attack quicker, its brightness opening
 // further for the first ~100 ms (more so the harder it is played), its own blat louder.
 // Nothing in the classic sound (tests, the before/after renders).
-float brassAttack(float seconds, const Note& n) { return n.classic ? seconds : seconds * 0.4f; }
+// Session 12 (sound 12): the horns crack. The rise quicker again, the brightness opening
+// much further on the hit and following the velocity steeply, the lips driven harder for
+// the first ~120 ms (an edge that fades into the same held tone), a louder blat.
+float brassAttack(float seconds, const Note& n) { return n.classic ? seconds : seconds * (n.sound >= SoundHorns ? 0.2f : 0.4f); }
 void brassBite(Layer& L, const Note& n, float amount = 1.0f) {
     if (n.classic) return;
+    if (n.sound >= SoundHorns) {
+        const float v = d::clamp01(n.velocity);
+        L.synth.bite = amount * (0.5f + 3.3f * std::pow(v, 1.5f));
+        L.synth.biteSeconds = 0.07f;
+        L.synth.biteDrive = amount * (1.0f + 4.0f * v * v);
+        L.synth.blat *= 1.0f + 1.2f * v;   // start() set it; a louder burst of buzz
+        return;
+    }
     L.synth.bite = amount * (0.6f + 1.2f * n.velocity);
     L.synth.biteSeconds = 0.09f;
 }
@@ -376,7 +388,8 @@ void finalBossLair(Voice& v, const Note& n) {
     v.layer[0].synth.detuneCents = 9;
     v.layer[0].synth.cutoff = 700.0f * std::exp2(n.offset(0));
     v.layer[0].synth.formantHz = 650;
-    synth(v.layer[1], d::SynthBrass, n.hz * 0.5f, a * 1.5f, 1.0f, 1.0f, n, 0.8f, 0.15f);
+    // Session 12: the octave below speaks with the upper horns (it lagged by half again).
+    synth(v.layer[1], d::SynthBrass, n.hz * 0.5f, n.sound >= SoundHorns ? a : a * 1.5f, 1.0f, 1.0f, n, 0.8f, 0.15f);
     v.layer[1].synth.detuneCents = 6;
     v.layer[1].synth.cutoff = 600.0f * std::exp2(n.offset(0));
     v.layer[1].synth.formantHz = 420;
@@ -446,7 +459,10 @@ void greatHall(Voice& v, const Note& n) {
     v.layer[2].synth.detuneCents = 0;
     v.layer[2].synth.cutoff = 900.0f * std::exp2(n.offset(0));
     v.layer[2].synth.formantHz = 700;
-    for (int k = 0; k < 3; ++k) brassBite(v.layer[std::size_t(k)], n, k == 2 ? 0.6f : 1.0f);
+    // Session 12: the trumpets are bright and hot already; their bite stays lighter (the hit
+    // comes from Punch and the clipper; the instruments' level check holds).
+    const float bite = n.sound >= SoundHorns ? 0.55f : 1.0f;
+    for (int k = 0; k < 3; ++k) brassBite(v.layer[std::size_t(k)], n, k == 2 ? 0.6f * bite : bite);
 }
 
 // Throne Room: a regal string ensemble, violins and below them violas and cellos an
@@ -1265,41 +1281,72 @@ Role roleOf(int index) noexcept {
 }
 }
 
-MixFit mixFit(int index, bool classic) noexcept {
+MixFit mixFit(int index, int sound) noexcept {
     // The Weary Guitar's Tavern is a small, nearly dry room: nothing to take back there.
-    if (classic || index == 23) return {};
+    if (sound < SoundMix || index == 23) return {};
+    const bool horns = sound >= SoundHorns;
     switch (roleOf(index)) {
-        case Role::Brass: return { 0.6f, 0.75f, 30.0f };
+        // Session 12: the brass drier still, its reverb later and dipping under the hit
+        // (the dry attack lands first; the tail blooms between the notes).
+        case Role::Brass: {
+            if (!horns) return { 0.6f, 0.75f, 30.0f, 0.0f };
+            // Make-up in its place (measured with the horn phrase: the in-place change equals
+            // the dry one): the fanfare 4.4 dB, the doom brass 3.8, the horn 2.3.
+            const float makeup = index == 6 ? 4.4f : index == 4 ? 3.8f : 2.3f;
+            return { 0.5f, 0.65f, 45.0f, 0.35f, makeup };
+        }
         case Role::Strings: return { 0.75f, 0.85f, 15.0f };
         case Role::Drums: return { 0.6f, 0.7f, 20.0f };
         case Role::Pluck: return { 0.75f, 0.85f, 10.0f };
-        case Role::Chant: return { 0.8f, 0.9f, 20.0f };
+        case Role::Chant: return horns ? MixFit { 0.75f, 0.85f, 30.0f, 0.15f, 2.1f } : MixFit { 0.8f, 0.9f, 20.0f, 0.0f };
         default: return {};
     }
 }
 
-float designPunchDb(int index, bool classic) noexcept {
-    if (classic) return 0.0f;
+float designPunchDb(int index, int sound) noexcept {
+    if (sound < SoundMix) return 0.0f;
+    const bool horns = sound >= SoundHorns;
     switch (roleOf(index)) {
-        case Role::Brass: return 9.0f;
+        // Session 12: the horns hit much harder (9 dB in Session 11).
+        // The Final Boss Lair's doom brass under its choir stab and piano: more (17 dB); the
+        // Great Hall's fanfare, already bright and hot, +10 (the instruments' level check).
+        case Role::Brass: return horns ? (index == 4 ? 17.0f : index == 6 ? 10.0f : 12.0f) : 9.0f;
         // The War Drums' recorded djembes change velocity layer as they get harder; a large
         // boost on the hard slap's sharp transient made that step jump (CI: 8.4 dB at 7 dB of
         // Punch, 6.8 at 3.5; the limit is 6.5): 2 dB.
         case Role::Drums: return index == 30 ? 2.0f : 4.0f;
-        case Role::Chant: return 4.0f;
+        case Role::Chant: return horns ? 7.0f : 4.0f;   // its low brass
         case Role::Pluck: return 2.0f;
         case Role::Strings: return index == 0 ? 2.0f : 0.0f;   // the pizzicato is a pluck
         default: return 0.0f;
     }
 }
 
-float punchDb(int index, float punch, bool classic) noexcept {
-    const float own = designPunchDb(index, classic);
+float punchMaxDb(int index, int sound) noexcept { return sound >= SoundHorns && roleOf(index) == Role::Brass ? 18.0f : 12.0f; }
+
+float punchDb(int index, float punch, int sound) noexcept {
+    const float own = designPunchDb(index, sound), most = punchMaxDb(index, sound);
     punch = std::clamp(std::isfinite(punch) ? punch : 1.0f, 0.0f, 2.0f);
-    return std::clamp(punch <= 1.0f ? own * punch : own + (punch - 1.0f) * (12.0f - own), 0.0f, 12.0f);
+    return std::clamp(punch <= 1.0f ? own * punch : own + (punch - 1.0f) * (most - own), 0.0f, most);
 }
 
-bool brassPresence(int index, bool classic) noexcept { return !classic && roleOf(index) == Role::Brass; }
+bool brassPresence(int index, int sound) noexcept { return sound >= SoundMix && roleOf(index) == Role::Brass; }
+
+float attackEdge(int index, int sound) noexcept {
+    if (sound < SoundHorns) return 0.0f;
+    const auto role = roleOf(index);
+    // The fanfare is bright and hot already: a lighter edge (the instruments' level check).
+    return role == Role::Brass ? (index == 6 ? 0.5f : 1.0f) : role == Role::Chant ? 0.45f : 0.0f;
+}
+
+float punchVelocityScale(int index, float velocity, int sound) noexcept {
+    velocity = std::clamp(velocity, 0.0f, 1.0f);
+    // Session 12: the horns' hit follows the velocity more steeply (a soft note blows in,
+    // a hard one cracks); the others as in Session 11.
+    const auto role = roleOf(index);
+    if (sound >= SoundHorns && (role == Role::Brass || role == Role::Chant)) return 0.12f + 0.88f * std::pow(velocity, 1.6f);
+    return 0.3f + 0.7f * velocity;
+}
 
 // The instruments that sing with the recorded voice (their start functions use vocal()):
 // the panel shows Vowel and Ensemble for these (dimmed for the others).

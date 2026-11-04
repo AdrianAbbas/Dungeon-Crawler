@@ -204,8 +204,15 @@ public:
     // Session 11: the instrument's sound before Session 11 (no fit to a mix, no designed
     // Punch, the old brass). A session or user preset saved before it opens with it, so
     // it sounds as it did; a new instance, Init and the factory presets use the new one.
-    void setClassicSound(bool on) noexcept { classicSound.store(on); }
-    bool usesClassicSound() const noexcept { return classicSound.load(); }
+    // Session 12: the generation of the sound (dc::inst::Sound: 10 classic, 11 Session 11's,
+    // 12 the horns that hit harder). Saved as "sound"; a session keeps its own.
+    void setClassicSound(bool on) noexcept { soundGeneration.store(on ? dc::inst::SoundClassic : dc::inst::SoundLatest); }
+    bool usesClassicSound() const noexcept { return soundGeneration.load() < dc::inst::SoundMix; }
+    void setSoundGeneration(int g) noexcept { soundGeneration.store(juce::jlimit(int(dc::inst::SoundClassic), int(dc::inst::SoundLatest), g)); }
+    int soundGenerationUsed() const noexcept { return soundGeneration.load(); }
+    // The Punch control (0..2) as dB on the hit of the instrument shown, and back (its text).
+    float punchShownDb(float control) const noexcept;
+    float punchFromDb(float db) const noexcept;
 
 private:
     void process(juce::AudioBuffer<float>&, bool forcedBypass, juce::MidiBuffer* midi);
@@ -216,7 +223,8 @@ private:
     mutable juce::SpinLock viewLock;
     ViewState view;
     juce::StringArray recentSearches;   // guarded by viewLock
-    std::atomic<bool> classicSound { false };
+    std::atomic<int> soundGeneration { dc::inst::SoundLatest };
+    float placeMakeupDb = 0;   // Session 12: the instrument's make-up in its place (audio thread)
     dc::dsp::Smoothed instGain;   // the instrument's Level
     juce::AbstractFifo keyFifo { 256 };
     std::array<int, 256> keyQueue {};

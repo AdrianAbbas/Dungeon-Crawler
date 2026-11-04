@@ -114,6 +114,9 @@ struct SynthVoice {
     // DUNGEON CRAWLER (Session 11): a brass "bite", the brightness opening further for the
     // first moments of a note (decaying over biteSeconds). 0: as WORLDBUILDER's.
     float bite = 0, biteSeconds = 0.08f;
+    // DUNGEON CRAWLER (Session 12): the lips driven harder over the same time (an edge on
+    // the hit). 0: as WORLDBUILDER's.
+    float biteDrive = 0, driveNorm = 1;   // driveNorm: sqrt of the drive without the bite's
     // Scoop / Glide (set by the part before start): the horn's scoop scaled (0: none) and
     // its time; a plain scoop from below (semitones) for the other models.
     float scoopScale = 1, scoopSeconds = 0.028f, plainScoop = 0, plainSeconds = 0.08f;
@@ -183,6 +186,9 @@ struct SynthVoice {
                 if (bite > 0.0f) c = std::min(c * (1.0f + bite * std::exp(-age / std::max(biteSeconds, 0.005f))), 0.42f * rate);
                 for (auto& flt : filter) flt.set(c, 0.6f, rate);
                 drive = 1.0f + 3.5f * blow;
+                driveNorm = std::sqrt(drive);
+                // The bite's extra drive is not normalised away: the hit gets louder and denser.
+                if (biteDrive > 0.0f) drive += biteDrive * blow * std::exp(-age / std::max(biteSeconds, 0.005f));
                 formant.set(formantHz, 1.4f, rate);
                 blat *= std::exp(-chunkSeconds / 0.03f);
                 break;
@@ -221,7 +227,7 @@ struct SynthVoice {
             // The buzz (and a second player when detuned), the blat's burst of noise.
             const float buzz = a + (detuneCents > 0.01f ? 0.7f * b : 0.0f) + n * (breath + 0.6f * blat);
             const float lp = filter[0].tick(buzz).lp;
-            const float hot = softClip(lp * drive * 0.6f) / (0.6f * std::sqrt(drive));
+            const float hot = softClip(lp * drive * 0.6f) / (0.6f * driveNorm);
             const float y = (hot + formantLevel * formant.bandpass(hot)) * e * gain * 0.9f;
             l += y * pan.l;
             r += y * pan.r;

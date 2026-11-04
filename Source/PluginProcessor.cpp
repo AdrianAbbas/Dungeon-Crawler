@@ -24,7 +24,8 @@ juce::StringArray instrumentNames(PluginKind kind) {
 DungeonCrawlerProcessor::DungeonCrawlerProcessor(PluginKind k)
     : AudioProcessor(busesFor(k)),
       pluginKind(k),
-      parameters(*this, nullptr, "DUNGEON_CRAWLER", dc::createParameterLayout([this] { return locationIndex(); }, instrumentNames(k))) {
+      parameters(*this, nullptr, "DUNGEON_CRAWLER", dc::createParameterLayout([this] { return locationIndex(); }, instrumentNames(k),
+                                                                         { [this](float v) { return punchShownDb(v); }, [this](float db) { return punchFromDb(db); } })) {
     location = parameters.getRawParameterValue(dc::ids::location);
     subLocation = parameters.getRawParameterValue(dc::ids::subLocation);
     intensity = parameters.getRawParameterValue(dc::ids::intensity);
@@ -220,7 +221,7 @@ void DungeonCrawlerProcessor::applyInit() {
         midiCancel.store(true);
     }
     manualEpoch.fetch_add(1, std::memory_order_acq_rel);
-    classicSound.store(false);
+    soundGeneration.store(dc::inst::SoundLatest);
     presetIndex = -1;
     presetName = "Init";
     markPresetBaseline();
@@ -343,7 +344,7 @@ void DungeonCrawlerProcessor::applyFactoryPreset(int index) {
             }
         }
     setRoute(preset.route);
-    classicSound.store(false);
+    soundGeneration.store(dc::inst::SoundLatest);
     midiCancel.store(true);
     manualEpoch.fetch_add(1, std::memory_order_acq_rel);
     presetIndex = index;
@@ -661,15 +662,18 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
         }
         // How the instrument sits in a song (brass, strings, drums, plucks: less of the
         // place's reverb and echoes, the dry hit first); the MIX sliders scale on top.
-        const bool classic = classicSound.load(std::memory_order_relaxed);
-        synth.setClassic(classic);
-        const auto fit = dc::inst::mixFit(index, classic);
+        const int sound = soundGeneration.load(std::memory_order_relaxed);
+        synth.setSound(sound);
+        const auto fit = dc::inst::mixFit(index, sound);
         // 100 % is the fitted amount; above it the slider climbs to the place's full design
         // and beyond (150 % = 1.5 times the design, as for every other instrument).
         const auto fitted = [](float user, float f) { return user <= 1.0f ? user * f : f + (user - 1.0f) * 2.0f * (1.5f - f); };
         controls.mix[dc::MixReverb] = fitted(controls.mix[dc::MixReverb], fit.reverb);
         controls.mix[dc::MixEchoes] = fitted(controls.mix[dc::MixEchoes], fit.echoes);
         controls.reverbPreDelay += fit.preDelayMs;
+        // Session 12: the brass's reverb dips under its own hits, with the user's Duck.
+        if (fit.duck > 0.0f) controls.reverbDuck = 1.0f - (1.0f - controls.reverbDuck) * (1.0f - fit.duck);
+        placeMakeupDb = fit.makeupDb;
     }
     world.setQuality(qualityMode());
     world.setControls(controls);
@@ -691,7 +695,8 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
         // The correction is mostly the reverbs' build-up: it follows their share too (the
         // instrument's fit and the MIX section's Reverb; exactly as before at 100 %).
         placeGain.set(dc::dsp::dbToGain(dc::inst::placeTrimDb(controls.location, controls.sub) * effectsAmount()
-                                        * juce::jmin(1.25f, controls.mix[dc::MixReverb])));
+                                        * juce::jmin(1.25f, controls.mix[dc::MixReverb])
+                                        + placeMakeupDb * effectsAmount()));
         renderInstrument(buffer, outputs, midi);
         // Level (Session 9): the instrument into its place, smoothed (no zipper, no click).
         auto* il = buffer.getWritePointer(0);
@@ -777,6 +782,19 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
 }
 
 juce::AudioProcessorParameter* DungeonCrawlerProcessor::getBypassParameter() const { return parameters.getParameter(dc::ids::bypass); }
+float DungeonCrawlerProcessor::punchShownDb(float control) const noexcept {
+    return dc::inst::punchDb(isInstrument() && instrumentChoice != nullptr ? instrumentIndex() : 0, control, soundGeneration.load(std::memory_order_relaxed));
+}
+
+float DungeonCrawlerProcessor::punchFromDb(float db) const noexcept {
+    const int index = isInstrument() && instrumentChoice != nullptr ? instrumentIndex() : 0, sound = soundGeneration.load(std::memory_order_relaxed);
+    const float own = dc::inst::designPunchDb(index, sound), most = dc::inst::punchMaxDb(index, sound);
+    db = juce::jlimit(0.0f, most, std::isfinite(db) ? db : 0.0f);
+    if (own < 1.0e-4f) return db > 0.0f ? 1.0f + db / most : 0.0f;
+    if (db <= own) return db / own;
+    return 1.0f + (db - own) / juce::jmax(1.0e-4f, most - own);
+}
+
 juce::AudioProcessorEditor* DungeonCrawlerProcessor::createEditor() { return new DungeonCrawlerEditor(*this); }
 
 void DungeonCrawlerProcessor::getStateInformation(juce::MemoryBlock& data) {
@@ -785,8 +803,9 @@ void DungeonCrawlerProcessor::getStateInformation(juce::MemoryBlock& data) {
     state.setProperty("editorScale", static_cast<double>(editorScale.load()), nullptr);
     state.setProperty("presetName", presetName, nullptr);
     state.setProperty("presetModified", presetModified(), nullptr);
-    // Session 11: which instrument sound (10: as before Session 11; 11: the new defaults).
-    state.setProperty("sound", classicSound.load() ? 10 : 11, nullptr);
+    // Session 11: which instrument sound (10: as before Session 11; 11: Session 11's
+    // defaults; 12: Session 12's horns).
+    state.setProperty("sound", soundGeneration.load(), nullptr);
     juce::StringArray stops;
     for (const auto& st : route()) stops.add(juce::String(st.location) + ":" + juce::String(st.sub));
     state.setProperty("route", stops.joinIntoString(","), nullptr);
@@ -843,8 +862,10 @@ void DungeonCrawlerProcessor::setStateInformation(const void* data, int size) {
         if (std::isfinite(scale)) editorScale.store(juce::jlimit(0.5f, 2.0f, scale));
     }
     if (incoming.hasProperty("presetName")) presetName = incoming.getProperty("presetName").toString();
-    // Saved before Session 11 (no "sound"): the instrument as it sounded then.
-    classicSound.store(isInstrument() && static_cast<int>(incoming.getProperty("sound", 10)) < 11);
+    // Saved before Session 11 (no "sound"): the instrument as it sounded then; saved in
+    // Session 11 ("sound" 11): its brass and Punch, unchanged. The FX has nothing to keep.
+    if (isInstrument()) setSoundGeneration(static_cast<int>(incoming.getProperty("sound", int(dc::inst::SoundClassic))));
+    else soundGeneration.store(dc::inst::SoundLatest);
     // The window as it was left (Session 9), when the state has it; a preset never has it.
     if (const auto w = incoming.getChildWithName("EditorView"); w.isValid()) {
         updateViewState([&w](ViewState& v) {

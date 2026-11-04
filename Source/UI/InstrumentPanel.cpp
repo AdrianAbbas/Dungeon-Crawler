@@ -80,7 +80,7 @@ InstrumentPanel::InstrumentPanel(DungeonCrawlerProcessor& p) : processor(p), key
     const std::array<const char*, sliderCount> ids { dc::ids::instMacros[0], dc::ids::instMacros[1], dc::ids::instMacros[2], dc::ids::instMacros[3],
                                                      dc::ids::instMacros[4], dc::ids::instVowel, dc::ids::instEnsemble, dc::ids::instLevel, dc::ids::intensity,
                                                      dc::ids::instPunch, dc::ids::instPunchTime };
-    const std::array<const char*, sliderCount> names { "Macro", "Macro", "Macro", "Macro", "Macro", "Vowel", "Ensemble", "Level", "Intensity", "Punch", "Time" };
+    const std::array<const char*, sliderCount> names { "Macro", "Macro", "Macro", "Macro", "Macro", "Vowel", "Ensemble", "Level", "Intensity", "Punch", "Punch Time" };
     for (std::size_t k = 0; k < sliders.size(); ++k) {
         auto& s = sliders[k];
         s.setSliderStyle(juce::Slider::LinearVertical);
@@ -106,8 +106,18 @@ InstrumentPanel::InstrumentPanel(DungeonCrawlerProcessor& p) : processor(p), key
     sliders[ensembleSlot].setTooltip("The voices: one singer at 0 %, the instrument's choir at 50 %, a full choir at 100 %");
     sliders[levelSlot].setTooltip("The instrument's level into its place");
     sliders[intensitySlot].setTooltip("How strongly the place's effects apply");
-    sliders[punchSlot].setTooltip("Punch: each note hits louder and settles back (100 %: the instrument's own, 200 %: +12 dB, 0 %: none)");
-    sliders[punchTimeSlot].setTooltip("Punch Time: how long the hit takes to settle (20-500 ms)");
+    // Session 12: Punch and Punch Time as in LIGHT SEEKER: their own names, the readouts in
+    // dB on the hit (for the instrument playing; "Off" at none) and in ms, bright, and typed
+    // into (a value, or "Off"); double-click for the default.
+    sliders[punchSlot].setTooltip("Gain on hit: each note starts louder and settles to its level (the middle: the instrument's own; up to +12 dB, +18 dB on the brass)");
+    sliders[punchTimeSlot].setTooltip("How long the Punch takes to settle (20-500 ms)");
+    for (std::size_t k : { punchSlot, punchTimeSlot }) {
+        auto& sl = sliders[k];
+        sl.setTextBoxStyle(juce::Slider::TextBoxBelow, false, punchWidth, 16);
+        sl.setColour(juce::Slider::textBoxTextColourId, colours::ivory);
+        sl.setColour(juce::Slider::textBoxHighlightColourId, colours::blood.withAlpha(0.45f));
+        macroLabels[k].setColour(juce::Label::textColourId, colours::ivory);
+    }
     mix.setClickingTogglesState(true);
     mix.setTooltip("Mix: how much reverb, echoes, modulation, character and atmosphere; the reverbs' helpers");
     mix.onClick = [this] { if (onMix) onMix(); };
@@ -201,6 +211,7 @@ void InstrumentPanel::refresh() {
     }
     choose.setSelectedId(index + 1, juce::dontSendNotification);
     lock.setToggleState(shownLock, juce::dontSendNotification);
+    sliders[punchSlot].updateText();   // the Punch reads in dB of this instrument's own (LIGHT SEEKER)
 }
 
 void InstrumentPanel::visibilityChanged() {
@@ -278,11 +289,14 @@ void InstrumentPanel::resized() {
     bendRangeLabel.setBounds(150, 82, 42, 24);
     bendRange.setBounds(196, 82, 60, 24);
     // Eleven sliders (Session 11: Punch and its Time after Intensity), grouped by gaps.
+    // Session 12: Punch and Punch Time in wider slots (LIGHT SEEKER's readouts, "+12.0 dB").
     int x = 270;
     for (std::size_t k = 0; k < sliders.size(); ++k) {
-        macroLabels[k].setBounds(x - 10, 24, 62, 16);
-        sliders[k].setBounds(x, 40, 42, 66);
-        x += (k == 4 || k == 6 || k == 8) ? 53 : 46;
+        const bool punch = k >= punchSlot;
+        const int w = punch ? punchWidth : 40;
+        macroLabels[k].setBounds(x + w / 2 - (punch ? 34 : 31), 24, punch ? 68 : 62, 16);
+        sliders[k].setBounds(x, 40, w, 66);
+        x += (k == 4 || k == 6 || k == 8) ? 51 : punch ? punchWidth + 4 : 44;
     }
     effects.setBounds(816, 8, 62, 98);
     status.setBounds(884, 22, getWidth() - 888, 58);

@@ -91,8 +91,11 @@ inline juce::StringArray advancedChoices(const ModuleParamSpec& spec) {
 // `currentLocation` names the sub-locations of the location in use (for host display).
 // `instrumentNames` (the instrument's, in place order) adds the instrument's parameters:
 // the plug-in is then DUNGEON CRAWLER, the instrument; empty, it is DUNGEON CRAWLER FX.
+// `punchDb` (Session 12, LIGHT SEEKER's readout): the Punch control (0..2) in dB on the hit for
+// the instrument playing, and back; without it the Punch reads in percent.
+struct PunchText { std::function<float(float)> toDb, fromDb; };
 inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout(std::function<int()> currentLocation,
-                                                                                const juce::StringArray& instrumentNames = {}) {
+                                                                                const juce::StringArray& instrumentNames = {}, PunchText punchText = {}) {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
     juce::StringArray places;
     for (const auto* name : locationNames) places.add(name);
@@ -226,8 +229,20 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
     if (!instrumentNames.isEmpty()) {
         // Punch: 100 % is the instrument's own (high on the brass and drums, low or none
         // elsewhere), 200 % +12 dB on any instrument, 0 % none.
+        // Session 12: it reads as LIGHT SEEKER's does, the hit in dB for the instrument playing
+        // ("Off" at 0); typing "+9 dB" (or "Off") sets it.
+        auto punchAttributes = percent;
+        if (punchText.toDb && punchText.fromDb)
+            punchAttributes = juce::AudioParameterFloatAttributes().withLabel("dB")
+                .withStringFromValueFunction([punchText](float v, int) {
+                    const float db = punchText.toDb(v);
+                    return db < 0.05f ? juce::String("Off") : "+" + juce::String(db, 1) + " dB";
+                })
+                .withValueFromStringFunction([punchText](const juce::String& t) {
+                    return t.trim().equalsIgnoreCase("Off") ? 0.0f : punchText.fromDb(t.getFloatValue());
+                });
         layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::instPunch, 1 }, "Punch",
-                                                               juce::NormalisableRange<float>(0.0f, 2.0f), 1.0f, percent));
+                                                               juce::NormalisableRange<float>(0.0f, 2.0f), 1.0f, punchAttributes));
         juce::NormalisableRange<float> punchTime(20.0f, 500.0f);
         punchTime.setSkewForCentre(120.0f);
         layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::instPunchTime, 1 }, "Punch Time", punchTime, 120.0f,

@@ -54,6 +54,8 @@ public:
     // The sliders, left to right: the five macros, Vowel, Ensemble, Level, Intensity.
     // Session 11: Punch and its time after them.
     static constexpr std::size_t vowelSlot = 5, ensembleSlot = 6, levelSlot = 7, intensitySlot = 8, punchSlot = 9, punchTimeSlot = 10, sliderCount = 11;
+    // Session 12: Punch and Punch Time's slots (LIGHT SEEKER's readouts need the width).
+    static constexpr int punchWidth = 54;
     // Session 11: the Mix button opens the MIX section (the view's panel).
     std::function<void()> onMix;
     juce::Button& mixButton() { return mix; }
