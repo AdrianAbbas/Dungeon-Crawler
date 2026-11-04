@@ -132,6 +132,185 @@ bool VocalVoice::start(float noteMidi, float velocity, float random, float sampl
     return readers > 0;
 }
 
+//==============================================================================
+bool BrassVoice::start(float noteMidi, float velocity, float pick, float sampleRate, float attackSeconds) {
+    rate = sampleRate;
+    for (auto& rd : reader) rd.s.reset(), rd.used = false, rd.delay = 0;
+    readers = 0;
+    beyond = 0;
+    velocity = std::clamp(velocity, 0.0f, 1.0f);
+    // Where a velocity falls among an instrument's dynamics: the two adjacent layers, how
+    // far between them, and the level there (between the layers' median loudness, a little
+    // below the softest: -6 dB at velocity 0; above the loudest: +2 dB at 1).
+    struct Place { int l0, l1; float t, levelDb; };
+    const auto placeOf = [&](const wb::samples::Instrument& inst) {
+        const int layers = std::max(1, inst.layers);
+        const float pos = std::clamp(velocity * float(layers) - 0.5f, -0.5f, float(layers) - 0.5f);
+        const int l0 = std::clamp(int(std::floor(pos)), 0, layers - 1), l1 = std::min(l0 + 1, layers - 1);
+        const float t = l1 == l0 ? 0.0f : std::clamp(pos - float(l0), 0.0f, 1.0f);
+        // The level follows the velocity along a smooth curve (about 13 dB from velocity 0.2
+        // to 1, never steeper than ~1.2 dB per 0.05 of velocity), from the loudest layer's
+        // median (+1 dB at velocity 1): the library's dynamics are 16-18 dB apart between
+        // adjacent layers, too steep to play; each layer keeps its own tone.
+        const float level = inst.medianDb(layers - 1) + 1.0f + 20.0f * std::log10(0.16f + 0.84f * std::pow(velocity, 1.6f));
+        return Place { l0, l1, t, level };
+    };
+    // The dynamic nearest the velocity, levelled to `levelDb` (the velocity curve): one take
+    // per note. Two adjacent dynamics crossfaded would interfere (their attacks start alike,
+    // so they are not independent) and dip in level between the layers; one take levelled
+    // onto the curve rises smoothly, its tone changing at the layer's edge.
+    const auto addReaders = [&](const wb::samples::Instrument& inst, const Player& p, float midi, float weight, float levelDb, float attack, bool duck, float pickHere, float decay) {
+        const auto at = placeOf(inst);
+        const int layers = std::max(1, inst.layers);
+        int key = std::clamp(int(std::lround(midi)), inst.lowKey, inst.highKey);
+        if (p.lookup != 0.0f) {
+            // The nearest other recorded note within 5 semitones, first on the `lookup` side.
+            const float layerVel0 = (float(at.t < 0.5f ? at.l0 : at.l1) + 0.5f) / float(layers);
+            const auto* own = inst.find(key, layerVel0, pickHere);
+            const int dir = p.lookup > 0.0f ? 1 : -1;
+            for (int d = 1; d <= 5 && own != nullptr; ++d) {
+                bool found = false;
+                for (int side : { dir, -dir }) {
+                    const int k = int(std::lround(midi)) + side * d;
+                    if (k < inst.lowKey || k > inst.highKey) continue;
+                    if (const auto* z = inst.find(k, layerVel0, pickHere); z != nullptr && std::abs(z->root - own->root) > 0.5f) {
+                        key = k;
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) break;
+            }
+        }
+        const auto pg = d::panGains(std::clamp(p.pan, -1.0f, 1.0f));
+        const int delay = int(std::max(0.0f, p.delayMs) * 0.001f * rate);
+        {
+            const int layer = at.t < 0.5f ? at.l0 : at.l1;
+            const float w = 1.0f;
+            if (readers >= maxReaders) return;
+            auto& rd = reader[std::size_t(readers)];
+            const float layerVel = (float(layer) + 0.5f) / float(layers);
+            rd.s.exactTail = true;
+            if (!rd.s.start(inst, midi, layerVel, pickHere, rate, attack, decay, 0.0f, 1.0f, 0, 0, key)) return;   // evened fully: on the curve
+            rd.used = true;
+            rd.weight = weight * w * d::dbToGain(levelDb - inst.medianDb(layer));
+            rd.s.cents = p.cents;
+            rd.s.update();
+            rd.l = pg.l;
+            rd.r = pg.r;
+            rd.delay = delay;
+            // The sustain dips under the staccato hit and rises into the held note (~80 ms).
+            rd.duck = duck ? susDuck : 0.0f;
+            rd.duckStep = duck ? susDuck / (0.08f * rate) : 0.0f;
+            ++readers;
+        }
+    };
+    const float stacWeight = stacLevel * (0.25f + 0.75f * std::pow(velocity, 1.5f));
+    float reference = 0;
+    for (int i = 0; i < players; ++i) {
+        const auto& p = player[std::size_t(i)];
+        const float midi = noteMidi + p.semis;
+        const auto* ref = p.sus != nullptr ? p.sus : p.stac;
+        if (i == 0 && ref != nullptr && !ref->zones.empty())
+            beyond = std::max({ 0.0f, ref->lowRoot - midi, midi - ref->highRoot });
+        // Each player its own takes (the round-robin pick moved along).
+        const float pk = pick + 0.37f * float(i) - std::floor(pick + 0.37f * float(i));
+        const bool hit = p.stac != nullptr && stacWeight > 0.01f;
+        // The staccato is levelled against the sustain at the same velocity (the library's
+        // staccatos and sustains were not recorded at matching levels), `stacLiftDb` above.
+        const float susLevel = p.sus != nullptr ? placeOf(*p.sus).levelDb : (p.stac != nullptr ? placeOf(*p.stac).levelDb : -30.0f);
+        if (p.sus != nullptr) addReaders(*p.sus, p, midi, p.gain, susLevel, attackSeconds, hit, pk, 0.0f);
+        if (hit) addReaders(*p.stac, p, midi, p.gain * stacWeight, p.sus != nullptr ? susLevel + stacLiftDb : susLevel, 0.0f, false, pk, p.sus != nullptr ? stacDecaySeconds : 0.0f);
+    }
+    // The bite's ceiling: the section's own peak as played (every take's recorded peak at
+    // the gain it plays at), so a spiky loud take is pushed no harder than a round soft one.
+    for (int k = 0; k < readers; ++k) {
+        const auto& rd = reader[std::size_t(k)];
+        if (rd.used) reference += rd.weight * rd.s.gain * d::dbToGain(rd.s.zone->peakDb);
+    }
+    driveRef = std::max(1.0e-5f, 0.7f * reference);
+    biteNow = bite;
+    biteMul = std::exp(-1.0f / (std::max(biteSeconds, 0.005f) * rate));
+    hitEnv = 1;
+    hitMul = std::exp(-1.0f / (0.12f * rate));
+    presL.reset();
+    presR.reset();
+    presL.set(presenceHz, 0.7f, rate);
+    presR.set(presenceHz, 0.7f, rate);
+    thinL.reset();
+    thinR.reset();
+    thinL.set(thinHz, 0.6f, rate);
+    thinR.set(thinHz, 0.6f, rate);
+    for (int c = 0; c < 2; ++c) {
+        exIn[std::size_t(c)].reset();
+        exOut[std::size_t(c)].reset();
+        exTop[std::size_t(c)].reset();
+        exIn[std::size_t(c)].set(900.0f, 0.7f, rate);
+        exOut[std::size_t(c)].set(1800.0f, 0.7f, rate);
+        exTop[std::size_t(c)].set(std::min(7000.0f, 0.45f * rate), 0.7f, rate);
+    }
+    return readers > 0;
+}
+
+void BrassVoice::tick(float& l, float& r) {
+    float sl = 0, sr = 0;
+    for (int k = 0; k < readers; ++k) {
+        auto& rd = reader[std::size_t(k)];
+        if (!rd.used) continue;
+        if (rd.delay > 0) {
+            --rd.delay;
+            continue;
+        }
+        if (!rd.s.active()) continue;
+        float w = rd.weight;
+        if (rd.duck > 0.0f) {
+            w *= 1.0f - rd.duck;
+            rd.duck = std::max(0.0f, rd.duck - rd.duckStep);
+        }
+        const float y = rd.s.tick() * w;
+        sl += y * rd.l;
+        sr += y * rd.r;
+    }
+    // On the hit the low end thinned first (`hitThin`), then the bite saturates that leaner
+    // hit, then the presence band (always `presence`, more on the hit) brightens the result:
+    // EQ after the distortion, so the saturation does not flatten it away. The attack is
+    // bright and dense, the held note keeps its body.
+    const float h = hitEnv > 1.0e-4f ? hitEnv : 0.0f;
+    if (hitThin > 0.0f && h > 0.0f) {
+        sl -= hitThin * h * thinL.tick(sl).lp;
+        sr -= hitThin * h * thinR.tick(sr).lp;
+    }
+    if (biteNow > 1.0e-4f) {
+        // The lips pushed: the hit driven (1 + bite, at most 5) times harder into a tanh whose
+        // ceiling is the note's own natural peak (`driveRef`, from its level, so a soft
+        // recording is pushed as hard as a loud one): the hit louder and denser, its peak
+        // no higher, never flattened into a square (tanh keeps bending). It fades out with
+        // the bite (no step where it ends).
+        const float g = 1.0f + std::min(biteNow, 4.0f), inv = 1.0f / driveRef, m = bite > 0.0f ? std::min(1.0f, biteNow / bite) : 0.0f;
+        sl += m * (driveRef * std::tanh(sl * g * inv) - sl);
+        sr += m * (driveRef * std::tanh(sr * g * inv) - sr);
+        biteNow *= biteMul;
+    }
+    const float p = presence + hitPresence * h;
+    if (p > 1.0e-4f) {
+        sl += p * presL.bandpass(sl);
+        sr += p * presR.bandpass(sr);
+    }
+    const float e = excite + hitExcite * h;
+    if (e > 1.0e-4f) {
+        // |band| is the band an octave up (and its DC, which the high-pass takes off).
+        float* side[2] { &sl, &sr };
+        for (int c = 0; c < 2; ++c) {
+            const float band = exIn[std::size_t(c)].tick(*side[c]).hp;
+            const float up = exTop[std::size_t(c)].tick(exOut[std::size_t(c)].tick(std::abs(band)).hp).lp;
+            *side[c] += e * up;
+        }
+    }
+    hitEnv *= hitMul;
+    l += sl;
+    r += sr;
+}
+
 namespace {
 inline float readCubic(const int16_t* data, double pos) {
     const auto i = int(pos);
@@ -158,7 +337,7 @@ float SampleVoice::tick() {
         tailPos += double(inc);
         tailMix += tailStep;
         if (tailMix >= 1.0f) {
-            pos = tailPos;
+            pos = exactTail ? tailPos - double(inc) : tailPos;   // pos += inc follows
             tailPos = -1;
         }
     }
@@ -198,6 +377,7 @@ void Layer::reset() {
     organ.reset();
     sample.reset();
     vocal.reset();
+    brass.reset();
     bellBent = 0;
 }
 
@@ -216,6 +396,7 @@ bool Layer::active() const {
         case Model::Organ: return organ.active();
         case Model::Sample: return sample.active();
         case Model::Vocal: return vocal.active();
+        case Model::Brass: return brass.active();
         case Model::None: break;
     }
     return false;
@@ -234,6 +415,7 @@ void Layer::release(float seconds, float rate) {
         case Model::Organ: organ.release(seconds); break;
         case Model::Sample: sample.release(seconds); break;
         case Model::Vocal: vocal.release(seconds); break;
+        case Model::Brass: brass.release(seconds); break;
         case Model::Bell:
             // A struck bell or bar damped: its modes stop over `seconds` (the highs a little first).
             for (int k = 0; k < bell.modes; ++k) {
@@ -272,6 +454,7 @@ void Layer::update(float rate, float bendSemis, float vibrato) {
         case Model::Organ: organ.bend = bendSemis; organ.update(); break;
         case Model::Sample: sample.bend = bendSemis; sample.update(); break;
         case Model::Vocal: vocal.update(bendSemis, float(d::chunk) / rate); break;
+        case Model::Brass: brass.update(bendSemis); break;
         case Model::None: break;
     }
     (void) vibrato;
@@ -302,6 +485,13 @@ void Layer::tick(const d::Stream& noise, float& l, float& r) {
             // Stereo already (the ensemble's spread).
             float a = 0, b = 0;
             vocal.tick(a, b);
+            l += a * gain;
+            r += b * gain;
+            return;
+        }
+        case Model::Brass: {
+            float a = 0, b = 0;
+            brass.tick(a, b);
             l += a * gain;
             r += b * gain;
             return;
@@ -508,6 +698,8 @@ void Synth::noteOn(int key, float velocity) noexcept {
             case Model::Synth: case Model::Choir: case Model::Wind: case Model::Bowed: case Model::Strings: case Model::Organ: case Model::Fm: case Model::Sample: case Model::Vocal:
                 L.gain *= velocityGain;
                 break;
+            // Session 13: the recorded brass (Model::Brass) carries its own dynamics: its
+            // layers and level already follow the velocity.
             default: break;
         }
     // Whatever the layers started at, the first chunk's update tunes them now.

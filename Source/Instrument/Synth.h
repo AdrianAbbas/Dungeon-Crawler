@@ -29,7 +29,7 @@ inline constexpr int instrumentCount = 40;   // one per place (ten locations, th
 inline constexpr int maxVoices = 24;         // slots (some fading out after a steal)
 inline constexpr int macroCount = 5;         // Tone, Attack, Release, Body, the signature
 
-enum class Model : uint8_t { None, Synth, Pluck, Bell, Drum, Fm, Tine, Choir, Wind, Bowed, Strings, Organ, Sample, Vocal };
+enum class Model : uint8_t { None, Synth, Pluck, Bell, Drum, Fm, Tine, Choir, Wind, Bowed, Strings, Organ, Sample, Vocal, Brass };
 // What the mod wheel does on an instrument.
 enum class ModWheel : uint8_t { Vibrato, Brightness, Tremolo, Growl, Swell };
 
@@ -113,6 +113,9 @@ struct SampleVoice {
     float midi = 60, amp = 1, attackStep = 1, fade = 1, fadeMul = 1, releaseMul = 1;
     float tailMix = 0, tailStep = 0, gain = 1, bend = 0, cents = 0, vibratoDepth = 0, vibratoHz = 5, vibratoPhase = 0, age = 0, rate = 48000;
     bool on = false, releasing = false, recordedTail = true;
+    // Session 13 (the brass only, so the other recordings play exactly as before): crossing
+    // into the release tail lands on the tail's next sample (the original skipped one).
+    bool exactTail = false;
     // Set before start() (Session 8): a one-shot velocity layer glides from the layer below's
     // level up to its own across its velocity range, so the level never jumps at a layer
     // boundary (each layer keeps its own tone).
@@ -238,6 +241,110 @@ struct VocalVoice {
     }
 };
 
+// Session 13: the recorded brass (horn, trumpet, tenor trombone, tuba: VSCO 2 Community
+// Edition, CC0; tools/sample-prep/brass.py), played as DUNGEON CRAWLER's own section. Up to
+// three players (each an instrument, an interval, a detune, a pan, a late entry); each
+// plays its staccato take as the hit and its sustain under it (the sustain dipped under
+// the hit, rising into the held note over ~80 ms), the dynamic nearest the velocity, its
+// level on a smooth velocity curve (each take evened towards its layer's loudness), a
+// looped sustain and its recorded release. On top, the lips pushed on the attack (`bite`: a soft clip driven
+// harder for the first ~70 ms, the extra level kept: grit and density on the hit, the held
+// note clean). Keys beyond the recordings are pitched from the nearest note; `beyond`
+// tells the instrument how far, so it can hand over to its synthesis.
+struct BrassVoice {
+    static constexpr int maxPlayers = 3;
+    static constexpr int maxReaders = maxPlayers * 2;   // per player: its sustain and its staccato
+    struct Player {
+        const wb::samples::Instrument* sus = nullptr;
+        const wb::samples::Instrument* stac = nullptr;
+        float semis = 0, cents = 0, gain = 1, pan = 0, delayMs = 0;
+        // A doubling player plays another recording: the note `lookup` semitones away,
+        // transposed to its pitch (the sustains have one take per note, and the same take
+        // doubled a few ms late would comb-filter).
+        float lookup = 0;
+    };
+    struct Reader {
+        SampleVoice s;
+        float weight = 0, l = 0.7071f, r = 0.7071f, duck = 0, duckStep = 0;
+        int delay = 0;
+        bool used = false;
+    };
+    // Set before start().
+    std::array<Player, maxPlayers> player {};
+    int players = 0;
+    float stacLevel = 1;      // the staccato hit (times its velocity curve)
+    float susDuck = 0.5f;     // how far the sustain dips under the hit (0 none)
+    float bite = 0, biteSeconds = 0.07f;
+    // The section's presence: a band at `presenceHz` (Q 0.8) added to the held note
+    // (`presence`) and more on the hit (`hitPresence`, fading over ~120 ms), so the recorded
+    // brass speaks through a mix (the recordings are darker than the synthesis was).
+    float presence = 0, hitPresence = 0, presenceHz = 2900, hitThin = 0;
+    // The staccato's level against the sustain at the same velocity (dB), and how fast it
+    // dies away under the held note (60 dB over `stacDecaySeconds`: only its transient counts).
+    float stacLiftDb = 2, stacDecaySeconds = 0.5f;
+    float thinHz = 320;
+    // The brass's own brightness (the recordings have little above 2 kHz; a horn played
+    // hard does): the 0.9-2 kHz band full-wave rectified (an octave up: 2-4 kHz harmonics of
+    // what is there), band-limited and added, `excite` always and `hitExcite` more on the hit.
+    float excite = 0, hitExcite = 0;
+    // Read after start(): semitones the first player's note lies outside its recordings.
+    float beyond = 0;
+    std::array<Reader, maxReaders> reader {};
+    int readers = 0;
+    float biteNow = 0, biteMul = 1, rate = 48000;
+    float hitEnv = 0, hitMul = 1, driveRef = 0.1f;
+    d::Svf presL, presR, thinL, thinR;
+    std::array<d::Svf, 2> exIn {}, exOut {}, exTop {};
+    bool active() const {
+        for (int k = 0; k < readers; ++k)
+            if (reader[std::size_t(k)].used && (reader[std::size_t(k)].s.active() || reader[std::size_t(k)].delay > 0)) return true;
+        return false;
+    }
+    void reset() {
+        for (auto& rd : reader) rd.s.reset(), rd.used = false, rd.delay = 0;
+        readers = 0;
+        players = 0;
+        player = {};
+        stacLevel = 1;
+        susDuck = 0.5f;
+        bite = 0;
+        biteSeconds = 0.07f;
+        presence = hitPresence = hitThin = 0;
+        presenceHz = 2900;
+        stacLiftDb = 2;
+        stacDecaySeconds = 0.5f;
+        thinHz = 320;
+        excite = hitExcite = 0;
+        for (auto* f : { &exIn, &exOut, &exTop })
+            for (auto& x : *f) x.reset();
+        beyond = 0;
+        biteNow = hitEnv = 0;
+        presL.reset();
+        presR.reset();
+        thinL.reset();
+        thinR.reset();
+    }
+    // Adds a player (before start()); false when full or the instrument is missing.
+    bool addPlayer(const wb::samples::Instrument* sus, const wb::samples::Instrument* stac, float semis, float cents, float gain, float pan, float delayMs = 0, float lookup = 0) {
+        if (players >= maxPlayers || (sus == nullptr && stac == nullptr)) return false;
+        player[std::size_t(players++)] = { sus, stac, semis, cents, gain, pan, delayMs, lookup };
+        return true;
+    }
+    bool start(float noteMidi, float velocity, float pick, float sampleRate, float attackSeconds);
+    void release(float seconds) {
+        for (int k = 0; k < readers; ++k) reader[std::size_t(k)].s.release(seconds);
+    }
+    void update(float bendSemis) {
+        for (int k = 0; k < readers; ++k) {
+            auto& rd = reader[std::size_t(k)];
+            if (!rd.used || !rd.s.active()) continue;
+            rd.s.bend = bendSemis;
+            rd.s.update();
+        }
+    }
+    void tick(float& l, float& r);
+};
+
 // One sound source of a voice: whichever model the instrument chose for it.
 struct Layer {
     Model model = Model::None;
@@ -257,6 +364,7 @@ struct Layer {
     OrganVoice organ;
     SampleVoice sample;
     VocalVoice vocal;
+    BrassVoice brass;
     d::PanGains panGains { 0.7071f, 0.7071f };
     float bellBent = 0;
     void prepare(float rate);
@@ -345,7 +453,9 @@ CaptureSend captureOf(int index) noexcept;
 // mix defaults, brass and Punch; 12 Session 12's horns (a harder, brighter, faster hit, more
 // Punch, a drier attack). A session keeps the sound it was saved with; new instances, Init
 // and the factory presets play the latest.
-enum Sound : int { SoundClassic = 10, SoundMix = 11, SoundHorns = 12, SoundLatest = SoundHorns };
+// 13 (Session 13): the brass plays the recorded horn, trumpet, trombone and tuba (when the
+// samples are in the build; their synthesis otherwise), everything else as in 12.
+enum Sound : int { SoundClassic = 10, SoundMix = 11, SoundHorns = 12, SoundRealBrass = 13, SoundLatest = SoundRealBrass };
 // The instrument's reverb (and its pre-delay and duck under the hit) in a song.
 // `makeupDb`: the level the drier, ducked space takes away from the instrument in its place,
 // given back (measured: the same phrase in its place as loud, against its dry self, as in
@@ -362,6 +472,14 @@ float punchMaxDb(int index, int sound = SoundLatest) noexcept;
 float punchDb(int index, float punch, int sound = SoundLatest) noexcept;
 // The brass's presence (2-4 kHz) and steeper velocity response (Session 11).
 bool brassPresence(int index, int sound = SoundLatest) noexcept;
+// Session 13: whether the instrument plays the recorded brass (sound 13 and the samples in
+// the build), and the level its recorded section is set to (dB, measured: the brass as
+// loud as the synthesis it replaces, the hit sharper).
+bool designUsesRealBrass(int index, int sound = SoundLatest) noexcept;
+float realBrassTrimDb(int index) noexcept;
+// Calibration only (tests: `--realbrass-calibrate`): replaces an instrument's trim; NaN
+// restores the measured one.
+void overrideRealBrassTrimDb(int index, float db) noexcept;
 // Session 12: the brass's attack edge (an upper-mid lift on the first ~100 ms only), 0 for
 // the others; and how strongly velocity scales the hit (the Punch's share of velocity).
 float attackEdge(int index, int sound = SoundLatest) noexcept;

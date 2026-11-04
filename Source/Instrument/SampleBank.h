@@ -34,6 +34,7 @@ struct Zone {
     int release = -1;                // where the recorded release tail starts, -1: none
     float rmsDb = -20;               // level of its first 300 ms
     float loudnessDb = -20;          // how loud it sounds (K-weighted, its loudest 400 ms; rmsDb in older maps)
+    float peakDb = 0;                // its sample peak (dBFS; 0 where the map has none)
     bool loops() const { return loopEnd > loopStart && loopStart >= 0; }
 };
 

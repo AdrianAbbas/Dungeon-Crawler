@@ -261,6 +261,7 @@ bool Bank::loadInstrument(const juce::File& map, Instrument& into, std::vector<i
         zone.rr = int(z["rr"]);
         zone.rmsDb = float(double(z["rms"]));
         zone.loudnessDb = z.hasProperty("loudness") ? float(double(z["loudness"])) : zone.rmsDb;
+        zone.peakDb = z.hasProperty("peak") ? float(double(z["peak"])) : 0.0f;
         if (z.hasProperty("loopStart")) {
             zone.loopStart = int(z["loopStart"]);
             zone.loopEnd = int(z["loopEnd"]);
