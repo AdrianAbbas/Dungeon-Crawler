@@ -6,7 +6,7 @@
 #   cmake --build build-ref --target BrassReference
 #   build-ref/BrassReference_artefacts/Release/BrassReference out-dir
 cmake_minimum_required(VERSION 3.22)
-project(BRASS_REFERENCE C CXX)
+project(BRASS_REFERENCE VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(LS_SOURCE "" CACHE PATH "A LIGHT SEEKER checkout (read only)")

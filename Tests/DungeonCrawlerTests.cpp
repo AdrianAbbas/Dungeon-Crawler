@@ -2625,6 +2625,7 @@ int qaDebug(int la, int ka, int lb, int kb) {
 #include "EffectsTests.inc"
 #include "SearchTests.inc"
 #include "MixTests.inc"
+#include "BrassTests.inc"
 
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -2656,6 +2657,9 @@ int main(int argc, char** argv) {
         else if (arg == "--search-snapshots" && i + 1 < argc) return searchSnapshots(argv[i + 1]);
         else if (arg == "--listen-mix" && i + 1 < argc) return listenMix(argv[i + 1]);
         else if (arg == "--mix-snapshots" && i + 1 < argc) return mixSnapshots(argv[i + 1]);
+        else if (arg == "--brass-report") return brassReport();                                       // Session 12
+        else if (arg == "--listen-brass" && i + 1 < argc) return listenBrass(argv[i + 1]);
+        else if (arg == "--punch-snapshots" && i + 1 < argc) return punchSnapshots(argv[i + 1]);
         else if (arg == "--render" && i + 2 < argc)
             return renderToFile(argv[i + 1], juce::String(argv[i + 2]).getIntValue(), i + 3 < argc ? juce::String(argv[i + 3]).getDoubleValue() : 8.0);
     }
@@ -2691,6 +2695,7 @@ int main(int argc, char** argv) {
     if (run("effects")) testEffectsRoller(s);   // Session 9
     if (run("search")) testSearch(s);           // Session 10
     if (run("mix")) testMix(s);                 // Session 11
+    if (run("brass")) testBrass(s);             // Session 12
     if (only.contains("qa")) testQa(s);   // long (130 journeys): run explicitly
     if (only.contains("cpu")) { testCpu(s); testInstrumentCpu(s); }   // report only: run explicitly
     std::cout << "\n" << s.passed << " passed, " << s.failed << " failed" << std::endl;

@@ -1,0 +1,6 @@
+Fanfare Trumpets (chord v0.95, dry): attack-to-sustain 8.51 dB, rise 8.0 ms, sustain -18.63 dBFS, peak -0.30 dBFS, presence -7.39 dB, edge -1.35 dB
+Fanfare Trumpets (note v0.95, dry): attack-to-sustain 11.97 dB, rise 6.0 ms, sustain -23.63 dBFS, peak -2.33 dBFS, presence -8.68 dB, edge -1.38 dB
+Fanfare Trumpets (chord v0.6, dry): attack-to-sustain 11.58 dB, rise 14.0 ms, sustain -23.25 dBFS
+Heroic Horns (chord v0.95, dry): attack-to-sustain 10.68 dB, rise 12.0 ms, sustain -16.98 dBFS, peak -0.30 dBFS, presence -10.44 dB, edge -0.33 dB
+Heroic Horns (note v0.95, dry): attack-to-sustain 11.35 dB, rise 14.0 ms, sustain -23.37 dBFS, peak -4.54 dBFS, presence -11.72 dB, edge -0.27 dB
+Heroic Horns (chord v0.6, dry): attack-to-sustain 11.16 dB, rise 12.0 ms, sustain -21.82 dBFS

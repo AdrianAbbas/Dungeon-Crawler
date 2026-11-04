@@ -591,7 +591,7 @@ void testMix(Suite& s) {
 
 // Listening renders (CI test-logs): a four-instrument mini-song (brass, strings, choir,
 // drums) before (the sound before Session 11) and after (the new mix defaults, the brass,
-// Punch); and the brass with Punch 0 against its own Punch.
+// Punch), and with Session 12's horns; and Session 11's brass with Punch 0 against its own.
 int listenMix(const juce::String& directory) {
     using mixtests::Take;
     juce::File dir(directory);
@@ -625,11 +625,11 @@ int listenMix(const juce::String& directory) {
               }
           }, -3.0f },
     };
-    const auto renderSong = [&](bool classic) {
+    const auto renderSong = [&](int sound) {
         std::vector<float> l(std::size_t(songSeconds * 48000), 0.0f), r(l.size(), 0.0f);
         for (const auto& part : parts) {
             InstHost h;
-            h.p->setClassicSound(classic);
+            h.p->setSoundGeneration(sound);
             h.play(part.instrument);
             h.set(dc::ids::instLevel, part.level);
             h.render(0.05);
@@ -656,10 +656,14 @@ int listenMix(const juce::String& directory) {
         }
         std::cout << "wrote " << file.getFullPathName() << "\n";
     };
-    write(renderSong(true), "mini-song-1-before.wav");
-    write(renderSong(false), "mini-song-2-after.wav");
+    // Session 12: "after" stays Session 11's sound (the same file as Session 11 rendered, byte
+    // for byte); the third is Session 12's horns.
+    write(renderSong(dc::inst::SoundClassic), "mini-song-1-before.wav");
+    write(renderSong(dc::inst::SoundMix), "mini-song-2-after.wav");
+    write(renderSong(dc::inst::SoundHorns), "mini-song-3-session12.wav");
     for (float punch : { 0.0f, 1.0f }) {
         InstHost h;
+        h.p->setSoundGeneration(dc::inst::SoundMix);
         h.play(6);
         h.set(dc::ids::instPunch, punch);
         h.render(0.05);

@@ -7,7 +7,9 @@
 //   attackToSustainDb  the loudest 5 ms RMS frame of the first 200 ms after the onset
 //                      against the RMS of 0.8-1.3 s (the sustain), in dB (LIGHT SEEKER's
 //                      `--brass-report` measure)
-//   riseMs             10 % to 90 % of that first peak (2 ms frames), in ms
+//   riseMs             10 % to 90 % of the peak (2 ms frames, the first frame reaching each), ms
+//   hitMs              from the onset to the end of the first 2 ms frame within 3 dB of the
+//                      peak (first 300 ms), in ms
 //   sustainDb          the sustain's RMS (dBFS)
 //   peakDb             the sample peak of the whole render (dBFS)
 //   presenceDb         the 2-4 kHz share of the first 150 ms (dB of the total)
@@ -27,7 +29,7 @@ struct Render {
     std::size_t onset;   // the first note-on (samples)
 };
 
-struct Result { double attackToSustainDb = 0, riseMs = 0, sustainDb = -200, peakDb = -200, presenceDb = -200, edgeDb = 0; };
+struct Result { double attackToSustainDb = 0, riseMs = 0, hitMs = 0, sustainDb = -200, peakDb = -200, presenceDb = -200, edgeDb = 0; };
 
 inline double toDb(double x) { return 20.0 * std::log10(std::max(x, 1.0e-10)); }
 
@@ -95,16 +97,21 @@ inline Result measure(const Render& p) {
     const double sustain = rmsBetween(p, 0.8, 1.3);
     m.sustainDb = toDb(sustain);
     m.attackToSustainDb = toDb(peak) - m.sustainDb;
-    // The rise: 10 % to 90 % of the first peak (2 ms frames over the first 300 ms).
+    // The rise: from the first 2 ms frame at 10 % of the peak (first 300 ms) to the first at
+    // 90 % (LIGHT SEEKER's measure).
     const auto fine = envelope(p, 2.0, 0.3);
     double top = 0;
-    std::size_t topAt = 0;
-    for (std::size_t k = 0; k < fine.size(); ++k)
-        if (fine[k] > top) { top = fine[k]; topAt = k; }
-    std::size_t a = 0, b = topAt;
-    while (a < topAt && fine[a] < 0.1 * top) ++a;
-    while (b > a && fine[b - 1] >= 0.9 * top) --b;
-    m.riseMs = 2.0 * double(b > a ? b - a : 0);
+    for (double v : fine) top = std::max(top, v);
+    std::size_t a = 0;
+    while (a < fine.size() && fine[a] < 0.1 * top) ++a;
+    std::size_t b = a;
+    while (b < fine.size() && fine[b] < 0.9 * top) ++b;
+    m.riseMs = 2.0 * double(b - a);
+    // The hit's arrival: from the onset to the first 2 ms frame within 3 dB of the peak
+    // (steadier than 10-90 % where detuned layers beat on the plateau).
+    std::size_t c = 0;
+    while (c < fine.size() && fine[c] < 0.708 * top) ++c;
+    m.hitMs = 2.0 * double(c + 1);
     double pk = 0;
     for (std::size_t i = 0; i < p.l.size(); ++i) pk = std::max({ pk, double(std::abs(p.l[i])), double(std::abs(p.r[i])) });
     m.peakDb = toDb(pk);
