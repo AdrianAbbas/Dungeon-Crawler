@@ -3219,5 +3219,106 @@ Checklist (resume from the first open item after a limit):
 - [x] 1. Sound 14: the brass's level about 2.5 dB lower, its Punch a little lower (the attack shape kept); the War Drums about 2.5 dB lower, their Punch a little lower
 - [x] 2. The brass's baseline processing (sound 14): the place's space on the sustain (not on the first ~50 ms), gentle tape warmth, a soft high shelf above ~7 kHz, a little ensemble width, darker and further away when played softly; every brass instrument (Tower Top horn, Great Hall fanfare, Final Boss Lair doom brass, Dwarven Hall low brass, Hoard Gong growl)
 - [x] 3. Sessions: saved at sound 13, they open at 14 with the new defaults where Level and Punch were left at their defaults (the chosen values kept as heard otherwise); 10-12 unchanged
-- [ ] 4. Level match again (the instruments group), tests (`seat` group: loudness against the others, the attack over the sustain kept, less high-frequency energy, sessions), listening renders (`--listen-seat`, CI step)
-- [ ] 5. README / MANUAL_TEST / DEVLOG handoff; final push, CI green
+- [x] 4. Level match again (the instruments group), tests (`seat` group: loudness against the others, the attack over the sustain kept, less high-frequency energy, sessions), listening renders (`--listen-seat`, CI step)
+- [x] 5a. README / MANUAL_TEST / DEVLOG handoff; final push
+- [ ] 5b. CI green
+
+### 1. Sound 14 (`SoundSeated`, the latest)
+
+Everything is gated on sound 14, so sessions at 10-12 play exactly as before and sound 13 still
+plays as Session 13 did (its checks pin it). Every instrument that isn't brass and isn't the
+War Drums plays 14 sample for sample as 13 (tested).
+
+- **Level** (`seatLevelDb`, on the voice's gain; measured by `--seat-calibrate` so the dry
+  melody, the instruments' level measure, is exactly 2.5 dB under sound 13's with the new
+  processing included): Heroic Horn -2.16, Brass Fanfare -1.92, Doom Brass & Choir -1.63,
+  War Drums -2.31 dB. The Dwarven Chant and the Hoard Gong: only their recorded brass layer,
+  -2.5 dB (`seatLayerDb`; the chant's melody -1.6 dB, the gong's -0.2 dB).
+- **Punch** (`designPunchDb`): horn 12 -> 10.5, fanfare 10 -> 9, doom brass 18 -> 16, the
+  chant 7 -> 6, War Drums 2 -> 1.5 dB. The shape (the 4th-power fall after the crack), the
+  velocity response and the most (200 %: 18 / 21 dB) unchanged.
+- **Space** (`mixFit`): brass reverb 0.5 -> 0.8, echoes 0.65 -> 0.75 (the chant 0.75 / 0.85 ->
+  0.9 / 0.9), the pre-delay 45 -> 50 ms, the duck under its own hits unchanged (35 %; 15 % on the
+  chant). A harder duck (50 %) was tried first: it ducked the held note too, so the held note
+  had *less* space. The make-up in its place was measured again (`seatMakeupDb`, on top of
+  13's: horn +2.27, fanfare +1.69, doom +0.79, chant +1.16 dB), so the horn phrase in its
+  place changes exactly as it does dry.
+- **The voice's processing** (`Synth`, `seatAmount`: brass 1, the chant 0.6, the gong 0.5):
+  - a soft top: a one-pole low-pass per side at 8 kHz x (0.65 + 0.35 v), the shelf taking
+    0.4 + 0.5 (1 - v) of what lies above it: about -3 dB at the top of a loud note, deeper and
+    lower when played softly (darker and further away when quiet);
+  - tape warmth at the output's scale, after Punch (`seatWarmth`: tanh, drive 1.3, mixed in
+    by half): -0.07 dB at the held level, about -1 dB off a hit near full scale;
+  - width: the seated voices' mid through one modulated delay (10 +/- 2 ms, 0.23 Hz) at 0.1,
+    added to the side only (the mono sum unchanged). A first try at 0.22 widened the horn by
+    12 dB of side and moved its hit's peak later.
+- **Sessions** (`seatSession`): a state saved at sound 13 opens at 14. Level 0 dB and Punch
+  100 % stay at their defaults (and so get the new, lower defaults); a Level that was set is
+  raised by what the new default takes away (clamped to +12 dB), and a Punch that was set is
+  moved to the same dB on the hit. Only the instrument the session plays is considered (locked
+  or the place's own). Sessions at 10-12 keep their sound; a 14 session reopens exactly.
+
+### 2. Tests (`--only seat`, CI shard `13-seat`, run after the shards like realbrass) and renders
+
+89 checks (`Tests/SeatTests.inc`):
+- the level: 1.5-3.5 dB under 13 (chant and gong: not louder), all within 3 dB of the 40
+  instruments' median, everything else sample-identical;
+- the hit: attack over sustain 10 dB or more (the chant 6), within 3 dB of 13's, as quick
+  (within 3 dB of its peak by 12 ms or as at 13, its rise no slower than LIGHT SEEKER's horn
+  plus 2 ms), the 2-4 kHz presence within 1.5 dB, the War Drums' stroke over its ring within
+  1.5 dB, the Punch values;
+- the tone: above 7 kHz down 1.5 dB or more (the chant 0.75, the gong 0.5), down more on the
+  held part when played softly, wider by 0.5 dB or more of side, the warmth's curve;
+- the space: the first 50 ms stay dry (the reverb 25 dB or more under the note), more of the
+  place on the held note (+0.75 dB; the chant: not less within 0.5), the phrase in its place
+  changes as it does dry;
+- clean: every phrase, dry and in its place, at or under -0.1 dBFS; Punch 200 % + Level +12
+  dB chords never clip;
+- sessions (as above).
+
+Existing checks that read "the latest" for Session 11/12 claims now name their sound: the
+Session 12 Punch and in-place checks are at 13, the Punch UI reads the horn's +10.5 dB (typing
++6 dB gives 57 %), the mix group's War Drums Punch is at least 1.5 dB, and the mix group's
+"brass at the same sustain level" against the classic sound is at 13 (sound 14 is deliberately
+lower; the seat group checks that).
+
+Renders (CI test-logs `seat/`, `--listen-seat dir`): each of the six (Tower Top horn, Great Hall
+fanfare, Final Boss Lair doom brass, Dwarven Hall low brass, Hoard Gong growl: the horn phrase;
+the War Drums: a four-bar beat with a fill), `-dry-` and `-in-its-place-`, `1-before` (13) and
+`2-after` (14); and `mix-choir-strings-brass-drums-1-before` / `-2-after` (Soft Choir, Royal
+Strings, Brass Fanfare stabs, a Heroic Horn call, War Drums and a cello drone, each in its
+place at fixed levels, 8 bars at 90 bpm, both at the same -6 dB so the change can be heard),
+and `seat-report.txt`.
+
+### Results and handoff (end of session 14)
+
+Measured here (Linux, the recorded brass, no private recordings), sound 13 -> 14:
+
+| | dry melody | attack-to-sustain (chord 0.95) | above 7 kHz | side/mid | reverb on the held note |
+|---|---|---|---|---|---|
+| Heroic Horn | -2.5 dB | 14.5 -> 15.0 dB | -23.2 -> -26.5 dB | -24.8 -> -18.0 dB | -6.6 -> -5.5 dB |
+| Brass Fanfare | -2.5 dB | 14.2 -> 14.6 dB | -23.2 -> -25.5 dB | -18.2 -> -16.5 dB | 0.7 -> 3.3 dB |
+| Doom Brass & Choir | -2.5 dB | 17.1 -> 16.9 dB | -19.0 -> -20.9 dB | -28.2 -> -19.3 dB | 2.0 -> 5.2 dB |
+| Dwarven Chant | -1.6 dB | 10.5 -> 11.0 dB | -41.5 -> -43.1 dB | -28.5 -> -22.6 dB | 9.5 -> 9.1 dB |
+| Hoard Gong | -0.2 dB | 8.8 -> 9.9 dB | -36.9 -> -38.8 dB | -23.5 -> -22.2 dB | |
+| War Drums | -2.5 dB | (stroke over ring 9.8 -> 9.4 dB) | | | |
+
+The hit lands as hard over the held note as before (a little more: lower, it is flattened less
+by the hit clipper), its presence the same. The first 50 ms in its place stay dry (the reverb
+29-47 dB under the note). The short mix peaks at -2.9 dBFS against -2.1 before.
+
+**Linux (this container)**: the whole suite 2821 passed, 1 failed on the first run (the mix
+group's Session 11 sustain check, comparing the classic sound with the latest: fixed by pinning
+it to 13, above); the mix group then 55 passed, 0 failed; seat 89, instruments 383, brass 54,
+realbrass 95, the timed groups 50, all passed. Every target builds.
+
+**Listen to** (test-logs `seat/`, MANUAL_TEST "Session 14"): the mix before / after first, then
+each `-in-its-place-2-after` against `1-before`.
+
+**Known limits**: tuned by measurement, not by ear. "Darker and more distant in the quieter
+places" is read as played quietly (the soft top deepens with lower velocity, and the duck lets
+more of the place through when the brass is quiet); nothing is changed per place. The Dwarven
+Chant's held note is mostly its voices, so its space barely moves (-0.4 dB, reported). The
+Doom Brass and the Dwarven Chant use the developer's voice in CI (not here): their numbers
+there may differ. Nothing seen on a Mac yet.
+
