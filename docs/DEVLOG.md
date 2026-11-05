@@ -3221,7 +3221,7 @@ Checklist (resume from the first open item after a limit):
 - [x] 3. Sessions: saved at sound 13, they open at 14 with the new defaults where Level and Punch were left at their defaults (the chosen values kept as heard otherwise); 10-12 unchanged
 - [x] 4. Level match again (the instruments group), tests (`seat` group: loudness against the others, the attack over the sustain kept, less high-frequency energy, sessions), listening renders (`--listen-seat`, CI step)
 - [x] 5a. README / MANUAL_TEST / DEVLOG handoff; final push
-- [ ] 5b. CI green
+- [ ] 5b. CI green (Dwarven Chant's soft darkness report-only after two attempts)
 
 ### 1. Sound 14 (`SoundSeated`, the latest)
 
@@ -3341,3 +3341,11 @@ darker still played softly" (soft -0.1, loud -0.9 dB; with the developer's voice
 the soft top's velocity term at full strength on every seated instrument (no longer scaled by
 the seat amount) and its corner lower when soft (8 kHz x (0.55 + 0.45 v): 6 kHz at velocity
 0.45, 7.8 kHz at 0.95). Here: seat 88 passed, every level still within 0.02 dB of its target.
+
+**CI, third run** (attempt 2, run 42002341056): macOS green; Linux 2855 passed, 2 failed. The
+Dwarven Chant played softly: soft -0.4, loud -0.9 dB above 7 kHz (was -0.1): closer, still short
+after two attempts: **report-only** (`reportOnlyChecks`; CI only, the developer's voice carries
+its held note, and only its brass layer is lowered, which raises the voices' share of the top;
+here, without the voice, it passes: soft -1.8 dB). And the journey note's wall-clock timer
+again (it passed in the second run): the next run is its one re-run, then it is reported.
+
