@@ -469,6 +469,9 @@ void testMixInstrument(Suite& s) {
         for (int i : { 6, 9, 4, 32 }) {
             const auto take = [&](bool classic, float velocity) {
                 auto in = std::make_unique<Inst>(i, classic, false);
+                // Session 14: the brass is deliberately ~2.5 dB lower in sound 14 (the seat
+                // group checks that); Session 11's design against the classic at sound 13.
+                if (!classic) in->h.p->setSoundGeneration(dc::inst::SoundRealBrass);
                 in->h.note(0.1, 1.3, 60, velocity);
                 in->h.render(1.5);
                 return in;
