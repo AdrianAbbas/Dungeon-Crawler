@@ -456,7 +456,10 @@ CaptureSend captureOf(int index) noexcept;
 // and the factory presets play the latest.
 // 13 (Session 13): the brass plays the recorded horn, trumpet, trombone and tuba (when the
 // samples are in the build; their synthesis otherwise), everything else as in 12.
-enum Sound : int { SoundClassic = 10, SoundMix = 11, SoundHorns = 12, SoundRealBrass = 13, SoundLatest = SoundRealBrass };
+// 14 (Session 14): the brass sits in the world (about 2.5 dB lower, a little less Punch, the
+// place's space on its sustain, tape warmth, a soft top, a little width, darker played
+// softly) and the War Drums about 2.5 dB lower; everything else as in 13.
+enum Sound : int { SoundClassic = 10, SoundMix = 11, SoundHorns = 12, SoundRealBrass = 13, SoundSeated = 14, SoundLatest = SoundSeated };
 // The instrument's reverb (and its pre-delay and duck under the hit) in a song.
 // `makeupDb`: the level the drier, ducked space takes away from the instrument in its place,
 // given back (measured: the same phrase in its place as loud, against its dry self, as in
@@ -487,6 +490,22 @@ float attackEdge(int index, int sound = SoundLatest) noexcept;
 float punchVelocityScale(int index, float velocity, int sound = SoundLatest) noexcept;
 // Session 12: the hit clipper's curve (identity below -5 dBFS, never above -0.5 dBFS).
 float hitClipShape(float x) noexcept;
+// Session 14 (sound 14): how much lower an instrument sits by default (dB on the whole
+// instrument: the horn, the fanfare, the doom brass, the War Drums), and on its brass layer
+// only (the Dwarven Chant's low brass, the Hoard Gong's growl); 0 before sound 14.
+float seatLevelDb(int index, int sound = SoundLatest) noexcept;
+float seatLayerDb(int index, int sound = SoundLatest) noexcept;
+// Session 14: the brass's baseline processing (0 none, 1 the brass instruments): the soft
+// top (a gentle high shelf above ~7 kHz, deeper played softly), tape warmth, a little width.
+float seatAmount(int index, int sound = SoundLatest) noexcept;
+// The seated brass's make-up in its place (dB, on top of sound 13's; in mixFit). Calibration
+// only (tests: `--seat-calibrate`): replaces an instrument's level offset and make-up; NaN
+// restores the measured ones.
+float seatMakeupDb(int index) noexcept;
+void overrideSeatDb(int index, float levelDb, float makeupDb) noexcept;
+// Session 14: the tape warmth's curve (gentle: under 0.1 dB at the held level, about 1 dB
+// off a hit near full scale).
+float seatWarmth(float x) noexcept;
 
 struct Voice {
     std::array<Layer, 4> layer;
@@ -517,6 +536,9 @@ struct Voice {
     d::Svf edge;
     float edgeGain = 0, edgeDecay = 0;
     bool hitClip = false;   // a sound-12 horn: the synth's hit clipper engages while it sounds
+    // Session 14, the brass seated: its amount (0 = none), the soft top (a one-pole low-pass
+    // per side; the shelf takes `shelfDepth` of what lies above it) and the warmth.
+    float seat = 0, shelfCoef = 0, shelfDepth = 0, shelfL = 0, shelfR = 0;
     bool active() const { return on; }
 };
 
@@ -589,6 +611,12 @@ private:
     // (louder for the same peak) instead of meeting the output limiter, which would pull
     // it down and pump back. Below the knee (the held notes) nothing changes.
     float clipMix = 0, clipTarget = 0;
+    // Session 14: the brass's width (an ensemble of the seated voices' mid, delayed 8-12 ms and
+    // slowly moving, added to the side only: the mono sum is unchanged).
+    static constexpr int widthSize = 4096;   // 12 ms at up to 192 kHz, and room
+    std::array<float, widthSize> widthLine {};
+    int widthPos = 0, widthActive = 0;   // widthActive: samples the line still has to empty
+    float widthPhase = 0;
     double tempo = 120;
     int designNow = 0, counter = 0, orderCounter = 0;
     uint64_t noteCount = 0;

@@ -795,6 +795,23 @@ float DungeonCrawlerProcessor::punchFromDb(float db) const noexcept {
     return 1.0f + (db - own) / juce::jmax(1.0e-4f, most - own);
 }
 
+void DungeonCrawlerProcessor::seatSession(int from, int to) {
+    const int index = instrumentIndex();
+    if (auto* level = parameters.getParameter(dc::ids::instLevel)) {
+        const float db = level->convertFrom0to1(level->getValue()), offset = dc::inst::seatLevelDb(index, to) - dc::inst::seatLevelDb(index, from);
+        if (std::abs(db) > 1.0e-4f && offset != 0.0f) level->setValueNotifyingHost(level->convertTo0to1(juce::jlimit(-24.0f, 12.0f, db - offset)));
+    }
+    if (auto* punch = parameters.getParameter(dc::ids::instPunch)) {
+        const float control = punch->convertFrom0to1(punch->getValue());
+        if (std::abs(control - 1.0f) > 1.0e-4f && dc::inst::designPunchDb(index, from) != dc::inst::designPunchDb(index, to)) {
+            const float db = dc::inst::punchDb(index, control, from);
+            const float own = dc::inst::designPunchDb(index, to), most = dc::inst::punchMaxDb(index, to);
+            const float kept = own < 1.0e-4f ? (db > 0.0f ? 1.0f + db / most : 0.0f) : db <= own ? db / own : 1.0f + (db - own) / juce::jmax(1.0e-4f, most - own);
+            punch->setValueNotifyingHost(punch->convertTo0to1(juce::jlimit(0.0f, 2.0f, kept)));
+        }
+    }
+}
+
 juce::AudioProcessorEditor* DungeonCrawlerProcessor::createEditor() { return new DungeonCrawlerEditor(*this); }
 
 void DungeonCrawlerProcessor::getStateInformation(juce::MemoryBlock& data) {
@@ -864,8 +881,21 @@ void DungeonCrawlerProcessor::setStateInformation(const void* data, int size) {
     if (incoming.hasProperty("presetName")) presetName = incoming.getProperty("presetName").toString();
     // Saved before Session 11 (no "sound"): the instrument as it sounded then; saved in
     // Session 11 ("sound" 11): its brass and Punch, unchanged. The FX has nothing to keep.
-    if (isInstrument()) setSoundGeneration(static_cast<int>(incoming.getProperty("sound", int(dc::inst::SoundClassic))));
-    else soundGeneration.store(dc::inst::SoundLatest);
+    if (isInstrument()) {
+        const int saved = static_cast<int>(incoming.getProperty("sound", int(dc::inst::SoundClassic)));
+        setSoundGeneration(saved);
+        // Session 14: a session saved with sound 13 (the recorded brass) opens with 14 (the
+        // brass and the War Drums seated). Where its Level and Punch were left at their
+        // defaults it gets the new defaults (lower); where they were set, they are kept as
+        // they were heard (the Level raised by what the new default takes away, the Punch at
+        // the same dB on the hit).
+        if (saved == dc::inst::SoundRealBrass) {
+            setSoundGeneration(dc::inst::SoundSeated);
+            seatSession(dc::inst::SoundRealBrass, dc::inst::SoundSeated);
+        }
+    } else {
+        soundGeneration.store(dc::inst::SoundLatest);
+    }
     // The window as it was left (Session 9), when the state has it; a preset never has it.
     if (const auto w = incoming.getChildWithName("EditorView"); w.isValid()) {
         updateViewState([&w](ViewState& v) {

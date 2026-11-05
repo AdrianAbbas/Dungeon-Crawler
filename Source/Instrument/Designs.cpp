@@ -773,7 +773,7 @@ void dragonsHoard(Voice& v, const Note& n) {
         // Session 13: a recorded trombone and tuba (an octave below) growling out of it,
         // their sustains swelling in after the strike (no staccato: it rises, it does not
         // hit), pushed hard; the synthesis under them for weight.
-        if (auto* b = realBrass(v.layer[2], n, 1.2f * growl * dbToGainTrim(21))) {
+        if (auto* b = realBrass(v.layer[2], n, 1.2f * growl * dbToGainTrim(21) * d::dbToGain(seatLayerDb(21, n.sound)))) {
             addBrass(*b, "trombone", 0.0f, 11.0f, 0.9f, -0.2f);
             addBrass(*b, "tuba", -12.0f, 0.0f, 0.7f, 0.2f, 15.0f);
             // A blat on the strike, then the held brass swelling in over 120 ms.
@@ -1041,7 +1041,7 @@ void frozenPeak(Voice& v, const Note& n) {
 // Session 13: the Dwarven Hall's low brass recorded: a tuba and a trombone an octave below
 // the chant (the trombone a little apart), the synthesis under them for weight.
 void dwarvenBrass(Voice& v, const Note& n) {
-    if (auto* b = realBrass(v.layer[2], n, 0.7f * sig(n) * 2.0f * dbToGainTrim(32))) {
+    if (auto* b = realBrass(v.layer[2], n, 0.7f * sig(n) * 2.0f * dbToGainTrim(32) * d::dbToGain(seatLayerDb(32, n.sound)))) {
         addBrass(*b, "tuba", 0.0f, 0.0f, 1.0f, -0.1f);
         addBrass(*b, "trombone", 0.0f, 7.0f, 0.55f, 0.15f, 8.0f);
         b->stacLevel = 1.0f;
@@ -1423,12 +1423,48 @@ Role roleOf(int index) noexcept {
 }
 }
 
+// Session 14: the seated brass's make-up in its place, on top of sound 13's (measured by
+// `--seat-calibrate`: the horn phrase in its place against dry changes as it does at 13).
+namespace {
+struct SeatOverride { float level = std::numeric_limits<float>::quiet_NaN(), makeup = std::numeric_limits<float>::quiet_NaN(); };
+std::array<SeatOverride, instrumentCount>& seatOverrides() {
+    static std::array<SeatOverride, instrumentCount> o {};
+    return o;
+}
+}
+void overrideSeatDb(int index, float levelDb, float makeupDb) noexcept {
+    if (index >= 0 && index < instrumentCount) seatOverrides()[std::size_t(index)] = { levelDb, makeupDb };
+}
+float seatMakeupDb(int index) noexcept {
+    if (index >= 0 && index < instrumentCount && !std::isnan(seatOverrides()[std::size_t(index)].makeup)) return seatOverrides()[std::size_t(index)].makeup;
+    switch (index) {
+        case 4: return 0.79f;    // Doom Brass & Choir
+        case 6: return 1.69f;    // Brass Fanfare
+        case 9: return 2.27f;    // Heroic Horn
+        case 32: return 1.16f;   // Dwarven Chant
+        default: return 0.0f;
+    }
+}
+
 MixFit mixFit(int index, int sound) noexcept {
     // The Weary Guitar's Tavern is a small, nearly dry room: nothing to take back there.
     if (sound < SoundMix || index == 23) return {};
     // Session 13: the recorded brass loses a little more to its drier, ducked place than the
     // synthesis did (its hit is shorter, its held note darker): measured with the melody,
     // in its place against dry, sound 13 against 12, given back.
+    // Session 14: the brass seated in its place: a touch more of the place's space on the
+    // held note (more reverb, still ducked under the hit, the pre-delay at 50 ms so the
+    // first ~50 ms stay dry), its make-up measured again (the phrase in its place against
+    // dry as in sound 13). A harder duck was tried first: it ducked the held note too.
+    if (sound >= SoundSeated && (roleOf(index) == Role::Brass || roleOf(index) == Role::Chant)) {
+        auto fit = mixFit(index, SoundRealBrass);
+        const bool chant = roleOf(index) == Role::Chant;
+        fit.reverb = chant ? 0.9f : 0.8f;   // sound 13: 0.75 / 0.5; the duck as it was
+        fit.echoes = chant ? 0.9f : 0.75f;   // sound 13: 0.85 / 0.65
+        fit.preDelayMs = 50.0f;
+        fit.makeupDb += seatMakeupDb(index);
+        return fit;
+    }
     if (designUsesRealBrass(index, sound)) {
         auto fit = mixFit(index, SoundHorns);
         fit.makeupDb += index == 6 ? 1.1f : index == 4 ? 3.1f : index == 32 ? 0.7f : 0.0f;
@@ -1461,12 +1497,17 @@ float designPunchDb(int index, int sound) noexcept {
         // The Final Boss Lair's doom brass under its choir stab and piano: more (18 dB; with
         // the recorded choir its hit grew only 3.9 dB at 17, CI); the
         // Great Hall's fanfare, already bright and hot, +10 (the instruments' level check).
-        case Role::Brass: return horns ? (index == 4 ? 18.0f : index == 6 ? 10.0f : 12.0f) : 9.0f;
+        // Session 14: a little lower again, so the brass sits with the others (the shape of
+        // its fall kept): the horn 10.5, the doom brass 16, the fanfare 9 dB.
+        case Role::Brass:
+            if (sound >= SoundSeated) return index == 4 ? 16.0f : index == 6 ? 9.0f : 10.5f;
+            return horns ? (index == 4 ? 18.0f : index == 6 ? 10.0f : 12.0f) : 9.0f;
         // The War Drums' recorded djembes change velocity layer as they get harder; a large
         // boost on the hard slap's sharp transient made that step jump (CI: 8.4 dB at 7 dB of
         // Punch, 6.8 at 3.5; the limit is 6.5): 2 dB.
-        case Role::Drums: return index == 30 ? 2.0f : 4.0f;
-        case Role::Chant: return horns ? 7.0f : 4.0f;   // its low brass
+        // Session 14: the War Drums a little less (1.5 dB), with their level.
+        case Role::Drums: return index == 30 ? (sound >= SoundSeated ? 1.5f : 2.0f) : 4.0f;
+        case Role::Chant: return sound >= SoundSeated ? 6.0f : horns ? 7.0f : 4.0f;   // its low brass
         case Role::Pluck: return 2.0f;
         case Role::Strings: return index == 0 ? 2.0f : 0.0f;   // the pizzicato is a pluck
         default: return 0.0f;
@@ -1482,6 +1523,33 @@ float punchDb(int index, float punch, int sound) noexcept {
     const float own = designPunchDb(index, sound), most = punchMaxDb(index, sound);
     punch = std::clamp(std::isfinite(punch) ? punch : 1.0f, 0.0f, 2.0f);
     return std::clamp(punch <= 1.0f ? own * punch : own + (punch - 1.0f) * (most - own), 0.0f, most);
+}
+
+// Session 14. The level offsets (dB) are measured against sound 13 with the instruments'
+// level measure (the dry melody): the brass and the War Drums about 2.5 dB lower, the soft
+// top and the warmth included (`--seat-calibrate`).
+float seatLevelDb(int index, int sound) noexcept {
+    if (sound < SoundSeated) return 0.0f;
+    if (index >= 0 && index < instrumentCount && !std::isnan(seatOverrides()[std::size_t(index)].level)) return seatOverrides()[std::size_t(index)].level;
+    switch (index) {
+        case 4: return -1.63f;   // Doom Brass & Choir
+        case 6: return -1.92f;   // Brass Fanfare
+        case 9: return -2.16f;   // Heroic Horn
+        case 30: return -2.31f;  // War Drums
+        default: return 0.0f;
+    }
+}
+float seatLayerDb(int index, int sound) noexcept {
+    if (sound < SoundSeated) return 0.0f;
+    return index == 32 || index == 21 ? -2.5f : 0.0f;   // the Dwarven Chant's low brass, the Hoard Gong's growl
+}
+float seatAmount(int index, int sound) noexcept {
+    if (sound < SoundSeated) return 0.0f;
+    switch (roleOf(index)) {
+        case Role::Brass: return 1.0f;
+        case Role::Chant: return 0.6f;          // the voices are in the same voice: less
+        default: return index == 21 ? 0.5f : 0.0f;   // the Hoard Gong's strike and growl
+    }
 }
 
 bool brassPresence(int index, int sound) noexcept { return sound >= SoundMix && roleOf(index) == Role::Brass; }

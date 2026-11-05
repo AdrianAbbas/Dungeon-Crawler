@@ -5,7 +5,7 @@
 # Standard), so they also run alone, after the shards: with the seventh shard
 # (instruments, Direction Update 3) they failed under contention on the 4-core runner.
 # Together the shards cover every test group and every location (9-recordings: Session 8;
-# 10-mix: Session 11; 11-brass: Session 12; 12-realbrass: Session 13).
+# 10-mix: Session 11; 11-brass: Session 12; 12-realbrass: Session 13; 13-seat: Session 14).
 # Usage: scripts/run-tests-parallel.sh path/to/DungeonCrawlerTests [log directory]
 set -u
 tests="${1:?the DungeonCrawlerTests binary}"
@@ -29,6 +29,8 @@ wait
 # shard it slowed the others enough that the navigation group's journey notice (a 2.5 s
 # wall-clock timer) had gone before its check read it.
 "$tests" --only realbrass > "$logs/12-realbrass.txt" 2>&1
+# Session 14: the brass and the War Drums seated (alone too, for the same reason).
+"$tests" --only seat > "$logs/13-seat.txt" 2>&1
 "$tests" --only editor,workflow > "$logs/8-timed.txt" 2>&1
 "$tests" --only cpu > "$logs/4-cpu.txt" 2>&1
 

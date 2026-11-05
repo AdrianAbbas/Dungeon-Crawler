@@ -235,6 +235,22 @@ instrument's bundle (with the licence). A build without them plays the Session 1
 sample for sample. Projects saved before this version keep their sound (sound 12: the
 synthesised horns); new instances, Init and the factory presets play the recorded brass.
 
+**Brass and war drums seated (Session 14)**: the brass sits in the world with the other
+instruments instead of in front of them, its hit still landing. Every brass instrument (the
+Tower Top horn, the Great Hall fanfare, the Final Boss Lair's doom brass, the Dwarven Hall's
+low brass, the Hoard Gong's growl) is about 2.5 dB lower by default (the chant and the gong:
+their brass layer) with a little less Punch (horn +10.5 dB, fanfare +9, doom brass +16, the
+chant +6; the same fall after the crack), and gets the same baseline treatment as the
+others: a touch more of its place's reverb and echoes on the held note (the reverb still
+starts 50 ms after the hit and dips under it), gentle tape warmth (the hit rounded, the held
+note untouched), a soft top (a gentle high shelf above about 7 kHz, deeper and lower played
+softly: darker and further away when quiet) and a little ensemble width (mono-safe). The
+**War Drums** (Mountain Pass) are about 2.5 dB lower too (Punch +1.5 dB). Everything else
+plays exactly as before. Projects saved with the Session 13 version open with this sound:
+where Level and Punch were left at their defaults they get the new defaults; where they were
+set, they are kept as they were heard (the Level raised by what the new default takes away,
+Punch at the same dB on the hit). Older projects (sound 12 and before) are unchanged.
+
 ## Search (both plug-ins)
 
 The magnifier at the top right of the window (or **Cmd+F**) opens the search over the
@@ -343,6 +359,7 @@ build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --calibrate-inst
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-instruments build/instruments   # one melody on every instrument
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-recordings build/recordings     # the instruments with the new recordings; the FX's voice places before/after
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-realbrass build/realbrass       # every brass instrument before / after the recorded brass, dry and in its place
+build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-seat build/seat               # the brass and the war drums before / after Session 14, alone and in a short mix
 ```
 
 The recorded brass (Session 13, CC0) for a local build:

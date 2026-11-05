@@ -2633,6 +2633,7 @@ int qaDebug(int la, int ka, int lb, int kb) {
 #include "MixTests.inc"
 #include "BrassTests.inc"
 #include "RealBrassTests.inc"
+#include "SeatTests.inc"
 
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -2671,6 +2672,9 @@ int main(int argc, char** argv) {
         else if (arg == "--realbrass-calibrate") return realBrassCalibrate();
         else if (arg == "--realbrass-dump" && i + 2 < argc) return realBrassDump(juce::String(argv[i + 1]).getIntValue(), juce::String(argv[i + 2]).getDoubleValue());
         else if (arg == "--listen-realbrass" && i + 1 < argc) return listenRealBrass(argv[i + 1]);
+        else if (arg == "--seat-report") return seatReport();                                         // Session 14
+        else if (arg == "--seat-calibrate") return seatCalibrate();
+        else if (arg == "--listen-seat" && i + 1 < argc) return listenSeat(argv[i + 1]);
         else if (arg == "--render" && i + 2 < argc)
             return renderToFile(argv[i + 1], juce::String(argv[i + 2]).getIntValue(), i + 3 < argc ? juce::String(argv[i + 3]).getDoubleValue() : 8.0);
     }
@@ -2708,6 +2712,7 @@ int main(int argc, char** argv) {
     if (run("mix")) testMix(s);                 // Session 11
     if (run("brass")) testBrass(s);             // Session 12
     if (run("realbrass")) testRealBrass(s);     // Session 13
+    if (run("seat")) testSeat(s);               // Session 14
     if (only.contains("qa")) testQa(s);   // long (130 journeys): run explicitly
     if (only.contains("cpu")) { testCpu(s); testInstrumentCpu(s); }   // report only: run explicitly
     std::cout << "\n" << s.passed << " passed, " << s.failed << " failed" << std::endl;

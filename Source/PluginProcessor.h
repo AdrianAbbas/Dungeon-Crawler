@@ -210,6 +210,10 @@ public:
     bool usesClassicSound() const noexcept { return soundGeneration.load() < dc::inst::SoundMix; }
     void setSoundGeneration(int g) noexcept { soundGeneration.store(juce::jlimit(int(dc::inst::SoundClassic), int(dc::inst::SoundLatest), g)); }
     int soundGenerationUsed() const noexcept { return soundGeneration.load(); }
+    // Session 14: a session moved from one sound to the next keeps the Level and Punch it
+    // set (as heard: the same level, the same dB on the hit); left at their defaults, they
+    // stay there (the new sound's defaults).
+    void seatSession(int fromSound, int toSound);
     // The Punch control (0..2) as dB on the hit of the instrument shown, and back (its text).
     float punchShownDb(float control) const noexcept;
     float punchFromDb(float db) const noexcept;

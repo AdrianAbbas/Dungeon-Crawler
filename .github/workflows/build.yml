@@ -218,6 +218,14 @@ jobs:
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-realbrass build/test-logs/realbrass
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --realbrass-report > build/test-logs/realbrass/realbrass-report.txt || true
           cp "${{ runner.temp }}/samples.brass.log" build/test-logs/realbrass/brass-prep.txt || true
+      # Session 14: the brass (Tower Top horn, Great Hall fanfare, Final Boss Lair doom brass,
+      # Dwarven Hall low brass, Hoard Gong growl) and the War Drums before (sound 13) and after
+      # (sound 14, seated), alone dry and in its place, and a short mix with choir and strings.
+      - name: Listening renders (brass and war drums seated, before and after, WAV)
+        if: always()
+        run: |
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-seat build/test-logs/seat
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --seat-report > build/test-logs/seat/seat-report.txt || true
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4

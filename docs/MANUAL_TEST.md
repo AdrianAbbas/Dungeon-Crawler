@@ -454,3 +454,21 @@ validated.
 - [ ] A project saved with the Session 12 version: the synthesised horns exactly as before.
 - [ ] Listen: test-logs `realbrass/` (each instrument `-dry-1-before` / `-dry-2-after`, then
       `-in-its-place-`), and `realbrass-report.txt` for the numbers.
+
+## Session 14: brass and war drums seated
+
+- [ ] The six-part test piece (choir, low strings, brass, melody, war drums, drone) with new
+      instances: does the brass sit in the world now (not in front), and does its hit still
+      land? Is it still clear, or now too soft or dull? The war drums: in balance?
+- [ ] Each brass instrument (Heroic Horn, Brass Fanfare, Doom Brass & Choir, Dwarven Chant with
+      Brass up, Hoard Gong struck hard): the attack's first moment dry, a little of the place
+      blooming on the held note; warmer and softer at the top; a little wider (still fine in
+      mono).
+- [ ] Played softly: darker and a little further away; played hard: the crack is there.
+- [ ] A project saved with the Session 13 version, Level and Punch untouched: opens a little
+      quieter (the new defaults). One with Level or Punch changed: sounds as loud and hits as
+      hard as before.
+- [ ] Loud chords, Punch 200 %, Level +12 dB: nothing clips.
+- [ ] Listen: test-logs `seat/` (each instrument `-dry-1-before` / `-dry-2-after`, then
+      `-in-its-place-`; `mix-choir-strings-brass-drums-1-before` / `-2-after`), and
+      `seat-report.txt` for the numbers.

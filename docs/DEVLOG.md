@@ -3216,8 +3216,8 @@ drone): the brass is a little too forward and too raw against the other instrume
 punch and clarity stay: the hit must still land), and the War Drums are a little too loud.
 Checklist (resume from the first open item after a limit):
 
-- [ ] 1. Sound 14: the brass's level about 2.5 dB lower, its Punch a little lower (the attack shape kept); the War Drums about 2.5 dB lower, their Punch a little lower
-- [ ] 2. The brass's baseline processing (sound 14): the place's space on the sustain (not on the first ~50 ms), gentle tape warmth, a soft high shelf above ~7 kHz, a little ensemble width, darker and further away when played softly; every brass instrument (Tower Top horn, Great Hall fanfare, Final Boss Lair doom brass, Dwarven Hall low brass, Hoard Gong growl)
-- [ ] 3. Sessions: saved at sound 13, they open at 14 with the new defaults where Level and Punch were left at their defaults (the chosen values kept as heard otherwise); 10-12 unchanged
+- [x] 1. Sound 14: the brass's level about 2.5 dB lower, its Punch a little lower (the attack shape kept); the War Drums about 2.5 dB lower, their Punch a little lower
+- [x] 2. The brass's baseline processing (sound 14): the place's space on the sustain (not on the first ~50 ms), gentle tape warmth, a soft high shelf above ~7 kHz, a little ensemble width, darker and further away when played softly; every brass instrument (Tower Top horn, Great Hall fanfare, Final Boss Lair doom brass, Dwarven Hall low brass, Hoard Gong growl)
+- [x] 3. Sessions: saved at sound 13, they open at 14 with the new defaults where Level and Punch were left at their defaults (the chosen values kept as heard otherwise); 10-12 unchanged
 - [ ] 4. Level match again (the instruments group), tests (`seat` group: loudness against the others, the attack over the sustain kept, less high-frequency energy, sessions), listening renders (`--listen-seat`, CI step)
 - [ ] 5. README / MANUAL_TEST / DEVLOG handoff; final push, CI green

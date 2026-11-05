@@ -525,7 +525,7 @@ void testMixInstrument(Suite& s) {
         const double stepNone = maxStep(none.outL, none.outR, none.idx(0.1), none.idx(0.4)) / std::max(1.0e-9, none.peak(0.3, 0.6));
         const double stepFull = maxStep(full.outL, full.outR, full.idx(0.1), full.idx(0.4)) / std::max(1.0e-9, full.peak(0.3, 0.6));
         s.check(stepFull < stepNone * 4.5 + 1.0e-4, "no click: the boost glides (its steps no larger than the louder hit's own)", fmt(stepNone, 4) + " / " + fmt(stepFull, 4));
-        s.check(dc::inst::punchDb(6, 1.0f) >= 8.0f && dc::inst::punchDb(30, 1.0f) >= 2.0f && dc::inst::punchDb(10, 1.0f) == 0.0f && dc::inst::punchDb(10, 2.0f) == 12.0f
+        s.check(dc::inst::punchDb(6, 1.0f) >= 8.0f && dc::inst::punchDb(30, 1.0f) >= 1.5f && dc::inst::punchDb(10, 1.0f) == 0.0f && dc::inst::punchDb(10, 2.0f) == 12.0f
                     && dc::inst::punchDb(6, 0.0f) == 0.0f,
                 "Punch 100 %: high on the brass, some on the drums, none on the choir; 0 % none; 200 % +12 dB anywhere");
     }

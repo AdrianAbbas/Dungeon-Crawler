@@ -153,7 +153,10 @@ void testBrassHit(Suite& s) {
     {
         // Punch: the brass's own is higher, its range larger; the others as before.
         using namespace dc::inst;
-        s.check(designPunchDb(9) >= 12.0f && designPunchDb(4) >= 15.0f && designPunchDb(6) > designPunchDb(6, SoundMix) && designPunchDb(32) > designPunchDb(32, SoundMix),
+        // Session 14: sound 14 lowers these a little (the seat group); the Session 12 values
+        // checked at sound 13.
+        constexpr int s13 = SoundRealBrass;
+        s.check(designPunchDb(9, s13) >= 12.0f && designPunchDb(4, s13) >= 15.0f && designPunchDb(6, s13) > designPunchDb(6, SoundMix) && designPunchDb(32, s13) > designPunchDb(32, SoundMix),
                 "Punch 100 %: the brass's own higher (horn +12, doom +18, fanfare +10 dB; Session 11: +9), the Dwarven Chant's more");
         s.check(punchDb(6, 2.0f) == 18.0f && punchDb(10, 2.0f) == 12.0f && punchDb(30, 2.0f) == 12.0f && punchDb(6, 0.0f) == 0.0f,
                 "Punch 200 %: +18 dB on the brass, +12 dB on the others; 0 % none");
@@ -169,7 +172,7 @@ void testBrassPlace(Suite& s) {
     s.section("brass: in its place the dry hit lands first");
     using namespace dc::inst;
     for (int i : { 9, 6, 4 }) {
-        const auto now = mixFit(i), then = mixFit(i, SoundMix);
+        const auto now = mixFit(i, SoundRealBrass), then = mixFit(i, SoundMix);   // Session 14's space: the seat group
         s.check(now.reverb < then.reverb && now.preDelayMs > then.preDelayMs && now.duck > 0.2f,
                 std::string(design(i).name) + ": less reverb, a later pre-delay, ducked under the hit",
                 fmt(then.reverb) + "/" + fmt(then.preDelayMs, 0) + " ms -> " + fmt(now.reverb) + "/" + fmt(now.preDelayMs, 0) + " ms, duck " + fmt(now.duck));
@@ -312,8 +315,9 @@ void testBrassPunchUi(Suite& s) {
     auto& time = panel->sliderForTest(int(P::punchTimeSlot));
     s.check(panel->macroLabel(int(P::punchSlot)) == "Punch" && panel->macroLabel(int(P::punchTimeSlot)) == "Punch Time", "labelled Punch and Punch Time",
             (panel->macroLabel(int(P::punchSlot)) + " / " + panel->macroLabel(int(P::punchTimeSlot))).toStdString());
-    s.check(punch.getTextFromValue(punch.getValue()) == "+12.0 dB" && time.getTextFromValue(time.getValue()) == "120 ms",
-            "their readouts: the hit in dB for the instrument (the horn's +12.0 dB) and the time in ms",
+    // Session 14: the horn's own Punch is +10.5 dB (sound 14).
+    s.check(punch.getTextFromValue(punch.getValue()) == "+10.5 dB" && time.getTextFromValue(time.getValue()) == "120 ms",
+            "their readouts: the hit in dB for the instrument (the horn's +10.5 dB) and the time in ms",
             (punch.getTextFromValue(punch.getValue()) + " / " + time.getTextFromValue(time.getValue())).toStdString());
     punch.setValue(0.0, juce::sendNotificationSync);
     const auto off = punch.getTextFromValue(punch.getValue());
@@ -324,7 +328,7 @@ void testBrassPunchUi(Suite& s) {
     s.check(punch.isTextBoxEditable() && time.isTextBoxEditable(), "their readouts can be typed into");
     punch.setValue(punch.getValueFromText("+6 dB"), juce::sendNotificationSync);
     const float typed = w.p->parameters.getRawParameterValue(dc::ids::instPunch)->load();
-    s.check(std::abs(typed - 0.5f) < 0.01f, "typing +6 dB sets half the horn's own Punch (50 %)", fmt(typed, 3));
+    s.check(std::abs(typed - 6.0f / 10.5f) < 0.01f, "typing +6 dB sets that share of the horn's own Punch (57 % of +10.5 dB)", fmt(typed, 3));
     // Double-click: the default.
     punch.setValue(punch.getDoubleClickReturnValue(), juce::sendNotificationSync);
     s.check(std::abs(w.p->parameters.getRawParameterValue(dc::ids::instPunch)->load() - 1.0f) < 1.0e-4f && punch.isDoubleClickReturnEnabled(), "double-click returns it to the instrument's own");

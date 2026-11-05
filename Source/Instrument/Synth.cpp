@@ -529,6 +529,9 @@ void Synth::reset() {
         for (auto& b : v.body) b.reset();
     }
     captures.reset();
+    widthLine.fill(0);
+    widthPos = 0;
+    widthPhase = 0;
     perf = {};
     bendNow = modNow = 0;
     counter = 0;
@@ -678,7 +681,17 @@ void Synth::noteOn(int key, float velocity) noexcept {
         v.edgeDecay = std::exp(-float(d::chunk) / (0.08f * rate));
     }
     v.drive = v.baseDrive = p.drive;
-    v.gain = d::dbToGain(designTrimDb(designNow));
+    v.gain = d::dbToGain(designTrimDb(designNow) + seatLevelDb(designNow, sound));
+    // Session 14: the brass seated in the world: a soft top (a one-pole low-pass at 5.2-8 kHz,
+    // the shelf taking 0.4 of what lies above it on a loud note, up to 0.9 on a soft one:
+    // darker, further away played quietly), the warmth and the width (render).
+    v.seat = seatAmount(designNow, sound);
+    v.shelfL = v.shelfR = 0;
+    if (v.seat > 0.0f) {
+        const float corner = 8000.0f * (0.65f + 0.35f * v.velocity);
+        v.shelfCoef = 1.0f - std::exp(-2.0f * 3.14159265f * std::min(corner, 0.4f * rate) / rate);
+        v.shelfDepth = v.seat * (0.4f + 0.5f * (1.0f - v.velocity));
+    }
     // The brass's presence adds to its sustain's level as well: taken back (measured; the
     // brass sustains as loud as before, the hit is what grows).
     const float presenceTrimDb = presence ? (designNow == 6 ? -1.95f : designNow == 9 ? -1.4f : -0.2f) : 0.0f;
@@ -691,7 +704,7 @@ void Synth::noteOn(int key, float velocity) noexcept {
     if (usesRecordings(designNow)) {
         bool recorded = false;
         for (const auto& L : v.layer) recorded |= L.model == Model::Sample || L.model == Model::Vocal;
-        if (!recorded) v.gain = d::dbToGain(standInTrimDb(designNow) + presenceTrimDb);
+        if (!recorded) v.gain = d::dbToGain(standInTrimDb(designNow) + presenceTrimDb + seatLevelDb(designNow, sound));
     }
     // Velocity sets the level of the blown, bowed, sung and held sources (struck and
     // plucked models already respond to it in their own way).
@@ -853,6 +866,13 @@ void Synth::controlChunk() noexcept {
     }
 }
 
+float seatWarmth(float x) noexcept {
+    // A gentle tanh (drive 1.3, unity slope at zero): -0.15 dB at -15 dBFS, -2 dB at -3 dBFS;
+    // mixed in by half of the seat amount (render): -0.07 and -1 dB as heard.
+    constexpr float k = 1.3f;
+    return std::tanh(k * x) / k;
+}
+
 float hitClipShape(float x) noexcept {
     constexpr float knee = 0.56f, ceiling = 0.944f;   // -5 dBFS, -0.5 dBFS
     const float a = std::abs(x);
@@ -869,7 +889,7 @@ void Synth::renderBlock(float* outL, float* outR, int n) noexcept {
     for (int i = 0; i < n; ++i) {
         if (counter == 0) controlChunk();
         counter = (counter + 1) % d::chunk;
-        float sumL = 0, sumR = 0;
+        float sumL = 0, sumR = 0, widthIn = 0;
         for (auto& v : voices) {
             if (!v.on) continue;
             float l = 0, r = 0;
@@ -904,6 +924,13 @@ void Synth::renderBlock(float* outL, float* outR, int n) noexcept {
                 l = d::softClip(l * k) / k * (1.0f + v.drive);
                 r = d::softClip(r * k) / k * (1.0f + v.drive);
             }
+            // Session 14: the brass's soft top (a gentle high shelf).
+            if (v.seat > 0.0f) {
+                v.shelfL += v.shelfCoef * (l - v.shelfL);
+                v.shelfR += v.shelfCoef * (r - v.shelfR);
+                l -= v.shelfDepth * (l - v.shelfL);
+                r -= v.shelfDepth * (r - v.shelfR);
+            }
             float g = v.gain * v.wheelLevel;
             if (v.punchPeakDb > 0.0f) {
                 g *= v.punchGain;
@@ -918,9 +945,37 @@ void Synth::renderBlock(float* outL, float* outR, int n) noexcept {
                 }
                 g *= v.killGain;
             }
-            sumL += l * g;
-            sumR += r * g;
+            if (v.seat > 0.0f) {
+                // Session 14: tape warmth at the output's scale (the hit rounded a little, the
+                // held note untouched), and the voice's mid into the width.
+                float ol = l * g, orr = r * g;
+                ol += 0.5f * v.seat * (seatWarmth(ol) - ol);
+                orr += 0.5f * v.seat * (seatWarmth(orr) - orr);
+                sumL += ol;
+                sumR += orr;
+                widthIn += 0.5f * (ol + orr) * v.seat;
+            } else {
+                sumL += l * g;
+                sumR += r * g;
+            }
             if (v.capture != CaptureNone) captures.send(v.capture, i, 0.5f * (l + r) * g * v.captureSend);
+        }
+        // Session 14: the brass's width, an ensemble on the side (8-12 ms, 0.23 Hz).
+        if (widthIn != 0.0f || widthActive > 0) {
+            widthLine[std::size_t(widthPos)] = widthIn;
+            widthPhase += 0.23f / rate;
+            if (widthPhase >= 1.0f) widthPhase -= 1.0f;
+            const float delay = std::min(rate * (0.010f + 0.002f * d::sinCycles(widthPhase)), float(widthSize - 2));
+            float at = float(widthPos) - delay;
+            if (at < 0.0f) at += float(widthSize);
+            const int i0 = int(at);
+            const float frac = at - float(i0);
+            const float a = widthLine[std::size_t(i0)], b = widthLine[std::size_t((i0 + 1) % widthSize)];
+            const float side = 0.1f * (a + frac * (b - a));
+            sumL += side;
+            sumR -= side;
+            widthPos = (widthPos + 1) % widthSize;
+            widthActive = widthIn != 0.0f ? widthSize : widthActive - 1;
         }
         if (clipMix != clipTarget) clipMix = clipTarget > clipMix ? std::min(clipTarget, clipMix + 0.004f) : std::max(clipTarget, clipMix - 0.004f);
         if (clipMix > 0.0f) {
