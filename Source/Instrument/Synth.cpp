@@ -682,15 +682,15 @@ void Synth::noteOn(int key, float velocity) noexcept {
     }
     v.drive = v.baseDrive = p.drive;
     v.gain = d::dbToGain(designTrimDb(designNow) + seatLevelDb(designNow, sound));
-    // Session 14: the brass seated in the world: a soft top (a one-pole low-pass at 5.2-8 kHz,
+    // Session 14: the brass seated in the world: a soft top (a one-pole low-pass at 4.4-8 kHz,
     // the shelf taking 0.4 of what lies above it on a loud note, up to 0.9 on a soft one:
     // darker, further away played quietly), the warmth and the width (render).
     v.seat = seatAmount(designNow, sound);
     v.shelfL = v.shelfR = 0;
     if (v.seat > 0.0f) {
-        const float corner = 8000.0f * (0.65f + 0.35f * v.velocity);
+        const float corner = 8000.0f * (0.55f + 0.45f * v.velocity);
         v.shelfCoef = 1.0f - std::exp(-2.0f * 3.14159265f * std::min(corner, 0.4f * rate) / rate);
-        v.shelfDepth = 0.4f * v.seat + 0.5f * (1.0f - v.velocity) * std::sqrt(v.seat);
+        v.shelfDepth = 0.4f * v.seat + 0.5f * (1.0f - v.velocity);
     }
     // The brass's presence adds to its sustain's level as well: taken back (measured; the
     // brass sustains as loud as before, the hit is what grows).

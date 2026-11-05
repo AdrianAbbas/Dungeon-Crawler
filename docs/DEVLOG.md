@@ -3334,3 +3334,10 @@ own offset (-3.4 dB, estimated from CI: the stand-in keeps -2.31); the Dwarven C
 term scales with the square root of the seat amount (the brass unchanged, the chant and the
 gong darker when soft). Here: seat 88 passed, 0 failed. The journey check unchanged (re-run).
 
+
+**CI, second run** (`attempt 1`, run 41995689575): macOS green; Linux 2856 passed, 1 failed. The
+War Drums (-2.5 dB with the recorded offset) and the journey note pass. Left: "Dwarven Chant:
+darker still played softly" (soft -0.1, loud -0.9 dB; with the developer's voice). Attempt 2:
+the soft top's velocity term at full strength on every seated instrument (no longer scaled by
+the seat amount) and its corner lower when soft (8 kHz x (0.55 + 0.45 v): 6 kHz at velocity
+0.45, 7.8 kHz at 0.95). Here: seat 88 passed, every level still within 0.02 dB of its target.
