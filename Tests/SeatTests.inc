@@ -228,11 +228,13 @@ void testSeat(Suite& s) {
         const double sus13 = reverbShare(m.index, key, before, 0.35, 1.1), sus14 = reverbShare(m.index, key, after, 0.35, 1.1);
         s.metric(name + ": the reverb on the first 50 ms, 13 -> 14", hit14 - hit13, " dB");
         s.check(hit14 <= -25.0, name + ": the first 50 ms stay dry (what the reverb adds there 25 dB or more under the note)", fmt(hit13) + " -> " + fmt(hit14) + " dB");
-        if (m.index == 32)   // its brass is a layer under the voices, which carry most of its held note
-            s.check(sus14 >= sus13 - 0.5, name + ": as much of the place on the held note (within 0.5 dB)", fmt(sus13) + " -> " + fmt(sus14) + " dB");
-        else
+        if (m.index == 32) {   // its brass is a layer under the voices, which carry most of its held note: its space as at 13
+            const auto a = mixFit(32, before), b = mixFit(32, after);
+            s.check(a.reverb == b.reverb && a.echoes == b.echoes && a.duck == b.duck && a.preDelayMs == b.preDelayMs && a.makeupDb == b.makeupDb,
+                    name + ": its place as at sound 13 (its voices carry the held note)", fmt(sus13) + " -> " + fmt(sus14) + " dB");
+        } else
             s.check(sus14 >= sus13 + 0.75, name + ": more of the place on the held note (+0.75 dB or more)", fmt(sus13) + " -> " + fmt(sus14) + " dB");
-        s.check(mixFit(m.index, after).preDelayMs >= 50.0f, name + ": the reverb starts 50 ms or more after the hit");
+        if (m.index != 32) s.check(mixFit(m.index, after).preDelayMs >= 50.0f, name + ": the reverb starts 50 ms or more after the hit");
     }
     for (const auto& m : members) {
         if (!brassy(m.index) || m.index == 21) continue;

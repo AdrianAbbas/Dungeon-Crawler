@@ -1441,7 +1441,6 @@ float seatMakeupDb(int index) noexcept {
         case 4: return 0.79f;    // Doom Brass & Choir
         case 6: return 1.69f;    // Brass Fanfare
         case 9: return 2.27f;    // Heroic Horn
-        case 32: return 1.16f;   // Dwarven Chant
         default: return 0.0f;
     }
 }
@@ -1456,11 +1455,12 @@ MixFit mixFit(int index, int sound) noexcept {
     // held note (more reverb, still ducked under the hit, the pre-delay at 50 ms so the
     // first ~50 ms stay dry), its make-up measured again (the phrase in its place against
     // dry as in sound 13). A harder duck was tried first: it ducked the held note too.
-    if (sound >= SoundSeated && (roleOf(index) == Role::Brass || roleOf(index) == Role::Chant)) {
+    // The Dwarven Chant keeps sound 13's space: its held note is mostly its voices (CI, with
+    // the developer's voice: more reverb there gave its held note less of the place).
+    if (sound >= SoundSeated && roleOf(index) == Role::Brass) {
         auto fit = mixFit(index, SoundRealBrass);
-        const bool chant = roleOf(index) == Role::Chant;
-        fit.reverb = chant ? 0.9f : 0.8f;   // sound 13: 0.75 / 0.5; the duck as it was
-        fit.echoes = chant ? 0.9f : 0.75f;   // sound 13: 0.85 / 0.65
+        fit.reverb = 0.8f;    // sound 13: 0.5; the duck as it was
+        fit.echoes = 0.75f;   // sound 13: 0.65
         fit.preDelayMs = 50.0f;
         fit.makeupDb += seatMakeupDb(index);
         return fit;
@@ -1528,8 +1528,11 @@ float punchDb(int index, float punch, int sound) noexcept {
 // Session 14. The level offsets (dB) are measured against sound 13 with the instruments'
 // level measure (the dry melody): the brass and the War Drums about 2.5 dB lower, the soft
 // top and the warmth included (`--seat-calibrate`).
-float seatLevelDb(int index, int sound) noexcept {
+float seatLevelDb(int index, int sound, bool recorded) noexcept {
     if (sound < SoundSeated) return 0.0f;
+    // The War Drums with the developer's djembes (CI): their strokes met the output limiter at
+    // sound 13, so -2.31 dB measured only -1.4 dB there; the recorded set gets its own offset.
+    if (index == 30 && recorded && sampled("djembe-big-bass") != nullptr) return -3.4f;
     if (index >= 0 && index < instrumentCount && !std::isnan(seatOverrides()[std::size_t(index)].level)) return seatOverrides()[std::size_t(index)].level;
     switch (index) {
         case 4: return -1.63f;   // Doom Brass & Choir

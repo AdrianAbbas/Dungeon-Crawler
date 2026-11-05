@@ -3322,3 +3322,15 @@ Chant's held note is mostly its voices, so its space barely moves (-0.4 dB, repo
 Doom Brass and the Dwarven Chant use the developer's voice in CI (not here): their numbers
 there may differ. Nothing seen on a Mac yet.
 
+**CI, Session 14 first run** (`b5a1980`, run 41987836961): macOS green. Linux 2854 passed, 4
+failed. With the developer's recordings (CI only): the War Drums' melody fell only 1.4 dB
+(-2.31 dB of offset; the djembes' strokes met the output limiter at sound 13, so less of the
+offset was heard); the Dwarven Chant's held note had less of its place (11.1 -> 6.5 dB) with
+more reverb, and played softly it did not get darker (soft -0.0, loud -0.8 dB: lowering only its
+brass layer raised the voices' share of the top, which cancelled the shelf). And the journey
+note (the 2.5 s wall-clock notice, as in Session 13). Attempt 1: the recorded War Drums get their
+own offset (-3.4 dB, estimated from CI: the stand-in keeps -2.31); the Dwarven Chant keeps sound
+13's place (reverb, echoes, pre-delay, make-up; tested as unchanged); the soft top's velocity
+term scales with the square root of the seat amount (the brass unchanged, the chant and the
+gong darker when soft). Here: seat 88 passed, 0 failed. The journey check unchanged (re-run).
+

@@ -690,7 +690,7 @@ void Synth::noteOn(int key, float velocity) noexcept {
     if (v.seat > 0.0f) {
         const float corner = 8000.0f * (0.65f + 0.35f * v.velocity);
         v.shelfCoef = 1.0f - std::exp(-2.0f * 3.14159265f * std::min(corner, 0.4f * rate) / rate);
-        v.shelfDepth = v.seat * (0.4f + 0.5f * (1.0f - v.velocity));
+        v.shelfDepth = 0.4f * v.seat + 0.5f * (1.0f - v.velocity) * std::sqrt(v.seat);
     }
     // The brass's presence adds to its sustain's level as well: taken back (measured; the
     // brass sustains as loud as before, the hit is what grows).
@@ -704,7 +704,7 @@ void Synth::noteOn(int key, float velocity) noexcept {
     if (usesRecordings(designNow)) {
         bool recorded = false;
         for (const auto& L : v.layer) recorded |= L.model == Model::Sample || L.model == Model::Vocal;
-        if (!recorded) v.gain = d::dbToGain(standInTrimDb(designNow) + presenceTrimDb + seatLevelDb(designNow, sound));
+        if (!recorded) v.gain = d::dbToGain(standInTrimDb(designNow) + presenceTrimDb + seatLevelDb(designNow, sound, false));
     }
     // Velocity sets the level of the blown, bowed, sung and held sources (struck and
     // plucked models already respond to it in their own way).

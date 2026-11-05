@@ -493,7 +493,8 @@ float hitClipShape(float x) noexcept;
 // Session 14 (sound 14): how much lower an instrument sits by default (dB on the whole
 // instrument: the horn, the fanfare, the doom brass, the War Drums), and on its brass layer
 // only (the Dwarven Chant's low brass, the Hoard Gong's growl); 0 before sound 14.
-float seatLevelDb(int index, int sound = SoundLatest) noexcept;
+// `recorded`: false for a sampled instrument playing its synthesised stand-in.
+float seatLevelDb(int index, int sound = SoundLatest, bool recorded = true) noexcept;
 float seatLayerDb(int index, int sound = SoundLatest) noexcept;
 // Session 14: the brass's baseline processing (0 none, 1 the brass instruments): the soft
 // top (a gentle high shelf above ~7 kHz, deeper played softly), tape warmth, a little width.
