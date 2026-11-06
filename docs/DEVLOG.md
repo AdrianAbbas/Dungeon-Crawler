@@ -3361,7 +3361,7 @@ warmer). After the instrument, before and alongside the place's space. Push with
 after each part; the last push without, then wait for CI until green. Checklist (resume from
 the first open item after a limit):
 
-- [ ] 1. DSP: `Source/DSP/DungeonSynth` (sampler lo-fi, tape wow/flutter and hiss, saturation, tone, narrow image, ensemble chorus, the dark hall, level match); `dsAmount` / `dsEra` parameters (appended, both plug-ins); the processor chain; bit-exact at 0 %
+- [x] 1. DSP: `Source/DSP/DungeonSynth` (sampler lo-fi, tape wow/flutter and hiss, saturation, tone, narrow image, ensemble chorus, the dark hall, level match); `dsAmount` / `dsEra` parameters (appended, both plug-ins); the processor chain; bit-exact at 0 %
 - [ ] 2. UI: the roller (drawn like Effects) and the Era switch on the instrument panel and in the FX's controls; snapshots `docs/snapshots/session15/`
 - [ ] 3. Factory presets built around it (instrument and FX), search tags "dungeon synth", "lo-fi", "retro", "cassette"
 - [ ] 4. Tests (`dungeonsynth` group: null test at 0 %, roll-off / harmonics / wow-flutter / tail per Era, level, clicks, sessions, presets, places still differ), listening renders (`--listen-dungeonsynth`, CI step)

@@ -19,9 +19,11 @@
 #include "Instrument/Presets.h"
 #include "World/Search.h"
 #include "DSP/Convolver.h"
+#include "Instrument/DungeonSynthFit.h"
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_dsp/juce_dsp.h>
 #include <chrono>
+#include <cstring>
 #include <cstdlib>
 #include <functional>
 #include <iostream>
@@ -2637,6 +2639,7 @@ int qaDebug(int la, int ka, int lb, int kb) {
 #include "BrassTests.inc"
 #include "RealBrassTests.inc"
 #include "SeatTests.inc"
+#include "DungeonSynthTests.inc"
 
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -2678,6 +2681,8 @@ int main(int argc, char** argv) {
         else if (arg == "--seat-report") return seatReport();                                         // Session 14
         else if (arg == "--seat-calibrate") return seatCalibrate();
         else if (arg == "--listen-seat" && i + 1 < argc) return listenSeat(argv[i + 1]);
+        else if (arg == "--ds-hashes") return dsHashes();
+        else if (arg == "--ds-report") return dsReport();
         else if (arg == "--render" && i + 2 < argc)
             return renderToFile(argv[i + 1], juce::String(argv[i + 2]).getIntValue(), i + 3 < argc ? juce::String(argv[i + 3]).getDoubleValue() : 8.0);
     }
@@ -2716,8 +2721,9 @@ int main(int argc, char** argv) {
     if (run("brass")) testBrass(s);             // Session 12
     if (run("realbrass")) testRealBrass(s);     // Session 13
     if (run("seat")) testSeat(s);               // Session 14
+    if (run("dungeonsynth")) testDungeonSynth(s);   // Session 15
     if (only.contains("qa")) testQa(s);   // long (130 journeys): run explicitly
-    if (only.contains("cpu")) { testCpu(s); testInstrumentCpu(s); }   // report only: run explicitly
+    if (only.contains("cpu")) { testCpu(s); testInstrumentCpu(s); testDungeonSynthCpu(s); }   // report only: run explicitly
     std::cout << "\n" << s.passed << " passed, " << s.failed << " failed" << std::endl;
     return s.failed == 0 ? 0 : 1;
 }

@@ -48,8 +48,10 @@ public:
     // Once per host block, before process().
     void setControls(const Controls&) noexcept;
     // One chunk (n <= maxChunk) in place. dryL/dryR are the unprocessed input aligned
-    // with the latency (the level matcher's reference).
-    void process(float* l, float* r, int n, const float* dryL, const float* dryR) noexcept;
+    // with the latency (the level matcher's reference). `addL`/`addR` (Session 15, optional):
+    // DUNGEON SYNTH's hall, joined to the place's wet signal before the trims and the level
+    // matcher, so the place and the hall are levelled together (null: exactly as before).
+    void process(float* l, float* r, int n, const float* dryL, const float* dryR, const float* addL = nullptr, const float* addR = nullptr) noexcept;
 
     int destination() const noexcept { return place.location; }
     int destinationSub() const noexcept { return place.sub; }

@@ -538,7 +538,7 @@ void Engine::runSlot(Module& module, Slot& slot, bool enabled, float* l, float* 
     }
 }
 
-void Engine::process(float* l, float* r, int n, const float* dryL, const float* dryR) noexcept {
+void Engine::process(float* l, float* r, int n, const float* dryL, const float* dryR, const float* addL, const float* addR) noexcept {
     if (place.location < 0) { Controls c; setControls(c); }
     if (travel < 1.0f) {
         travel = std::min(1.0f, travel + static_cast<float>(n / (duration * sr)));
@@ -597,6 +597,8 @@ void Engine::process(float* l, float* r, int n, const float* dryL, const float* 
     runSlot(echoes, slots[4], echoesActive, l, r, n);
     runRooms(l, r, n, travel * travel * (3.0f - 2.0f * travel));
     if (vaultActive || vaultDry.value != 1.0f) runVaults(l, r, n, travel * travel * (3.0f - 2.0f * travel));
+    if (addL != nullptr && addR != nullptr)
+        for (int i = 0; i < n; ++i) { l[i] += addL[i]; r[i] += addR[i]; }
     if (!matching) {
         if (removedAny)
             for (int i = 0; i < n; ++i) { l[i] -= removed[0][static_cast<std::size_t>(i)]; r[i] -= removed[1][static_cast<std::size_t>(i)]; }
@@ -612,7 +614,7 @@ void Engine::process(float* l, float* r, int n, const float* dryL, const float* 
     // The matcher stays agile while travelling and for half a second after arriving.
     // At neutral nothing changes the level, so the matcher returns to unity.
     settle = travel < 1.0f ? settleSamples : std::max(0, settle - n);
-    levelMatcher.process(dryL, dryR, l, r, n, abyssActive || wetActive, settle > 0, removedAny ? removed[0].data() : nullptr,
+    levelMatcher.process(dryL, dryR, l, r, n, abyssActive || wetActive || addL != nullptr, settle > 0, removedAny ? removed[0].data() : nullptr,
                          removedAny ? removed[1].data() : nullptr);
 }
 }

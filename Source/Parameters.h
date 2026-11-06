@@ -62,12 +62,16 @@ inline constexpr const char* mixDuck = "mixDuck";
 inline constexpr const char* atmosOn = "atmosOn";
 inline constexpr const char* instPunch = "instPunch";
 inline constexpr const char* instPunchTime = "instPunchTime";
+// Session 15 (appended, both plug-ins): the DUNGEON SYNTH roller and its Era.
+inline constexpr const char* dungeonSynth = "dungeonSynth";
+inline constexpr const char* dungeonSynthEra = "dungeonSynthEra";
 }
 
 namespace dc {
 inline constexpr float effectsMax = 1.5f;   // the Effects roller's top (150 %)
 inline constexpr float mixMax = 1.5f;        // the MIX sliders' top (150 %)
 inline constexpr float mixLowCutOff = 20.0f; // Reverb Low Cut at its bottom: off
+inline constexpr const char* dungeonSynthEras = "Classic|Modern";   // Session 15
 // Travel Sync choices: Free (Travel Time in seconds) or a length in beats.
 inline constexpr std::array<double, 6> travelSyncBeats { 0, 1, 2, 4, 8, 16 };
 inline constexpr const char* travelSyncChoices = "Free|1/4|1/2|1 bar|2 bars|4 bars";
@@ -250,6 +254,14 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
                 .withStringFromValueFunction([](float v, int) { return juce::String(juce::roundToInt(v)) + " ms"; })
                 .withValueFromStringFunction([](const juce::String& t) { return t.getFloatValue(); })));
     }
+    // Session 15: DUNGEON SYNTH (both plug-ins, appended last so no existing parameter moves).
+    // 0 % (the default, and what a session saved before it existed opens at) is exactly the
+    // sound as before; 100 % the full genre sound. The Era: Classic (the cassette era) or
+    // Modern (cleaner, warmer).
+    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::dungeonSynth, 1 }, "Dungeon Synth",
+                                                           juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f, percent));
+    layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids::dungeonSynthEra, 1 }, "Dungeon Synth Era",
+                                                            juce::StringArray::fromTokens(dungeonSynthEras, "|", ""), 0));
     return layout;
 }
 }

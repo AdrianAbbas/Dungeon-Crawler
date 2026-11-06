@@ -6,6 +6,7 @@
 #include "World/Presets.h"
 #include "DSP/Atmosphere.h"
 #include "Instrument/Synth.h"
+#include "DSP/DungeonSynth.h"
 
 // Direction Update 3: one processor, two plug-ins. DUNGEON CRAWLER (the instrument: no
 // input, MIDI plays the place's instrument, which then sounds in the place) and DUNGEON
@@ -90,6 +91,9 @@ private:
     std::atomic<float>* atmosOn = nullptr;
     std::atomic<float>* instPunch = nullptr;
     std::atomic<float>* instPunchTime = nullptr;
+    // Session 15: DUNGEON SYNTH and its Era.
+    std::atomic<float>* dsAmount = nullptr;
+    std::atomic<float>* dsEra = nullptr;
 
 public:
     juce::AudioProcessorValueTreeState parameters;
@@ -141,6 +145,13 @@ public:
     void updateViewState(const std::function<void(ViewState&)>&);
     // The Effects roller (0..1.5; 1 = the place as designed).
     float effectsAmount() const noexcept;
+    // Session 15: DUNGEON SYNTH (0..1; 0 = exactly as before) and its Era (0 Classic, 1 Modern).
+    float dungeonSynthAmount() const noexcept;
+    int dungeonSynthEra() const noexcept;
+    const dc::DungeonSynth& dungeonSynthStage() const noexcept { return dungeon; }
+    // Tests: false runs the code path exactly as before Session 15 (the stage never called),
+    // for the null test against DUNGEON SYNTH at 0 %.
+    void setDungeonSynthEnabledForTest(bool on) noexcept { dungeonEnabled = on; }
     int qualityMode() const noexcept;
     // Presets: factory (the effect: favourite spots, journeys; the instrument: instrument
     // presets, instruments elsewhere, journeys) and user presets (state files).
@@ -261,6 +272,12 @@ private:
     dc::SafetyLimiter limiter;
     std::array<dc::dsp::DelayLine, 2> dryDelay;   // aligns the dry path with the engine's latency
     std::array<std::array<float, dc::maxChunk>, 2> dryAligned {}, work {};
+    // Session 15: the stage (before the dry path and the place), the input aligned for Bypass
+    // (which is always the untouched input), the stage's output and its hall's return.
+    dc::DungeonSynth dungeon;
+    bool dungeonEnabled = true;
+    std::array<dc::dsp::DelayLine, 2> rawDelay;
+    std::array<std::array<float, dc::maxChunk>, 2> rawAligned {}, staged {}, hallReturn {};
     dc::dsp::Smoothed inputGain, outputGain, wetMix, placeGain;
     dc::dsp::Ramp bypassRamp;
     // Intensity 0 is a true dry path: the output crossfades (30 ms) to the latency-aligned
