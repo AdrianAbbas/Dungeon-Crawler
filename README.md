@@ -264,8 +264,9 @@ and projects.
 - **Classic** (the 90s cassette demo: an old tape of a cheap keyboard in a huge cold
   castle): a cheap sampler (down to about 13 kHz with its aliasing grit, about 8 bits), the
   keyboard's light chorus, a big dark, grainy old-digital hall at a high wet level, cassette
-  wow (about 0.5 %, slow and drifting) and flutter, tape hiss (about -45 dBFS while it plays,
-  fading out in silence), a dark top (5.5 kHz) with a boxy middle, a nearly mono image.
+  wow (about 0.5 %, slow and drifting) and flutter, tape hiss riding under the music (about
+  -45 dBFS on bright material, gone in silence), a thin bottom, a boxy, honky middle, a dark
+  top (5.5 kHz), a nearly mono image.
 - **Modern** (warm, wide, nostalgic, polished): no crushing; heavy warm tape saturation,
   a deep, wide vintage ensemble chorus (strongest on pads, strings, choirs and organs, almost
   none on drums), a softer top (10 kHz) and low-mid warmth, a slight slow wow, and a lush,
@@ -273,7 +274,8 @@ and projects.
 
 It works on the whole sound, after the place (as a cassette records everything): the place's
 space and effects come first, so the Crypt, the Necropolis and the Dwarven Hall still sound
-different, and then all of it goes through the tape. Its hall follows **Intensity**,
+different, and then all of it goes through the tape (only the hiss goes in before the place,
+which shapes it as it shapes the music; the hall takes on the place's length and tone). Its hall follows **Intensity**,
 **Effects** (towards 0 %: the stage stays on the dry instrument, the hall goes with the
 place), the **MIX** section's Reverb and **Mix**. **Lock instrument** and **Punch** work as
 before; **Bypass** is always the untouched input. Loudness stays within about 1.5 dB as it

@@ -752,6 +752,9 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
                              * juce::jlimit(0.0f, 1.0f, finiteOr(mix->load(), 1.0f));
         const float chorus = isInstrument() ? dc::inst::dungeonSynthChorus(index) : dc::inst::dungeonSynthChorusFx;
         dungeon.setControls(dungeonSynthAmount(), dungeonSynthEra(), chorus, hallSend);
+        // The place the music is in (as it is now, travelling included): the hall takes on it.
+        const auto& f = world.frame();
+        dungeon.setPlace(f[dc::Decay], f[dc::Cutoff], juce::jlimit(0.0f, 1.0f, (f[dc::ReverbMix] + f[dc::VaultMix]) * amount));
     }
     const bool staging = dungeonEnabled && dungeon.active();
     float inPeak = 0, outPeak = 0;
@@ -778,6 +781,8 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
             l[i] = x0 * g;
             r[i] = x1 * g;
         }
+        // DUNGEON SYNTH's hiss goes in before the place (the place shapes it as it shapes the music).
+        if (staging) dungeon.processHiss(l, r, n);
         world.process(l, r, n, dryAligned[0].data(), dryAligned[1].data());
         if (isInstrument()) {
             // The instrument in its place: a measured correction per place (some spaces

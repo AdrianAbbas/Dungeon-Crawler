@@ -31,6 +31,7 @@ void DungeonSynth::prepare(double sampleRate) {
     era.setTime(0.25, sr);
     chorusAmount.setTime(0.2, sr);
     send.setTime(0.05, sr);
+    for (auto* p : { &placeLength, &placeTone, &placeSend }) p->setTime(0.3, sr);
     chorusLine.prepare(static_cast<std::size_t>(0.03 * sr) + 8);
     for (auto& w : wowLine) w.prepare(static_cast<std::size_t>(0.012 * sr) + 8);
     for (auto& d : dc) d.prepare(sr);
@@ -47,8 +48,9 @@ void DungeonSynth::prepare(double sampleRate) {
     crushRelease = dsp::timeCoefficient(1.5, sr);
     satCoefficient = dsp::timeCoefficient(0.5, sr);
     satAttack = dsp::timeCoefficient(0.005, sr);
-    gateAttack = dsp::timeCoefficient(0.03, sr);
-    gateRelease = dsp::timeCoefficient(1.2, sr);
+    gateAttack = dsp::timeCoefficient(0.05, sr);
+    trebleCoefficient = dsp::poleForHz(1000.0, sr);
+    gateRelease = dsp::timeCoefficient(0.4, sr);
     driftCoefficient = dsp::timeCoefficient(0.5, sr);
     slowCoefficient = dsp::timeCoefficient(0.3, sr);
     fastCoefficient = dsp::timeCoefficient(0.05, sr);
@@ -74,6 +76,7 @@ void DungeonSynth::reset() noexcept {
     era.snap(targetEra);
     chorusAmount.snap(targetChorus);
     send.snap(targetSend);
+    for (auto* p : { &placeLength, &placeTone, &placeSend }) p->snap(p->target == 0.0f ? 1.0f : p->target);
     for (auto& f : antiAlias) f.clear();
     for (auto& f : reconstruct) f.clear();
     held = previous = lastIn = { 0, 0 };
@@ -84,8 +87,8 @@ void DungeonSynth::reset() noexcept {
     for (auto& w : wowLine) w.clear();
     for (auto& d : dc) d.clear();
     hissLow = hissLow2 = hissHigh = { 0, 0 };
-    gate = 0;
-    for (auto* bank : { &lowCut, &top, &top2, &top3 }) for (auto& f : *bank) f.clear();
+    gate = trebleLow = hissApplied = 0;
+    for (auto* bank : { &lowCut, &lowCut2, &top, &top2, &top3 }) for (auto& f : *bank) f.clear();
     for (auto* bank : { &warmth, &honk, &shelf }) for (auto& f : *bank) { f.clear(); f.setNormalised(1, 0, 0, 1, 0, 0); }
     for (auto& h : hall) h.clear();
     for (auto& d : diffuser) d.clear();
@@ -123,6 +126,16 @@ void DungeonSynth::setControls(float a, int e, float chorus, float hallSend) noe
     if (!shaping()) { era.snap(targetEra); chorusAmount.snap(targetChorus); }
 }
 
+void DungeonSynth::setPlace(float decaySeconds, float cutoffHz, float wet) noexcept {
+    const float decay = std::isfinite(decaySeconds) ? std::clamp(decaySeconds, 0.3f, 30.0f) : 3.0f;
+    const float cutoff = std::isfinite(cutoffHz) ? std::clamp(cutoffHz, 40.0f, 20000.0f) : 12000.0f;
+    const float w = std::isfinite(wet) ? std::clamp(wet, 0.0f, 1.0f) : 0.0f;
+    placeLength.set(std::clamp(std::sqrt(decay / 3.0f), 0.6f, 1.6f));     // a long reverb: a longer hall; a small room: shorter
+    placeTone.set(std::clamp(std::sqrt(cutoff / 8000.0f), 0.35f, 1.2f));   // a dark place: a darker hall (the Crypt: a third of the tone)
+    placeSend.set(1.0f - 0.35f * w);                                       // an already wet place: a little less of it
+    if (!shaping()) { placeLength.snap(placeLength.target); placeTone.snap(placeTone.target); placeSend.snap(placeSend.target); }
+}
+
 // Everything the amount (a), the Era (e: 0 Classic .. 1 Modern) and the instrument's chorus
 // weight set. Every amount, mix and depth is 0 at a = 0 (the identity). The curves are
 // shaped so that 25 % is subtle, 50 % clearly heard and 100 % the full genre sound.
@@ -148,15 +161,17 @@ DungeonSynth::Derived DungeonSynth::derive(float a, float e, float chorus) const
     // Wow (the delay's swing, in samples: 0.45 % pitch at 0.45 Hz Classic, 0.12 % Modern) and flutter.
     d.wowDepth = static_cast<float>(a * mix(1.6e-3f, 0.55e-3f, e) * sr);
     d.flutterDepth = static_cast<float>(a * mix(30.0e-6f, 6.0e-6f, e) * sr);
-    // Hiss: about -45 dBFS at 100 % Classic (as measured after the roll-off), 12 dB less at 50 %, 24 dB less at 25 %; Modern nearly none.
-    d.hissGain = a * a * dsp::dbToGain(mix(-35.0f, -62.0f, e)) * hissNorm;   // before the roll-off, which takes some of it
-    d.lowCutMix = a;
+    // Hiss (against the music's treble, above about 1 kHz): about 25 dB under it at 100 % Classic
+    // as measured after the roll-off (-45 dBFS on a test chord with -23 dBFS of treble), 12 dB
+    // less at 50 %, 24 dB less at 25 %; Modern nearly none.
+    d.hissGain = a * a * dsp::dbToGain(mix(-19.5f, -44.0f, e)) * hissNorm;   // before the place and the roll-off, which take some of it
+    d.lowCutMix = std::min(1.0f, 4.0f * a);   // fully in by 25 %: its corner glides instead (a partial blend notches)
     d.warmthDb = a * mix(1.0f, 4.5f, e);
-    d.honkDb = a * 3.0f * c;   // Classic: the cheap keyboard's boxy middle
+    d.honkDb = std::pow(a, 1.5f) * 10.0f * c;   // Classic: the cheap keyboard's boxy, honky middle
     d.topMix = std::min(1.0f, 4.0f * a);
     d.shelfDb = -a * mix(1.0f, 4.5f, e);
-    // Classic: nearly mono (the side -20 dB at 100 %); Modern a little wider.
-    d.side = mix(1.0f - 0.9f * a, 1.0f + 0.3f * a, e);
+    // Classic: nearly mono (the side -20 dB at 100 %); Modern wider (+3.5 dB of side, the power kept).
+    d.side = mix(1.0f - 0.9f * a, 1.0f + 0.5f * a, e);
     d.hallIn = std::pow(a, 1.5f);
     d.hallWidth = mix(0.6f, 1.0f, e);
     d.grainMix = c;
@@ -167,7 +182,11 @@ void DungeonSynth::updateFilters(const Derived& d, float a, float e) noexcept {
     const double rate = d.rateStep * sr;
     for (auto& f : antiAlias) f.set(rate * mix(0.45f, 0.9f, d.aliasOpen), sr, 1.414f);
     for (auto& f : reconstruct) f.set(0.45 * rate, sr, 1.414f);
-    for (auto& f : lowCut) f.set(mix(95.0f, 30.0f, e), sr, 1.414f);
+    // The low cut's corner glides up with the amount from 20 Hz: Classic a thin bottom (fourth
+    // order, 33 / 48 / 100 Hz at 25 / 50 / 100 %), Modern only the rumble (second order, 30 Hz).
+    const double lowCorner = 20.0 * std::pow(mix(100.0f, 30.0f, e) / 20.0, std::pow(static_cast<double>(a), 0.8));
+    for (auto& f : lowCut) f.set(lowCorner, sr, 1.414f);
+    for (auto& f : lowCut2) f.set(mix(static_cast<float>(lowCorner), 10.0f, e), sr, 1.414f);
     // Front-loaded (a^0.6): 25 % about 11 kHz, 50 % about 8.5 kHz, 100 % the cassette's 5.5 kHz
     // (Classic) or Modern's softer 10 kHz.
     const double fc = 20000.0 * std::pow(mix(5500.0f, 10000.0f, e) / 20000.0, std::pow(static_cast<double>(a), 0.6));
@@ -175,7 +194,7 @@ void DungeonSynth::updateFilters(const Derived& d, float a, float e) noexcept {
     for (auto& f : top2) f.set(std::min(0.45 * sr, fc * mix(1.2f, 1.4f, e)), sr, 1.3f);
     for (auto& f : top3) f.set(std::min(0.45 * sr, fc * mix(1.1f, 1.6f, e)), sr, 1.5f);   // sixth order: nothing of the tape's top survives
     warmth[0].peaking(sr, mix(250.0f, 180.0f, e), 0.7, d.warmthDb);
-    honk[0].peaking(sr, 1400.0, 0.9, d.honkDb);
+    honk[0].peaking(sr, 1200.0, 0.8, d.honkDb);
     shelf[0].highShelf(sr, 4000.0, d.shelfDb);
     for (auto* bank : { &warmth, &honk, &shelf }) {
         auto& b = (*bank)[1];
@@ -184,15 +203,15 @@ void DungeonSynth::updateFilters(const Derived& d, float a, float e) noexcept {
     }
     // The hall: longer and darker towards the full amount; Classic static and grainy (old
     // digital), Modern slowly modulated and very long (lush).
-    const float t60 = mix(1.5f, mix(7.0f, 11.0f, e), a);   // measured broadband: about 4.5 s and 8 s
+    const float t60 = mix(1.5f, mix(7.0f, 11.0f, e), a) * placeLength.value;   // measured broadband (an average place): about 4 s and 9.7 s
     for (int i = 0; i < lines; ++i)
         hallGain[std::size_t(i)] = std::pow(10.0f, -3.0f * hallLength[std::size_t(i)] / (t60 * static_cast<float>(sr)));
     hallDampCoefficient = dsp::poleForHz(mix(4500.0f, 6000.0f, e), sr);
     hallModDepth = static_cast<float>(mix(0.3f, 12.0f, e) * sr / 48000.0);
-    hallLow.set(mix(3200.0f, 4200.0f, e), sr, 1.0f);
+    hallLow.set(mix(3200.0f, 4200.0f, e) * placeTone.value, sr, 1.0f);
     hallHigh.set(mix(220.0f, 120.0f, e), sr, 1.414f);
     hallPreDelay = static_cast<float>(mix(0.025f, 0.045f, e) * sr);
-    for (auto& f : hallDark) f.set(mix(3000.0f, 4000.0f, e), sr, 1.414f);
+    for (auto& f : hallDark) f.set(mix(3000.0f, 4000.0f, e) * placeTone.value, sr, 1.414f);
     hallOut = mix(1.23f, 0.32f, e);   // at 100 %: about -1 dB (Classic) and 0 dB (Modern) against the dry while it plays
     diffusion = mix(0.5f, 0.7f, e);
 }
@@ -247,6 +266,33 @@ float DungeonSynth::runHallMono(float in, float& outR, const Derived& d) noexcep
     return hallDark[2].low(hallDark[0].low(outL)) * hallOut;
 }
 
+// The hiss, added to the input before the place (Session 16), riding about 25 dB under the music's
+// own treble (above about 1 kHz), as a cassette's noise reduction lets it through only where the
+// music masks it: about -45 dBFS on bright material, less on dark, none in silence. Before the
+// place, its filters and rooms shape the hiss as they shape the music. (Added after the place, the
+// same bright noise lay over every place: a dark Crypt then sounded like the brighter Gates.)
+void DungeonSynth::processHiss(float* l, float* r, int n) noexcept {
+    const float g0 = hissApplied, g1 = now.hissGain;
+    hissApplied = g1;
+    if (g0 <= 0.0f && g1 <= 0.0f) { gate = trebleLow = 0; return; }
+    const float step = 1.0f / static_cast<float>(std::max(1, n));
+    for (int i = 0; i < n; ++i) {
+        const float mid = 0.5f * (l[i] + r[i]);
+        trebleLow += trebleCoefficient * (mid - trebleLow);
+        const float treble = mid - trebleLow, power = treble * treble;
+        gate += (power > gate ? gateAttack : gateRelease) * (power - gate);
+        const float gHiss = (g0 + (g1 - g0) * static_cast<float>(i + 1) * step) * std::sqrt(gate);
+        for (int ch = 0; ch < 2; ++ch) {
+            const auto k = std::size_t(ch);
+            const float w = noise.bipolar();
+            hissHigh[k] += 0.12f * (w - hissHigh[k]);
+            hissLow[k] += 0.42f * ((w - hissHigh[k]) - hissLow[k]);
+            hissLow2[k] += 0.42f * (hissLow[k] - hissLow2[k]);
+            (ch == 0 ? l : r)[i] += hissLow2[k] * gHiss;
+        }
+    }
+}
+
 void DungeonSynth::process(float* l, float* r, int n) noexcept {
     float hallPeak = 0;
     int at = 0;
@@ -256,6 +302,9 @@ void DungeonSynth::process(float* l, float* r, int n) noexcept {
         era.skip(m);
         chorusAmount.skip(m);
         send.skip(m);
+        placeLength.skip(m);
+        placeTone.skip(m);
+        placeSend.skip(m);
         bool justStopped = false;
         if (targetAmount <= 0.0f && amount.value < 1.0e-5f && amount.value != 0.0f) { amount.snap(0.0f); justStopped = true; }
         if (std::abs(era.value - targetEra) < 1.0e-5f) era.snap(targetEra);
@@ -274,9 +323,8 @@ void DungeonSynth::process(float* l, float* r, int n) noexcept {
                 satEnv = 0;
                 for (auto& w : wowLine) w.clear();
                 for (auto& dcb : dc) dcb.clear();
-                for (auto* bank : { &lowCut, &top, &top2, &top3 }) for (auto& f : *bank) f.clear();
+                for (auto* bank : { &lowCut, &lowCut2, &top, &top2, &top3 }) for (auto& f : *bank) f.clear();
                 for (auto* bank : { &warmth, &honk, &shelf }) for (auto& f : *bank) f.clear();
-                gate = 0;
                 midPower = sidePower = 0;
                 widthGain = 1;
                 refSlow = refFast = outSlow = outFast = refHold = 0;
@@ -378,13 +426,13 @@ void DungeonSynth::process(float* l, float* r, int n) noexcept {
             // The hall: a send from here, its return joins before the tape.
             {
                 float hr = 0;
-                const float hl = runHallMono(0.5f * (yl + yr) * d.hallIn, hr, d);
+                const float hl = runHallMono(0.5f * (yl + yr) * d.hallIn * placeSend.value, hr, d);
                 hallPeak = std::max(hallPeak, std::abs(hl) + std::abs(hr));
                 const float pin = 0.5f * (xl * xl + xr * xr), ph = 0.5f * (hl * hl + hr * hr);
                 hallInPower += powerCoefficient * (pin - hallInPower);   // the music's level (0.2 s), then held
                 hallInHold += (hallInPower > hallInHold ? holdAttack : holdRelease) * (hallInPower - hallInHold);
                 hallPower += powerCoefficient * (ph - hallPower);
-                const float limit = 0.5f * hallInHold;   // -3 dB
+                const float limit = 0.63f * hallInHold;   // -2 dB
                 const float wanted = hallPower > limit && hallPower > 1.0e-12f ? std::sqrt(limit / hallPower) : 1.0f;
                 hallCtl += (wanted < hallCtl ? ctlDown : ctlUp) * (wanted - hallCtl);
                 const float g = hallOnly ? sendNow : sendNow * hallCtl;
@@ -428,25 +476,9 @@ void DungeonSynth::process(float* l, float* r, int n) noexcept {
                 yl = wowLine[0].read(1.0f + std::max(0.0f, delay));
                 yr = wowLine[1].read(1.0f + std::max(0.0f, delay));
             }
-            // Hiss on the tape while the music plays (it fades out over a second of silence),
-            // before the roll-off below, which darkens it as the tape does.
-            {
-                const float wanted = std::min(1.0f, level * 50.0f);
-                gate += (wanted > gate ? gateAttack : gateRelease) * (wanted - gate);
-                if (d.hissGain > 0.0f && !hallOnly) {
-                    for (int ch = 0; ch < 2; ++ch) {
-                        const auto k = std::size_t(ch);
-                        const float w = noise.bipolar();
-                        hissHigh[k] += 0.12f * (w - hissHigh[k]);
-                        hissLow[k] += 0.42f * ((w - hissHigh[k]) - hissLow[k]);
-                        hissLow2[k] += 0.42f * (hissLow[k] - hissLow2[k]);
-                        (ch == 0 ? yl : yr) += hissLow2[k] * d.hissGain * gate;
-                    }
-                }
-            }
             // Low cut, low-mid warmth, the low-pass and the softer shelf.
-            yl += d.lowCutMix * (lowCut[0].highPass(yl) - yl);
-            yr += d.lowCutMix * (lowCut[1].highPass(yr) - yr);
+            yl += d.lowCutMix * (lowCut2[0].highPass(lowCut[0].highPass(yl)) - yl);
+            yr += d.lowCutMix * (lowCut2[1].highPass(lowCut[1].highPass(yr)) - yr);
             yl = honk[0].process(warmth[0].process(yl));
             yr = honk[1].process(warmth[1].process(yr));
             const float tl = top3[0].low(top2[0].low(top[0].low(yl))), tr = top3[1].low(top2[1].low(top[1].low(yr)));
@@ -454,7 +486,7 @@ void DungeonSynth::process(float* l, float* r, int n) noexcept {
             yr += d.topMix * (tr - yr);
             yl = shelf[0].process(yl);
             yr = shelf[1].process(yr);
-            // The image: Classic nearly mono, Modern a little wider. The power the narrowing takes
+            // The image: Classic nearly mono, Modern wider. The power the narrowing takes
             // away (or the widening adds) is given back (or taken) evenly, slowly tracked, so the
             // level matcher below has little to make up.
             {

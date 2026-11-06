@@ -6,7 +6,8 @@
 //   Classic  the 90s cassette demo: a cheap sampler (the rate down to about 13 kHz with its
 //            aliasing let through, about 8.5 bits, no dither), the keyboard's light chorus, a
 //            big dark grainy old-digital hall at a high wet level, cassette wow (0.45 %, slow
-//            and drifting) and flutter, tape hiss (about -45 dBFS while it plays), a low-pass
+//            and drifting) and flutter, tape hiss (riding under the music's treble, as a cassette's
+//            noise reduction lets it: about -45 dBFS on bright material), a low-pass
 //            at 5.5 kHz, a nearly mono image.
 //   Modern   no crushing: heavy warm tape saturation (rich low-order harmonics, the same
 //            amount whatever the level), a deep wide vintage ensemble chorus, a softer top
@@ -18,8 +19,8 @@
 // output and covered the stage: in its place the Dark Choir Pad at Classic 100 % came out
 // brighter than at 0 %. A cassette records everything; so does the stage now.
 //
-// Order: sampler -> chorus/ensemble -> (+ the hall, a send from here) -> tape saturation ->
-// wow/flutter -> hiss -> low cut, warmth (Modern) or the boxy middle (Classic), low-pass, shelf ->
+// Order: (the hiss, before the place: processHiss) sampler -> chorus/ensemble -> (+ the hall, a
+// send from here) -> tape saturation -> wow/flutter -> low cut, warmth (Modern) or the boxy middle (Classic), low-pass, shelf ->
 // width -> level match.
 // A slow level matcher keeps the output at the input's loudness (+/-6 dB, K-weighted).
 //
@@ -43,12 +44,19 @@ public:
     // instrument (1 pads/strings/choirs/organs .. 0.1 drums); hallSend: how much of the hall the
     // processor lets through (Intensity x Effects, the MIX Reverb, Mix).
     void setControls(float amount, int era, float chorus, float hallSend) noexcept;
+    // Once per host block (Session 16): the place the music is in, so the hall takes on its
+    // character instead of laying the same hall over every place: its reverb's decay (s), its
+    // filter's cutoff (Hz) and how wet it already is (0..1, its reverbs' mixes).
+    void setPlace(float decaySeconds, float cutoffHz, float wet) noexcept;
     // Whether anything has to run: the amount is on or still fading, or the hall still rings.
     bool active() const noexcept { return targetAmount > 0.0f || amount.value > 0.0f || hallRinging; }
     // Whether the stage changes the signal right now (false: it passes exactly, the hall rings out).
     bool shaping() const noexcept { return targetAmount > 0.0f || amount.value > 0.0f; }
     // n <= maxChunk samples, in place.
     void process(float* l, float* r, int n) noexcept;
+    // The hiss, on the input before the place (n <= maxChunk, in place; at the amount and Era of
+    // the last process() call).
+    void processHiss(float* l, float* r, int n) noexcept;
     // Tests.
     float amountNow() const noexcept { return amount.value; }
     float eraNow() const noexcept { return era.value; }
@@ -75,6 +83,8 @@ private:
     double sr = 48000;
     float targetAmount = 0, targetEra = 0, targetChorus = 0.6f, targetSend = 0;
     dsp::Smoothed amount, era, chorusAmount, send;
+    // The place's character (smoothed): the hall's length and tone scale, the send's share.
+    dsp::Smoothed placeLength, placeTone, placeSend;
     Derived now {};
     bool hallRinging = false, hallOnly = false;
     int quiet = 0;
@@ -97,12 +107,12 @@ private:
     double wowPhase = 0, flutterPhase = 0, flutter2Phase = 0;
     float drift = 0, driftTarget = 0, driftCoefficient = 0;
     int driftCounter = 0;
-    // Hiss (follows the music: none in silence).
+    // Hiss (about 25 dB under the music's treble, as a cassette's noise reduction: none in silence).
     dsp::Random noise;
     std::array<float, 2> hissLow {}, hissLow2 {}, hissHigh {};
-    float gate = 0, gateAttack = 0, gateRelease = 0;
+    float gate = 0, gateAttack = 0, gateRelease = 0, trebleLow = 0, trebleCoefficient = 0, hissApplied = 0;
     // EQ.
-    std::array<dsp::Svf, 2> lowCut {}, top {}, top2 {}, top3 {};
+    std::array<dsp::Svf, 2> lowCut {}, lowCut2 {}, top {}, top2 {}, top3 {};
     std::array<dsp::Biquad, 2> warmth {}, honk {}, shelf {};
     // The hall.
     static constexpr int lines = 8, diffusers = 4;
@@ -116,7 +126,7 @@ private:
     std::array<dsp::Svf, 4> hallDark {};
     float hallOut = 1, hallDampCoefficient = 0.3f, hallModDepth = 0, hallPreDelay = 0, diffusion = 0.6f;
     std::array<float, 2> grainHeld {};
-    // Its limiter: on long sustained chords the hall's energy stays at most 3 dB under the
+    // Its limiter: on long sustained chords the hall's energy stays at most 2 dB under the
     // music's (whose envelope releases over 1.5 s, slower than the hall decays: the tails ring freely).
     float hallInHold = 0, hallInPower = 0, hallPower = 0, hallCtl = 1, holdAttack = 0, holdRelease = 0, powerCoefficient = 0, ctlDown = 0, ctlUp = 0;
     float grainPhase = 1, grainStep = 1, grainBits = 0;

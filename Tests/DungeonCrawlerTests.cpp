@@ -13,7 +13,7 @@
 //   DungeonCrawlerTests --listen-recordings dir    melody and chords on the instruments with the new recordings; the FX's voice places before/after
 //   DungeonCrawlerTests --listen-dungeonsynth dir  Session 15: the dark fantasy melody on five instruments at 0 / 50 / 100 %, Classic and Modern
 //   DungeonCrawlerTests --ds-report | --ds-hashes | --ds-snapshots dir   Session 15: the numbers, the null-test hashes, the control's snapshots
-//   DungeonCrawlerTests --ds-audit | --ds-strength   Session 16: what of DUNGEON SYNTH reaches the output; the numbers behind the strength checks
+//   DungeonCrawlerTests --ds-audit | --ds-strength | --ds-places   Session 16: what of DUNGEON SYNTH reaches the output; the numbers behind the strength checks
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 #include "UI/Scenes.h"
@@ -2688,6 +2688,7 @@ int main(int argc, char** argv) {
         else if (arg == "--ds-report") return dsReport();
         else if (arg == "--ds-audit") return dsAudit();
         else if (arg == "--ds-strength") return dsStrength();
+        else if (arg == "--ds-places") return dsPlaces();
         else if (arg == "--listen-dungeonsynth" && i + 1 < argc) return listenDungeonSynth(argv[i + 1]);
         else if (arg == "--ds-snapshots" && i + 1 < argc) return dsSnapshots(argv[i + 1]);
         else if (arg == "--render" && i + 2 < argc)

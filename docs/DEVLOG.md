@@ -3600,9 +3600,9 @@ shaped so 25 % is subtle and 50 % clearly heard):
 | hall (a send from here; its return joins before the tape) | old digital: 8-line FDN, static, little diffusion, T60 4 s measured, its output held at 11 kHz and 12 bits, dark | lush: modulated lines, T60 9.7 s measured, darker still, full width |
 | tape saturation | mild (+4 dB) | heavy (+14 dB) and asymmetric: harmonics 2-5 at -21 dB on a -10 dBFS sine. Its drive follows the music's level (rising at once, falling over 0.5 s): the same colour loud or soft, no clipped onsets |
 | wow / flutter | 0.55 % peak at 0.45 Hz with a slow random drift (5.6 cents RMS), flutter 6.8 + 11.3 Hz (1.8 cents RMS) | 0.18 % (1.9 cents RMS) |
-| hiss | -45 dBFS while it plays (fades over a second of silence), dark, before the roll-off | about -68 dBFS |
-| EQ | low cut 95 Hz, the cheap keyboard's boxy middle (+3 dB at 1.4 kHz), low-pass 5.5 kHz (sixth order) | low cut 30 Hz, warmth +4.5 dB at 180 Hz, low-pass 10 kHz, -4.5 dB shelf above 4 kHz |
-| image | side x 0.1 (-20 dB: nearly mono), the power it takes away given back evenly | side x 1.3 |
+| hiss (since the first CI run: added before the place, see below) | riding 25 dB under the music's treble (a cassette's noise reduction): -44 dBFS on a test tone with -23 dBFS of treble, none in silence; dark | about -64 dBFS |
+| EQ | a thin bottom (fourth-order low cut gliding up to 100 Hz), the cheap keyboard's boxy, honky middle (+10 dB at 1.2 kHz, growing as amount^1.5), low-pass 5.5 kHz (sixth order) | low cut 30 Hz, warmth +4.5 dB at 180 Hz, low-pass 10 kHz, -4.5 dB shelf above 4 kHz |
+| image | side x 0.1 (-20 dB: nearly mono), the power it takes away given back evenly | side x 1.5 (the power kept) |
 
 **Level** (+/-1.5 dB of 0 % on the loudest 400 ms, K-weighted, at 25 / 50 / 100 %; worst now
 1.12 dB): three things were needed, each found by measuring the matcher's gain over time.
@@ -3681,35 +3681,36 @@ through the Crypt and the Gates, all five in one file each. CI also writes
 
 ### Results and handoff (end of Session 16)
 
-Measured here (Linux, the recorded brass, without the developer's private recordings):
+Measured here (Linux, the recorded brass, without the developer's private recordings; the
+figures after the fixes of the first CI run below):
 
 | at 25 / 50 / 100 % | Classic | Modern |
 |---|---|---|
 | sampler rate | 29 / 21 / 13 kHz (an alias as loud as the tone it came from) | none |
-| harmonics 2-5 (-10 dBFS sine) | -42 / -37 / -33 dB | -37 / -29 / -21 dB |
-| hiss | -68 / -56 / -45 dBFS | -82 / -77 / -69 dBFS |
-| wow (peak), flutter | 0.14 / 0.27 / 0.55 %, 1.8 cents RMS at 100 % | 0.05 / 0.09 / 0.18 % |
+| harmonics 2-5 (-10 dBFS sine) | -42 / -37 / -30 dB | -37 / -29 / -21 dB |
+| hiss (a tone with -23 dBFS of treble) | -62 / -55 / -44 dBFS | -74 / -69 / -64 dBFS |
+| wow (peak), flutter | 0.14 / 0.28 / 0.57 %, 1.7 cents RMS at 100 % | 0.05 / 0.10 / 0.19 % |
 | the hall's T60 | 0.6 / 1.5 / 3.8 s | 3.4 / 5.5 / 9.7 s |
-| the gaps against the playing (a chord 1 s on, 1 s off) | -22 / -14 / -10 dB | -24 / -14 / -8 dB |
+| the gaps against the playing (a chord 1 s on, 1 s off) | -22 / -14 / -7 dB | -24 / -14 / -7 dB |
 
 | in its place, 100 % | spectrum 0 %-Classic | 0 %-Modern | Classic-Modern | width Classic / Modern | Session 15: 0 %-Classic, Classic-Modern |
 |---|---|---|---|---|---|
-| Royal Strings | 2.6 dB | 2.8 dB | 5.0 dB | -21.6 / +3.2 dB | 3.4, 0.9 dB (other meter) |
-| Dark Choir Pad | 12.0 dB | 4.1 dB | 10.5 dB | -21.6 / +6.7 dB | 0.6, 0.6 dB |
-| Chamber Organ | 13.2 dB | 3.1 dB | 11.3 dB | -18.5 / +5.5 dB | 0.8, 0.9 dB |
-| Wooden Flute | 11.1 dB | 2.3 dB | 10.0 dB | -21.6 / +2.1 dB | 0.8, 0.4 dB |
-| Lute | 2.6 dB | 3.6 dB | 5.9 dB | -21.1 / +1.9 dB | 2.4, 0.8 dB |
-| FX, the Crypt | 11.1 dB | 3.2 dB | 9.8 dB | -19.1 / +2.6 dB | 8.7, 2.1 dB |
-| FX, the Gates | 6.8 dB | 1.5 dB | 7.6 dB | -21.0 / +2.9 dB | 1.5, 0.9 dB |
+| Royal Strings | 6.9 dB | 2.9 dB | 7.1 dB | -22.2 / +4.7 dB | 3.4, 0.9 dB (other meter) |
+| Dark Choir Pad | 5.6 dB | 3.8 dB | 4.8 dB | -21.4 / +7.6 dB | 0.6, 0.6 dB |
+| Chamber Organ | 3.1 dB | 2.4 dB | 3.7 dB | -18.5 / +6.7 dB | 0.8, 0.9 dB |
+| Wooden Flute | 4.3 dB | 2.2 dB | 4.3 dB | -20.9 / +3.4 dB | 0.8, 0.4 dB |
+| Lute | 6.4 dB | 3.6 dB | 6.7 dB | -21.5 / +2.9 dB | 2.4, 0.8 dB |
+| FX, the Crypt | 5.1 dB | 3.2 dB | 4.4 dB | -18.8 / +3.8 dB | 8.7, 2.1 dB |
+| FX, the Gates | 4.6 dB | 1.6 dB | 5.6 dB | -21.1 / +4.1 dB | 1.5, 0.9 dB |
 
 (The Session 15 column used the first spectral meter, 63 Hz-16 kHz within 60 dB; the new
 one stops at 10 kHz and 50 dB down, where the places are nearly silent. Width in Session 15:
--0.3 to -0.8 dB in a place.) Loudness: worst 1.12 dB of 48 settings (25 / 50 / 100 %, both
+-0.3 to -0.8 dB in a place.) Loudness: worst 1.36 dB of 48 settings (25 / 50 / 100 %, both
 Eras, five instruments in their places, the FX in four). CPU: the FX in the Crypt 6.4 % of one
 core at 0 %, 7.6 % at 100 %.
 
 **Linux (this container)**: the whole suite in its CI shards, 3052 passed, 0 failed
-(`dungeonsynth` 195). Every target builds. The null test against the Session 15 build: the
+(`dungeonsynth` 195; after the first CI run's fixes: see below). Every target builds. The null test against the Session 15 build: the
 same eleven hashes.
 
 **Listen to** (test-logs `dungeonsynth/`, MANUAL_TEST "Session 16"): first each
@@ -3721,11 +3722,48 @@ strings and the pad across the stereo field), a darker but not muffled top, a ha
 going for many seconds. Then `-classic-50` / `-modern-50` (clearly there, not overpowering) and
 the FX files (all five settings in a row).
 
-**Known limits**: tuned by measurement, not by ear. The hiss and the sampler's grain are
-heard above the places' own very dark tops (8 kHz and up), so on dark sounds "above 8 kHz"
-rises at Classic 100 %: that is the tape's noise at -45 dBFS, not brighter music. The tail
-after the melody grows least on the Royal Strings (+3.0 / +2.0 dB; their place already rings
-long, and the hall's limiter holds it 3 dB under the music on long chords); the Dark Choir
-Pad's place (the Gates) rings longer than the hall. The hall now follows the user's MIX Reverb
-slider, not the instrument's fitted share (Session 11), so strings, brass and plucks get the
-same hall as pads. Mono only in Classic; Modern widens by 2-7 dB. Nothing heard on a Mac yet.
+**Known limits**: tuned by measurement, not by ear. The tail after the melody grows least on
+the Wooden Flute and the Royal Strings in Modern (+2.3 dB; their places already ring long, and
+the hall's limiter holds it 2 dB under the music on long chords); the Dark Choir Pad's place
+(the Gates) rings longer than the hall. The hall follows the user's MIX Reverb slider, not the
+instrument's fitted share (Session 11), so strings, brass and plucks get the same hall as pads.
+Classic's honk (+10 dB at 1.2 kHz) is strong on purpose (the cheap keyboard); if it is too
+nasal by ear, it is one number (`honkDb`). Mono only in Classic; Modern widens by 3-8 dB.
+Nothing heard on a Mac yet.
+
+**CI, Session 16 first run** (`be1cdf0`, run 42201517187): macOS green, and the new AU host
+checks passed on every route: the FX harness 37 -> 44 checks in process and 35 -> 42 out of
+process, the instrument harness 33 -> 38 and 31 -> 36, arm64 and x86_64 (Rosetta). Linux:
+3084 passed, 3 failed, with the developer's recordings (here: their stand-ins):
+
+1. *Lute in its place: Modern widens it*: +1.3 dB (1.5 asked; +1.9 here). Fix: Modern's image
+   side x 1.3 -> 1.5 (the power kept); now +2.9 dB here.
+2. *Classic 100 %: the Crypt and the Gates still sound different* (the Soft Choir, the
+   developer's voice in CI): 11.0 dB at 0 %, 4.6 at 100 % (42 %, half asked; 62 % here). Found
+   by switching each part off (`--ds-places`, new): the **hiss** was most of it (alone it took
+   the pair from 7.7 to 4.4 dB here). Laid after the place, the same bright noise filled the
+   dark Crypt's top and every place's quiet frames, so the places converged. Moving the hall
+   (into the place, or quieter, or shorter, or without its grain) changed little or made it
+   worse. Fix: the hiss now rides the music's treble (a cassette's noise reduction: about 25 dB
+   under it) and goes in **before** the place (`DungeonSynth::processHiss`), so each place's
+   filters and rooms shape it as they shape the music: 62 -> 76 % here (Modern 83 %). The hall
+   also takes on the place now (`setPlace`: its length from the place's reverb decay, its tone
+   from the place's filter, a little less of it in a place that is already wet).
+3. *Stop ends the journey where it is (Castle / Great Hall) with a note* (navigation): a
+   wall-clock check (the note lasts 2.5 s of real time; the test renders 9 s of audio before it
+   reads it), not touched by this session; to be seen on the next run.
+
+Moving the hiss showed how much of Classic's measured spectral change had been the hiss itself
+on dark sounds (the Chamber Organ in its place: 13.2 -> 1.65 dB). So Classic now changes the
+timbre for real, with the EQ of a cheap keyboard on tape (a fixed EQ moves every place alike,
+so the places keep their differences): a fourth-order low cut gliding up to 100 Hz (blending a
+high-pass in partially had notched the lows at 25 %) and a +10 dB boxy middle at 1.2 kHz. And
+with the hiss no longer over the top, the top's checks are stricter: Classic 100 % at least
+12 dB down above 8 kHz on every bright sound, the flute included (-20 to -29 dB here).
+
+After these fixes, here: the whole suite in its CI shards 3051 passed, 1 failed (the search's
+5 ms keystroke timer at 5.6 ms under the shards' contention; the search group alone passed,
+93 of 93); `dungeonsynth` 195 of 195; the Crypt / Gates pair 76 % (Classic) and 83 % (Modern)
+of its difference at 0 %; the null test still bit for bit. CPU: the FX in the Crypt 7.0 % of
+one core at 0 %, 9.0 % at 100 % (this run, under the shards; 6.4 / 7.6 % before).
+

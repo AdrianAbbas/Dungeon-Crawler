@@ -348,11 +348,20 @@ double harmonicsFft(const std::vector<float>& x, double hz, std::size_t from) {
     for (int k = 2; k <= 5; ++k) h += bandPower(p, hz * k * 0.97, hz * k * 1.03);
     return 10.0 * std::log10(std::max(h, 1.0e-30) / std::max(bandPower(p, hz * 0.97, hz * 1.03), 1.0e-30));
 }
-// What is neither the tone nor its harmonics (the hiss, the grain), in dBFS (one channel).
-double noiseFloorDbfs(const std::vector<float>& x, double hz, std::size_t from) {
+// What is neither the tones nor their harmonics (the hiss, the grain), in dBFS (one channel).
+double noiseFloorDbfs(const std::vector<float>& x, std::initializer_list<double> tones, std::size_t from) {
     const auto p = spectrumOf(x, from);
     double total = bandPower(p, 20.0, 24000.0), tonal = 0;
-    for (int k = 1; k * hz < 23000.0; ++k) tonal += bandPower(p, hz * k * 0.97, hz * k * 1.03);
+    // The tones' harmonics, +/-3 % around each (the wow moves them).
+    std::vector<std::pair<double, double>> spans;
+    for (double hz : tones)
+        for (int k = 1; k * hz < 23000.0; ++k) spans.push_back({ hz * k * 0.97, hz * k * 1.03 });
+    std::sort(spans.begin(), spans.end());
+    double reach = 0;
+    for (const auto& [lo, hi] : spans) {
+        const double from = std::max(lo, reach);
+        if (hi > from) { tonal += bandPower(p, from, hi); reach = hi; }
+    }
     double ms = 0;
     for (std::size_t i = from; i < std::min(x.size(), from + 65536); ++i) ms += double(x[i]) * x[i];
     ms /= 65536.0;
@@ -370,6 +379,7 @@ effectstests::Take stageRun(float amount, int era, float chorus, float send, con
     for (std::size_t i = 0; i < n; i += 64) {
         const int m = int(std::min<std::size_t>(64, n - i));
         ds.setControls(amount, era, chorus, send);
+        if (!hallOnly) ds.processHiss(t.l.data() + i, t.r.data() + i, m);   // as the processor does (before its place)
         ds.process(t.l.data() + i, t.r.data() + i, m);
     }
     return t;
@@ -467,8 +477,11 @@ Strength measureStrength() {
             const auto ku = std::size_t(k);
             const auto tone = stageRun(a, era, 0.0f, 0.0f, sine(200.0, 0.316f), 4.0);
             m.harmonics[e][ku] = harmonicsFft(tone.l, 200.0, 48000);
-            const auto quiet = stageRun(a, era, 0.0f, 0.0f, sine(220.0, 0.1f), 4.0);
-            m.noise[e][ku] = noiseFloorDbfs(quiet.l, 220.0, 48000);
+            // A tone with some treble (220 Hz at -15 dBFS RMS and its 12th harmonic, 2.64 kHz, at
+            // -23 dBFS RMS, so whatever the tape makes of them stays on 220's harmonics): the hiss
+            // rides under the music's treble.
+            const auto typical = stageRun(a, era, 0.0f, 0.0f, [](int ch, long long n, double sr) { return sine(220.0, 0.25f)(ch, n, sr) + sine(2640.0, 0.1f)(ch, n, sr); }, 4.0);
+            m.noise[e][ku] = noiseFloorDbfs(typical.l, { 220.0 }, 48000);
             const auto held = stageRun(a, era, 0.0f, 0.0f, sine(1000.0, 0.25f), 12.0);
             m.wow[e][ku] = wowFlutterOf(held.l, 48000, held.l.size());
             m.t60[e][ku] = hallT60(a, era);
@@ -588,6 +601,51 @@ int dsAudit() {
         const auto base = fxMaterial(l, k, { 0, 0 }), c = fxMaterial(l, k, { 1, 0 }), m = fxMaterial(l, k, { 1, 1 });
         line("FX " + placeName(l, k), base, c, m, false);
     }
+    return 0;
+}
+
+// `--ds-places` (Session 16): the place still matters. The Soft Choir (locked) in the Crypt, the
+// Gates and the Dwarven Hall: how different each pair is at 0 % and at 100 % (both Eras).
+namespace dstests {
+struct PlacePair { std::string a, b; double d0 = 0, d1 = 0; };
+std::vector<PlacePair> placePairs(int era) {
+    const int choir = dc::inst::designFor(dc::Cathedral, 0);
+    const std::vector<std::pair<int, int>> places { { dc::Cathedral, 2 }, { dc::Necropolis, 0 }, { dc::Mountains, 3 } };
+    std::vector<effectstests::Take> at0, at100;
+    for (const auto& [l, k] : places)
+        for (float a : { 0.0f, 1.0f }) {
+            InstHost h;
+            h.play(choir, false);
+            h.go(l, k);
+            setDs(h, { a, era });
+            h.render(0.05);
+            melody(h, 0.1);
+            h.render(0.05 + melodySeconds + 2.0);
+            (a == 0.0f ? at0 : at100).push_back({ h.outL, h.outR });
+        }
+    std::vector<PlacePair> out;
+    for (std::size_t i = 0; i < places.size(); ++i)
+        for (std::size_t j = i + 1; j < places.size(); ++j)
+            out.push_back({ placeName(places[i].first, places[i].second), placeName(places[j].first, places[j].second),
+                            effectstests::effectShare(at0[i].l, at0[i].r, at0[j].l, at0[j].r, 0, at0[i].l.size()),
+                            effectstests::effectShare(at100[i].l, at100[i].r, at100[j].l, at100[j].r, 0, at100[i].l.size()) });
+    return out;
+}
+}
+int dsPlaces() {
+    if (std::getenv("DS_FRAMES") != nullptr)
+        for (const auto& [l, k] : std::vector<std::pair<int, int>> { { dc::Cathedral, 2 }, { dc::Necropolis, 0 }, { dc::Mountains, 3 } }) {
+            Host h;
+            h.go(l, k);
+            h.render(1.0, silence());
+            const auto& f = h.p->engine().frame();
+            std::cout << placeName(l, k) << ": decay " << f[dc::Decay] << " cutoff " << f[dc::Cutoff] << " reverbMix " << f[dc::ReverbMix] << " vaultMix " << f[dc::VaultMix]
+                      << " space " << f[dc::Space] << " delayMix " << f[dc::DelayMix] << " darkness " << f[dc::Darkness] << "\n";
+        }
+    for (int era : { 0, 1 })
+        for (const auto& p : dstests::placePairs(era))
+            std::cout << (era == 0 ? "Classic" : "Modern") << " " << p.a << " / " << p.b << ": " << fmt(p.d0) << " dB at 0 %, " << fmt(p.d1) << " dB at 100 % ("
+                      << fmt(100.0 * p.d1 / std::max(p.d0, 1.0e-9), 0) << " %)\n";
     return 0;
 }
 
@@ -741,7 +799,7 @@ void testDungeonSynth(Suite& s) {
         }
         // The top: bright material dry (three instruments, the FX's dry path).
         for (const auto& b : m.bright) {
-            s.check(b.top12[0][2] <= -10.0 && b.top12[0][1] <= -7.0 && (b.name.rfind(instName(dc::inst::designFor(dc::HauntedForest, 0)), 0) == 0 || b.top8[0][2] <= -9.0),
+            s.check(b.top12[0][2] <= -10.0 && b.top12[0][1] <= -7.0 && b.top8[0][2] <= -12.0 && b.top8[0][1] <= -6.0,
                     b.name + ": Classic rolls off the top (the cassette's 5.5 kHz)",
                     "above 8 kHz " + list3(b.top8[0]) + ", above 12 kHz " + list3(b.top12[0]) + " dB at 25 / 50 / 100 %");
             s.check(b.top12[1][2] <= -5.5 && b.top12[1][1] <= -3.5, b.name + ": Modern softens the top (10 kHz)", "above 12 kHz " + list3(b.top12[1]) + " dB at 25 / 50 / 100 %");
