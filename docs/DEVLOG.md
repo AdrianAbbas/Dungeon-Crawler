@@ -3802,7 +3802,7 @@ Checklist (resume from the first open item after a limit):
 - [x] 4. Instruments: Village Green (flute + piccolo, small, woody, folky), Forest Edge (two flutes, darker, detuned, uneasy), Foothills (flute, breathy, distant, echoing), Bog (low clarinet + bassoon, with a darkened oboe edge); stand-ins kept; ready for a second (developer) sample set
 - [x] 5. Tests (`--only realwinds`, CI shard `15-realwinds`: in tune with cents report, dynamics smooth, no clicks at loops / note-offs / legato, level-matched, distinct from siblings, the dungeon synth roller) and listening renders (`--listen-realwinds`, CI step)
 - [x] 6a. README / MANUAL_TEST / DEVLOG handoff; final push
-- [ ] 6b. CI green
+- [x] 6b. CI green: run 42306700346 (macOS + Linux, first run)
 
 ### 1. The licence and the fetch
 
@@ -3979,4 +3979,8 @@ effect (the held note before lets go); a chord (notes within 30 ms) is not slurr
 saved at 14 stay at 14 (the synthesised winds, the wheel as Vibrato). The oboe is used only
 as the reed's faint double-reed edge (no other woodwind layer exists in the plug-in).
 Nothing heard on a Mac yet.
+
+**CI, Session 17 first run: green** (`10a0ccd`, run 42306700346, macOS and Linux): Linux 3228
+passed, 0 failed, with the developer's recordings; the woodwinds fetched at the pin (380 WAVs),
+the licence verified, the 13 sets prepared as here. Report-only as listed above.
 
