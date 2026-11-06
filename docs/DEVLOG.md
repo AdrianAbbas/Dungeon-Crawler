@@ -3366,7 +3366,7 @@ the first open item after a limit):
 - [x] 3. Factory presets built around it (instrument and FX), search tags "dungeon synth", "lo-fi", "retro", "cassette"
 - [ ] 4. Tests (`dungeonsynth` group: null test at 0 %, roll-off / harmonics / wow-flutter / tail per Era, level, clicks, sessions, presets, places still differ), listening renders (`--listen-dungeonsynth`, CI step)
 - [x] 5a. README / MANUAL_TEST / DEVLOG handoff; final push
-- [ ] 5b. CI green
+- [x] 5b. CI green: run 42173972189 (macOS + Linux; nothing report-only)
 
 ### 1. The stage (`Source/DSP/DungeonSynth.h/.cpp`)
 
@@ -3521,4 +3521,11 @@ report-only; all the renders written and uploaded), but the job hit its 60-minut
 finished (the suite 33 min, 23 min before; the new shard and the dungeon synth render added
 about 14 min) and was cancelled. Fix: the Linux job's `timeout-minutes` 60 -> 90, as the macOS
 job has. No check changed.
+
+**CI, second run: green** (`9043a43`, run 42173972189, macOS and Linux): Linux 3026 passed, 0
+failed (nothing report-only), the job 61 min. Why it is longer than Session 14's 42 min: the
+runner was slower (every CPU figure measured on identical work in both runs is 1.20-1.24x
+higher; here the build before and after this session cost the same within noise at 0 %),
+about +7.5 min on the old tests and renders; the new dungeonsynth shard about +5 min, its
+render +4.3 min, the fetch and an uncached build about +2 min.
 
