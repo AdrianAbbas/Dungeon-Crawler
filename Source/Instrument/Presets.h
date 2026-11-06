@@ -79,6 +79,31 @@ inline const std::vector<FactoryPreset>& instrumentPresets() {
         // The effect's journeys: the place moves, and the instrument with it.
         for (const auto& f : factoryPresets())
             if (juce::String(f.category) == "Journeys") p.push_back(f);
+        // Session 15: built around DUNGEON SYNTH (after the others, so their indices stay): an
+        // instrument (in its place, or locked elsewhere), the amount and the Era (0 Classic,
+        // 1 Modern), and sometimes its macros or the place's.
+        const auto dungeon = [&p](const char* name, int fromLocation, int fromSub, int location, int sub, float amount, int era,
+                                  std::vector<std::pair<const char*, float>> extra = {}) {
+            const bool locked = fromLocation != location || fromSub != sub;
+            FactoryPreset f { name, "Dungeon synth", { { "location", float(location) }, { "subLocation", float(sub) },
+                                                       { ids::dungeonSynth, amount }, { ids::dungeonSynthEra, float(era) } }, {} };
+            if (locked) {
+                f.values.push_back({ "instLock", 1.0f });
+                f.values.push_back({ "instrument", float(designFor(fromLocation, fromSub)) });
+            }
+            for (const auto& e : extra) f.values.push_back(e);
+            p.push_back(std::move(f));
+        };
+        dungeon("Cassette Castle Theme", Castle, 2, Castle, 2, 0.85f, 0, { { ids::instMacros[2], 0.6f } });
+        dungeon("Modern Dungeon Synth Pad", Necropolis, 0, Necropolis, 0, 0.8f, 1, { { ids::instMacros[1], 0.6f } });
+        dungeon("Crypt Organ Drone", Cathedral, 1, Cathedral, 2, 0.75f, 0, { { ids::instMacros[2], 0.65f } });
+        dungeon("Lo-fi Fantasy Flute", HauntedForest, 0, HauntedForest, 0, 0.9f, 0);
+        dungeon("Tape Harp of the Grove", HauntedForest, 3, HauntedForest, 3, 0.6f, 1);
+        dungeon("Frozen Tower on Cassette", Mountains, 2, WizardsTower, 3, 0.7f, 0);
+        dungeon("Hall of the Old Kings", Castle, 4, Mountains, 3, 0.65f, 0);
+        dungeon("Starlit Modern Pad", WizardsTower, 3, WizardsTower, 3, 0.9f, 1);
+        dungeon("Necropolis Choir Tape", Cathedral, 0, Necropolis, 0, 1.0f, 0);
+        dungeon("Harpsichord Demo Tape", WizardsTower, 0, WizardsTower, 0, 0.8f, 0, { { "atmosLevel", 0.2f } });
         return p;
     }();
     return presets;

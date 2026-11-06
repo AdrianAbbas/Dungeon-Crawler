@@ -3363,7 +3363,7 @@ the first open item after a limit):
 
 - [x] 1. DSP: `Source/DSP/DungeonSynth` (sampler lo-fi, tape wow/flutter and hiss, saturation, tone, narrow image, ensemble chorus, the dark hall, level match); `dsAmount` / `dsEra` parameters (appended, both plug-ins); the processor chain; bit-exact at 0 %
 - [ ] 2. UI: the roller (drawn like Effects) and the Era switch on the instrument panel and in the FX's controls; snapshots `docs/snapshots/session15/`
-- [ ] 3. Factory presets built around it (instrument and FX), search tags "dungeon synth", "lo-fi", "retro", "cassette"
+- [x] 3. Factory presets built around it (instrument and FX), search tags "dungeon synth", "lo-fi", "retro", "cassette"
 - [ ] 4. Tests (`dungeonsynth` group: null test at 0 %, roll-off / harmonics / wow-flutter / tail per Era, level, clicks, sessions, presets, places still differ), listening renders (`--listen-dungeonsynth`, CI step)
 - [ ] 5a. README / MANUAL_TEST / DEVLOG handoff; final push
 - [ ] 5b. CI green

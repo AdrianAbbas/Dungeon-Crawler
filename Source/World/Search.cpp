@@ -455,6 +455,14 @@ Index::Index(bool instrumentPlugin) : forInstrument(instrumentPlugin) {
             addUnique(e.tags, splitList(place.tags));
             addUnique(e.recordings, splitList(place.recordings));
         }
+        // Session 15: presets built around DUNGEON SYNTH (the roller up): the genre's words.
+        if (const float ds = get("dungeonSynth", 0.0f); ds > 0.0f) {
+            const bool modern = get("dungeonSynthEra", 0.0f) >= 0.5f;
+            addUnique(e.tags, { "dungeon synth", "lo-fi", "lofi", "retro" });
+            addUnique(e.tags, modern ? std::vector<std::string> { "tape", "warm", "chorus" } : std::vector<std::string> { "cassette", "tape", "90s" });
+            e.description += std::string(" Dungeon synth, ") + (modern ? "Modern (warm tape, chorus, a lush dark hall)" : "Classic (the cassette era: lo-fi sampler, tape, a grainy hall)")
+                             + ", " + std::to_string(int(std::lround(ds * 100))) + " %.";
+        }
         prepare(e);
         all.push_back(std::move(e));
     }

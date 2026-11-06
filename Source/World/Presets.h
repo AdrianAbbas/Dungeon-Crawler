@@ -9,7 +9,7 @@
 namespace dc {
 struct FactoryPreset {
     const char* name;
-    const char* category;   // "Favourite spots" or "Journeys"
+    const char* category;   // "Favourite spots", "Journeys" or (Session 15) "Dungeon synth"
     std::vector<std::pair<const char*, float>> values;   // parameter ID -> plain value
     std::vector<Stop> route;
 };
@@ -59,6 +59,10 @@ inline const std::vector<FactoryPreset>& factoryPresets() {
           { { "location", Necropolis }, { "roamOn", 1 }, { "roamBars", 1 }, { "roamRandomness", 0.8f }, { "atmosLevel", 0.4f } }, {} },
         { "Swamp Wander", "Journeys",
           { { "location", Swamp }, { "roamOn", 1 }, { "roamBars", 3 }, { "roamRandomness", 0.3f }, { "travelTime", 3.0f } }, {} },
+        // Session 15: built around DUNGEON SYNTH (dungeonSynthEra: 0 Classic, 1 Modern).
+        { "Cassette Dungeon", "Dungeon synth", { { "location", Dungeon }, { "subLocation", 0 }, { "dungeonSynth", 0.8f }, { "dungeonSynthEra", 0 } }, {} },
+        { "Lo-fi Crypt", "Dungeon synth", { { "location", Cathedral }, { "subLocation", 2 }, { "dungeonSynth", 0.65f }, { "dungeonSynthEra", 0 } }, {} },
+        { "Modern Dark Hall", "Dungeon synth", { { "location", Necropolis }, { "subLocation", 0 }, { "dungeonSynth", 0.7f }, { "dungeonSynthEra", 1 } }, {} },
     };
     return presets;
 }
