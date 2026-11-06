@@ -3543,9 +3543,9 @@ without, then wait for CI until green. Checklist (resume from the first open ite
 
 - [x] 1. Audit: where the roller and the Era reach the signal, what masks or undoes them (measured, `--ds-audit`); the wiring fix
 - [x] 2. DSP: the stronger Classic and Modern (targets in the brief of this session), level-matched, click-free
-- [ ] 3. Tests that fail when it is too subtle (`dungeonsynth` group), the AU harness checks (both plug-ins, in and out of process)
-- [ ] 4. Factory presets that show it off; listening render (`--listen-dungeonsynth`)
-- [ ] 5a. README / MANUAL_TEST / DEVLOG handoff; final push without `[skip ci]`
+- [x] 3. Tests that fail when it is too subtle (`dungeonsynth` group), the AU harness checks (both plug-ins, in and out of process)
+- [x] 4. Factory presets that show it off; listening render (`--listen-dungeonsynth`)
+- [x] 5a. README / MANUAL_TEST / DEVLOG handoff; final push without `[skip ci]`
 - [ ] 5b. CI green
 
 ### 1. The audit: the stage reached the audio, and the place covered it
@@ -3622,3 +3622,110 @@ now. On dark sounds (the places have almost nothing above 8 kHz, -50 to -76 dB) 
 grain raise that share however dark the stage makes the music: the top's checks use bright
 material dry. A hard sample-and-hold at a rate the host's is no multiple of folded its images
 back to 7-10 kHz (at 25 % the strings came out brighter): a line between the samples now.
+
+### 3. Tests that fail when it is too subtle
+
+`dungeonsynth` (CI shard `14-dungeonsynth`), new section "strong enough, Classic and Modern
+clearly apart", all from one measurement (`measureStrength`, printed by `--ds-strength`):
+
+- **The stage alone** (no place; the chorus weight 0 where the tape is measured): the sampler
+  at 11-16 kHz at 100 % Classic (44.1 and 48 kHz hosts); a 9 kHz tone folds to 4 kHz in
+  Classic (the alias at least -15 dB of the output) and not in Modern (under -40); harmonics
+  2-5 on a -10 dBFS sine: Modern over -25 dB at 100 % and -33 at 50 %, 6 dB over Classic, 8 dB
+  under at 25 %; hiss -50..-40 dBFS at Classic 100 %, 6 dB less at 50 %, under -60 at 25 % and
+  in Modern; wow and flutter on a held 1 kHz tone (the pitch per period, below 2 Hz and 2-25
+  Hz): Classic 0.3-0.8 % deep and at least 4 cents RMS, flutter at least 0.8; Modern 0.8-3
+  cents and under half of Classic's; Classic 25 % under 0.35 x its 100 %; the hall's T60 at
+  least 3 s (Classic) and 7 s (Modern), Modern 3 s longer, both shorter at 50 %; the wet level
+  (a chord 1 s on, 1 s off): the gaps within 12 dB of the playing at 100 %, 9-19 dB down at
+  50 %, more than 18 dB down at 25 %; the hall alone over -3 dB of the input at 100 %.
+- **In the places** (five instruments in theirs, the FX in the Crypt and the Gates): the
+  third-octave spectrum moves at least 2 dB (Classic) / 1.2 dB (Modern) at 100 %, on average
+  5 / 2.5 dB, growing 25 -> 50 -> 100 % and at 25 % at most half of 100 %; Classic narrows the
+  image at least 15 dB at 100 % (3-8 dB at 50 %, 1-4 dB at 25 %); Modern widens it and sits
+  18 dB wider than Classic; Classic against Modern at least 3 dB apart; the tail after the
+  melody grows (four instruments; the pad's own place rings longer than any hall).
+- **The top on bright material** (three instruments dry, the FX's dry path): Classic at least
+  10 dB down above 12 kHz at 100 % (7 at 50 %), 9 dB above 8 kHz (not the flute: its breath is
+  near the hiss); Modern 5.5 dB down above 12 kHz (3.5 at 50 %).
+- **The AU harnesses' figures, here too**: the FX's 440 Hz sine on the dry path (0 % passes,
+  Classic and Modern change it strongly, Modern 10 dB wider, the level within 3 dB) and the
+  instrument's chord (Classic folds it 8 dB towards mono, Modern 8 dB wider than Classic, the
+  attack's level within 3 dB).
+- Kept from Session 15 (all still pass): the null test at 0 % (bit-identical; the same hashes
+  as the Session 15 build), level within 1.5 dB (now also at 25 %), click-free sweeps, jumps and
+  Era flips, sessions and presets, Lock instrument, Effects 0 % and the MIX Reverb take the hall
+  away, Punch, Bypass, the three places still differ, silence stays silent, no allocation, mono.
+
+**The AU host** (`tools/au-harness`, macOS CI, every route the harnesses run: in process and
+out of process, arm64 and x86_64): the FX harness sets **Dungeon Synth** and **Dungeon Synth
+Era** through `AudioUnitSetParameter` on the dry path (Intensity at its minimum): 0 % passes the
+input (residual under -40 dB), Classic 100 % changes it (residual over -10 dB), Modern 100 % too
+(over -14 dB), Modern's image at least 10 dB wider than Classic's, the level within 3 dB, and
+back at 0 % the input passes again. The instrument harness plays a held chord at 0 %, Classic
+and Modern 100 %: Classic's image 8 dB narrower than at 0 %, Modern's 8 dB wider than Classic's,
+the attack's level within 3 dB. Both are hard checks.
+
+### 4. Presets and renders
+
+The ten instrument and three FX "Dungeon synth" presets now sit at 85-100 % (Classic 90-100 %,
+Modern 85-100 %); their check asks 85 % or more. Their search descriptions say what each Era
+does now; Classic adds the tags "bitcrush" and "mono", Modern "wide".
+
+`--listen-dungeonsynth` (CI test-logs `dungeonsynth/`): the dark fantasy test melody on Royal
+Strings, Dark Choir Pad, Chamber Organ, Wooden Flute and Lute in their places at `-0-off`,
+`-classic-50`, `-classic-100`, `-modern-50`, `-modern-100`, and new: one
+`-ab-0-classic100-modern100.wav` each (0 %, Classic 100 %, Modern 100 % back to back); the FX
+through the Crypt and the Gates, all five in one file each. CI also writes
+`dungeonsynth-strength.txt` (`--ds-strength`) and `dungeonsynth-audit.txt` (`--ds-audit`).
+
+### Results and handoff (end of Session 16)
+
+Measured here (Linux, the recorded brass, without the developer's private recordings):
+
+| at 25 / 50 / 100 % | Classic | Modern |
+|---|---|---|
+| sampler rate | 29 / 21 / 13 kHz (an alias as loud as the tone it came from) | none |
+| harmonics 2-5 (-10 dBFS sine) | -42 / -37 / -33 dB | -37 / -29 / -21 dB |
+| hiss | -68 / -56 / -45 dBFS | -82 / -77 / -69 dBFS |
+| wow (peak), flutter | 0.14 / 0.27 / 0.55 %, 1.8 cents RMS at 100 % | 0.05 / 0.09 / 0.18 % |
+| the hall's T60 | 0.6 / 1.5 / 3.8 s | 3.4 / 5.5 / 9.7 s |
+| the gaps against the playing (a chord 1 s on, 1 s off) | -22 / -14 / -10 dB | -24 / -14 / -8 dB |
+
+| in its place, 100 % | spectrum 0 %-Classic | 0 %-Modern | Classic-Modern | width Classic / Modern | Session 15: 0 %-Classic, Classic-Modern |
+|---|---|---|---|---|---|
+| Royal Strings | 2.6 dB | 2.8 dB | 5.0 dB | -21.6 / +3.2 dB | 3.4, 0.9 dB (other meter) |
+| Dark Choir Pad | 12.0 dB | 4.1 dB | 10.5 dB | -21.6 / +6.7 dB | 0.6, 0.6 dB |
+| Chamber Organ | 13.2 dB | 3.1 dB | 11.3 dB | -18.5 / +5.5 dB | 0.8, 0.9 dB |
+| Wooden Flute | 11.1 dB | 2.3 dB | 10.0 dB | -21.6 / +2.1 dB | 0.8, 0.4 dB |
+| Lute | 2.6 dB | 3.6 dB | 5.9 dB | -21.1 / +1.9 dB | 2.4, 0.8 dB |
+| FX, the Crypt | 11.1 dB | 3.2 dB | 9.8 dB | -19.1 / +2.6 dB | 8.7, 2.1 dB |
+| FX, the Gates | 6.8 dB | 1.5 dB | 7.6 dB | -21.0 / +2.9 dB | 1.5, 0.9 dB |
+
+(The Session 15 column used the first spectral meter, 63 Hz-16 kHz within 60 dB; the new
+one stops at 10 kHz and 50 dB down, where the places are nearly silent. Width in Session 15:
+-0.3 to -0.8 dB in a place.) Loudness: worst 1.12 dB of 48 settings (25 / 50 / 100 %, both
+Eras, five instruments in their places, the FX in four). CPU: the FX in the Crypt 6.4 % of one
+core at 0 %, 7.6 % at 100 %.
+
+**Linux (this container)**: the whole suite in its CI shards, 3052 passed, 0 failed
+(`dungeonsynth` 195). Every target builds. The null test against the Session 15 build: the
+same eleven hashes.
+
+**Listen to** (test-logs `dungeonsynth/`, MANUAL_TEST "Session 16"): first each
+`*-ab-0-classic100-modern100.wav`. Classic 100 % should be unmistakable: the wobble (slow pitch
+drift, the 0.45 Hz wow), the hiss under the notes, the crunch and aliasing on bright notes
+(the lute, the flute's breath), the muffled top, the image collapsing to the middle, and the big
+grey hall behind it. Modern 100 %: no crunch; thick, saturated, wide (the ensemble moving the
+strings and the pad across the stereo field), a darker but not muffled top, a hall that keeps
+going for many seconds. Then `-classic-50` / `-modern-50` (clearly there, not overpowering) and
+the FX files (all five settings in a row).
+
+**Known limits**: tuned by measurement, not by ear. The hiss and the sampler's grain are
+heard above the places' own very dark tops (8 kHz and up), so on dark sounds "above 8 kHz"
+rises at Classic 100 %: that is the tape's noise at -45 dBFS, not brighter music. The tail
+after the melody grows least on the Royal Strings (+3.0 / +2.0 dB; their place already rings
+long, and the hall's limiter holds it 3 dB under the music on long chords); the Dark Choir
+Pad's place (the Gates) rings longer than the hall. The hall now follows the user's MIX Reverb
+slider, not the instrument's fitted share (Session 11), so strings, brass and plucks get the
+same hall as pads. Mono only in Classic; Modern widens by 2-7 dB. Nothing heard on a Mac yet.
