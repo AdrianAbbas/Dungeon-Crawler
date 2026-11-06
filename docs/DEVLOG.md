@@ -3784,3 +3784,22 @@ failed (with the developer's recordings), nothing report-only; the job 67 min (t
 limit holds); macOS 22 min, the new AU host checks passing in and out of process on arm64 and
 x86_64. CPU there: the FX in the Crypt 8.3 % of one core at 0 %, 10.7 % at 100 %.
 
+
+## Session 17: real woodwinds from the same CC0 library (2026-11-06, unattended)
+
+The woodwind instruments (the Village Green's tin whistle, the Forest Edge's detuned wooden
+flute, the Foothills' shepherd's flute, the Bog's murky low reed) play real recorded flute,
+piccolo, oboe, clarinet and bassoon from **VSCO 2 Community Edition** (Versilian Studios,
+CC0 1.0), the library the brass already uses (Session 13): the same licence entry, the same
+pinned fetch in CI, nothing committed here. Each is processed into DUNGEON CRAWLER's own dark,
+weary sound; its synthesis stays as the stand-in for builds without the samples, level-matched.
+Push with `[skip ci]` after each part; the last push without, then wait for CI until green.
+Checklist (resume from the first open item after a limit):
+
+- [ ] 1. Licence and fetch: the woodwind folders added to `scripts/ci-fetch-brass.sh` (same pin, licence check; cache key and completeness marker per path list), `docs/LICENSES/VSCO-2-CE.txt` lists them
+- [ ] 2. Preparation: `tools/sample-prep/woodwinds.py` (sustains looped, vibrato sustains, staccatos, dynamics as velocity layers, tuned, the library's octave naming checked against the audio)
+- [ ] 3. Engine: a woodwind sampler voice (`WoodwindVoice`, Model::Woodwind), sound 15: breathy attack, tongued staccato onset, vibrato takes, legato (slurred) transitions, mod wheel = expression (and vibrato on the flutes); per-instrument character processing
+- [ ] 4. Instruments: Village Green (flute + piccolo, small, woody, folky), Forest Edge (two flutes, darker, detuned, uneasy), Foothills (flute, breathy, distant, echoing), Bog (low clarinet + bassoon, with a darkened oboe edge); stand-ins kept; ready for a second (developer) sample set
+- [ ] 5. Tests (`--only realwinds`, CI shard `15-realwinds`: in tune with cents report, dynamics smooth, no clicks at loops / note-offs / legato, level-matched, distinct from siblings, the dungeon synth roller) and listening renders (`--listen-realwinds`, CI step)
+- [ ] 6a. README / MANUAL_TEST / DEVLOG handoff; final push
+- [ ] 6b. CI green
