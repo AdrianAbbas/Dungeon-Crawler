@@ -3546,7 +3546,7 @@ without, then wait for CI until green. Checklist (resume from the first open ite
 - [x] 3. Tests that fail when it is too subtle (`dungeonsynth` group), the AU harness checks (both plug-ins, in and out of process)
 - [x] 4. Factory presets that show it off; listening render (`--listen-dungeonsynth`)
 - [x] 5a. README / MANUAL_TEST / DEVLOG handoff; final push without `[skip ci]`
-- [ ] 5b. CI green
+- [x] 5b. CI green: run 42246724247 (macOS + Linux; the navigation check moved to the timed shard, nothing report-only)
 
 ### 1. The audit: the stage reached the audio, and the place covered it
 
@@ -3778,4 +3778,9 @@ new is load: the dungeon synth presets now run the stage at 85-100 % in the conc
 that render every preset. The check is not changed; its group now runs after the shards with
 the other wall-clock groups (`8-timed`: editor, workflow, navigation), as Session 13 did for
 the same notice. Here: 101 of 101 there.
+
+**CI, third run: green** (`01fd973`, run 42246724247, macOS and Linux): Linux 3087 passed, 0
+failed (with the developer's recordings), nothing report-only; the job 67 min (the 90-minute
+limit holds); macOS 22 min, the new AU host checks passing in and out of process on arm64 and
+x86_64. CPU there: the FX in the Crypt 8.3 % of one core at 0 %, 10.7 % at 100 %.
 
