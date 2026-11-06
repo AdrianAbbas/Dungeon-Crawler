@@ -29,9 +29,11 @@ inline constexpr int instrumentCount = 40;   // one per place (ten locations, th
 inline constexpr int maxVoices = 24;         // slots (some fading out after a steal)
 inline constexpr int macroCount = 5;         // Tone, Attack, Release, Body, the signature
 
-enum class Model : uint8_t { None, Synth, Pluck, Bell, Drum, Fm, Tine, Choir, Wind, Bowed, Strings, Organ, Sample, Vocal, Brass };
+enum class Model : uint8_t { None, Synth, Pluck, Bell, Drum, Fm, Tine, Choir, Wind, Bowed, Strings, Organ, Sample, Vocal, Brass, Woodwind };
 // What the mod wheel does on an instrument.
-enum class ModWheel : uint8_t { Vibrato, Brightness, Tremolo, Growl, Swell };
+// Session 17: Expression (the recorded woodwinds, sound 15): the wheel swells the note (a
+// little louder, brighter, and on the flutes into their vibrato); at rest the note as played.
+enum class ModWheel : uint8_t { Vibrato, Brightness, Tremolo, Growl, Swell, Expression };
 
 // A pipe organ (or chamber organ, or harmonium-like reed rank): up to eight ranks of
 // pipes, each a sine at its footage's ratio with a little of its own detune, the flue's
@@ -120,6 +122,9 @@ struct SampleVoice {
     // level up to its own across its velocity range, so the level never jumps at a layer
     // boundary (each layer keeps its own tone).
     bool smoothLayers = false;
+    // How far a take is evened towards its layer's median at most (dB; Session 17: the
+    // woodwinds 24: a flute's lowest notes are 20-30 dB softer than its top).
+    float evenLimitDb = 12;
     bool active() const { return on; }
     void reset() { on = false; zone = courseZone = nullptr; }
     // skipSeconds: start that far into the recording; decaySeconds > 0: die away faster.
@@ -346,6 +351,134 @@ struct BrassVoice {
     void tick(float& l, float& r);
 };
 
+// Session 17: the recorded woodwinds (flute, piccolo, oboe, clarinet, bassoon: VSCO 2
+// Community Edition, CC0; tools/sample-prep/woodwinds.py), played as DUNGEON CRAWLER's own
+// winds. Up to three players (each an instrument, an interval, a detune, a pan, a late entry,
+// the sounding range it plays, a slow wander in pitch). Each plays its sustain (looped, its
+// recorded release on note off) and, where the library has one, its vibrato sustain beside it
+// (crossfaded at constant power: `vibBase`, and the wheel towards the vibrato); its staccato
+// as a tongued onset (more the harder the key is struck, dying under the held note; none on a
+// slurred note). The dynamic nearest the velocity, levelled onto a smooth velocity curve (as
+// the brass). Then the winds' own character: the breath (noise in a band riding the note's
+// own level, a puff on the attack), a woody body, a low cut (a small instrument), a darkening
+// low-pass (lower played softly; the wheel opens it), the wheel's swell. A slurred note
+// (`legato`) starts past its attack, fading in over `slurSeconds`, its pitch gliding from the
+// note before.
+struct WoodwindVoice {
+    static constexpr int maxPlayers = 3;
+    static constexpr int maxReaders = maxPlayers * 3;   // per player: sustain, vibrato sustain, staccato
+    struct Player {
+        const wb::samples::Instrument* sus = nullptr;
+        const wb::samples::Instrument* vib = nullptr;
+        const wb::samples::Instrument* stac = nullptr;
+        float semis = 0, cents = 0, gain = 1, pan = 0, delayMs = 0;
+        // A doubling player plays another recording (the nearest other note, `lookup`'s side
+        // first), transposed: one take doubled a few ms late would comb-filter.
+        float lookup = 0;
+        // The sounding range it plays (MIDI), fading out over `fadeSemis` beyond it.
+        float lowMidi = -1000, highMidi = 1000, fadeSemis = 3;
+        // A slow wander in pitch (cents, peak) at about `wanderHz`.
+        float wanderCents = 0, wanderHz = 0.17f;
+    };
+    struct Reader {
+        SampleVoice s;
+        float weight = 0, l = 0.7071f, r = 0.7071f, duck = 0, duckStep = 0;
+        float baseCents = 0, wander = 0, wanderPhase = 0, wanderHz = 0.17f;
+        int kind = 0, delay = 0;   // 0 sustain, 1 vibrato sustain, 2 staccato
+        bool used = false, paired = false;   // paired: a sustain sharing with its vibrato take
+    };
+    // Set before start().
+    std::array<Player, maxPlayers> player {};
+    int players = 0;
+    float stacLevel = 0.5f;          // the tongued onset (times its velocity curve)
+    float stacLiftDb = 0;            // the staccato against the sustain at the same velocity
+    float stacDecaySeconds = 0.3f;   // 60 dB under the held note over this
+    float susDuck = 0.35f;           // how far the sustain dips under the tongued onset
+    float vibBase = 0, vibWheel = 0; // the vibrato takes' share at rest, and how far the wheel moves it
+    float pitchVibrato = 0;          // semitones of vibrato the wheel adds (sets without a vibrato take)
+    float swellDb = 3, swellOpen = 1;   // the wheel at full: +dB, and octaves the low-pass opens
+    float swellPresence = 0, presenceHz = 2500;   // and a presence band it lifts (0 none)
+    float breath = 0, breathHz = 2400, breathQ = 0.8f, puff = 0;
+    float darkHz = 0, darkSoft = 0, darkQ = 0.6f;   // a low-pass (0 none), `darkSoft` octaves lower at velocity 0
+    float lowCutHz = 0;
+    float woodHz = 0, woodQ = 1.3f, woodGain = 0;
+    float curveFloor = 0.2f;         // the velocity curve's floor (0.2: about 14 dB from soft to loud)
+    bool legato = false;
+    float glideSemis = 0, glideSeconds = 0.05f, slurSeconds = 0.025f, slurSkipSeconds = 1.0f;   // the skip lands at most at the loop's start
+    // Read after start(): semitones the note lies outside every player's recordings.
+    float beyond = 0;
+    std::array<Reader, maxReaders> reader {};
+    int readers = 0;
+    float rate = 48000, wheel = 0, glide = 0, glideMul = 1, darkNow = 0, velocity = 0.8f;
+    float levelNow = 1, levelStep = 0, follow = 0, followUp = 0, followDown = 0, puffEnv = 0, puffMul = 1;
+    float susW = 1, vibW = 0;
+    float slurFade = 0, slurPhase = 0, slurStep = 0;   // slurring out: the fade's position
+    uint32_t noiseState = 0x9E3779B9u;
+    d::Svf darkL, darkR, lowL, lowR, lowL2, lowR2, wood, breathBand, presL, presR;   // the low cut: two stages (24 dB per octave)
+    bool active() const {
+        for (int k = 0; k < readers; ++k)
+            if (reader[std::size_t(k)].used && (reader[std::size_t(k)].s.active() || reader[std::size_t(k)].delay > 0)) return true;
+        return false;
+    }
+    void reset() {
+        for (auto& rd : reader) rd.s.reset(), rd.used = false, rd.delay = 0;
+        readers = 0;
+        players = 0;
+        player = {};
+        stacLevel = 0.5f;
+        stacLiftDb = 0;
+        stacDecaySeconds = 0.3f;
+        susDuck = 0.35f;
+        vibBase = vibWheel = pitchVibrato = 0;
+        swellDb = 3;
+        swellOpen = 1;
+        breath = puff = 0;
+        breathHz = 2400;
+        breathQ = 0.8f;
+        darkHz = darkSoft = 0;
+        darkQ = 0.6f;
+        lowCutHz = 0;
+        woodHz = woodGain = 0;
+        woodQ = 1.3f;
+        curveFloor = 0.2f;
+        legato = false;
+        glideSemis = glide = 0;
+        glideSeconds = 0.05f;
+        slurSeconds = 0.025f;
+        slurSkipSeconds = 1.0f;
+        beyond = 0;
+        wheel = 0;
+        follow = puffEnv = 0;
+        slurFade = slurPhase = slurStep = 0;
+        levelNow = 1;
+        levelStep = 0;
+        swellPresence = 0;
+        presenceHz = 2500;
+        for (auto* f : { &darkL, &darkR, &lowL, &lowR, &lowL2, &lowR2, &wood, &breathBand, &presL, &presR }) f->reset();
+    }
+    // Adds a player (before start()); false when full or the instrument is missing.
+    bool addPlayer(const Player& p) {
+        if (players >= maxPlayers || (p.sus == nullptr && p.stac == nullptr)) return false;
+        player[std::size_t(players++)] = p;
+        return true;
+    }
+    bool start(float noteMidi, float velocity, float pick, float sampleRate, float attackSeconds, uint64_t seed);
+    void release(float seconds) {
+        for (int k = 0; k < readers; ++k) reader[std::size_t(k)].s.release(seconds);
+    }
+    // Slurred into the next note: the held tone fades under it along a quarter cosine (an
+    // exponential release falls 13 dB in its first 10 ms: a dip against the next note's
+    // rise), no recorded release (the breath goes on into the next note); silent, it stops.
+    void slurOut(float seconds) {
+        slurFade = 1;
+        slurPhase = 0;
+        slurStep = 1.0f / std::max(1.0f, seconds * rate);
+    }
+    // The wheel (0..1, Expression) and the bend, once per chunk.
+    void update(float bendSemis, float wheelNow, float chunkSeconds);
+    void tick(float& l, float& r);
+};
+
 // One sound source of a voice: whichever model the instrument chose for it.
 struct Layer {
     Model model = Model::None;
@@ -366,6 +499,7 @@ struct Layer {
     SampleVoice sample;
     VocalVoice vocal;
     BrassVoice brass;
+    WoodwindVoice woodwind;
     d::PanGains panGains { 0.7071f, 0.7071f };
     float bellBent = 0;
     void prepare(float rate);
@@ -404,6 +538,10 @@ struct Note {
     float vowel = 0.5f, ensemble = 0.5f;
     bool classic = false;      // Session 11: the sound before it (older sessions)
     int sound = 12;            // Session 12: which generation of the sound (see Sound)
+    // Session 17: a slurred note (a woodwind at sound 15 starting while its previous note is
+    // still held): it starts past its attack, gliding from `legatoFromMidi`.
+    bool legato = false;
+    float legatoFromMidi = 60;
     float rate = 48000;
     double bpm = 120;
     uint64_t noiseAt = 0;
@@ -459,7 +597,11 @@ CaptureSend captureOf(int index) noexcept;
 // 14 (Session 14): the brass sits in the world (about 2.5 dB lower, a little less Punch, the
 // place's space on its sustain, tape warmth, a soft top, a little width, darker played
 // softly) and the War Drums about 2.5 dB lower; everything else as in 13.
-enum Sound : int { SoundClassic = 10, SoundMix = 11, SoundHorns = 12, SoundRealBrass = 13, SoundSeated = 14, SoundLatest = SoundSeated };
+// 15 (Session 17): the woodwinds (the Village Green's whistle, the Forest Edge's wooden flute,
+// the Foothills' shepherd's flute, the Bog's low reed) play the recorded flute, piccolo, oboe,
+// clarinet and bassoon (when the samples are in the build; their synthesis otherwise), the mod
+// wheel their Expression, overlapping notes slurred; everything else as in 14.
+enum Sound : int { SoundClassic = 10, SoundMix = 11, SoundHorns = 12, SoundRealBrass = 13, SoundSeated = 14, SoundWoodwinds = 15, SoundLatest = SoundWoodwinds };
 // The instrument's reverb (and its pre-delay and duck under the hit) in a song.
 // `makeupDb`: the level the drier, ducked space takes away from the instrument in its place,
 // given back (measured: the same phrase in its place as loud, against its dry self, as in
@@ -504,6 +646,15 @@ float seatAmount(int index, int sound = SoundLatest) noexcept;
 // restores the measured ones.
 float seatMakeupDb(int index) noexcept;
 void overrideSeatDb(int index, float levelDb, float makeupDb) noexcept;
+// Session 17: whether the instrument plays the recorded woodwinds (sound 15 and the samples
+// in the build), the level of its recorded winds (dB, measured: its melody as loud as the
+// synthesis it replaces), and what its mod wheel does (Expression from sound 15 when it plays
+// the recordings, the design's own otherwise) with the panel's label for it.
+bool designUsesRealWinds(int index, int sound = SoundLatest) noexcept;
+float realWindTrimDb(int index) noexcept;
+void overrideRealWindTrimDb(int index, float db) noexcept;   // calibration only; NaN restores
+ModWheel wheelOf(int index, int sound = SoundLatest) noexcept;
+const char* wheelLabel(int index, int sound = SoundLatest) noexcept;
 // Session 14: the tape warmth's curve (gentle: under 0.1 dB at the held level, about 1 dB
 // off a hit near full scale).
 float seatWarmth(float x) noexcept;

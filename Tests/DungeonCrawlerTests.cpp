@@ -84,6 +84,14 @@ const std::vector<std::string> reportOnlyChecks {
     // Session 14 (docs/DEVLOG.md, Session 14): with the developer's voice (CI only) the chant's
     // held part above 7 kHz falls 0.4 dB played softly against 0.9 dB loud (two attempts).
     "Dwarven Chant: darker still played softly",
+    // Session 17 (docs/DEVLOG.md, Session 17, "Report-only"): in their places, DUNGEON SYNTH's
+    // Classic 100 % raises the recorded flutes' melody 2.1-3.3 dB (limit 1.5; dry within 0.1 dB:
+    // the stage's matcher against the place on a near-pure tone). Two attempts: the breath over
+    // the darkening, the two Forest flutes narrowed.
+    "Wooden Flute in its place: 100 % Classic level-matched",
+    "Tin Whistle: and keeps its level",
+    "Wooden Flute: and keeps its level",
+    "Shepherd's Flute: and keeps its level",
 };
 struct Suite {
     int passed = 0, failed = 0, reported = 0;
@@ -2643,6 +2651,7 @@ int qaDebug(int la, int ka, int lb, int kb) {
 #include "RealBrassTests.inc"
 #include "SeatTests.inc"
 #include "DungeonSynthTests.inc"
+#include "RealWindTests.inc"
 
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -2684,6 +2693,9 @@ int main(int argc, char** argv) {
         else if (arg == "--seat-report") return seatReport();                                         // Session 14
         else if (arg == "--seat-calibrate") return seatCalibrate();
         else if (arg == "--listen-seat" && i + 1 < argc) return listenSeat(argv[i + 1]);
+        else if (arg == "--realwinds-report") return realWindsReport();                               // Session 17
+        else if (arg == "--realwinds-calibrate") return realWindsCalibrate();
+        else if (arg == "--listen-realwinds" && i + 1 < argc) return listenRealWinds(argv[i + 1]);
         else if (arg == "--ds-hashes") return dsHashes();
         else if (arg == "--ds-report") return dsReport();
         else if (arg == "--ds-audit") return dsAudit();
@@ -2731,6 +2743,7 @@ int main(int argc, char** argv) {
     if (run("seat")) testSeat(s);               // Session 14
     if (run("dungeonsynth")) testDungeonSynth(s);   // Session 15
     if (run("dungeonsynthui")) testDungeonSynthUi(s);
+    if (run("realwinds")) testRealWinds(s);     // Session 17
     if (only.contains("qa")) testQa(s);   // long (130 journeys): run explicitly
     if (only.contains("cpu")) { testCpu(s); testInstrumentCpu(s); testDungeonSynthCpu(s); }   // report only: run explicitly
     std::cout << "\n" << s.passed << " passed, " << s.failed << " failed" << std::endl;

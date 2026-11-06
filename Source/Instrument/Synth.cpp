@@ -16,7 +16,7 @@ bool SampleVoice::start(const wb::samples::Instrument& inst, float noteMidi, flo
     tailPos = -1;
     tailMix = 0;
     // Evened toward the median loudness of the note's own layer (the layers keep their steps).
-    const auto evened = [&](const wb::samples::Zone& q) { return std::clamp(even * (inst.medianDb(q.layer) - q.loudnessDb), -12.0f, 12.0f); };
+    const auto evened = [&](const wb::samples::Zone& q) { return std::clamp(even * (inst.medianDb(q.layer) - q.loudnessDb), -evenLimitDb, evenLimitDb); };
     float evenDb = evened(*z);
     if (smoothLayers && z->layer == 0 && z->hiVel > z->loVel) {
         // The softest layer rises 6 dB across its range (its hits from barely touched up).
@@ -315,6 +315,252 @@ void BrassVoice::tick(float& l, float& r) {
     r += sr;
 }
 
+//==============================================================================
+bool WoodwindVoice::start(float noteMidi, float vel, float pick, float sampleRate, float attackSeconds, uint64_t seed) {
+    rate = sampleRate;
+    for (auto& rd : reader) rd.s.reset(), rd.used = false, rd.delay = 0;
+    readers = 0;
+    velocity = std::clamp(vel, 0.0f, 1.0f);
+    beyond = 1000;
+    // The level along a smooth curve from the loudest layer's median (+1 dB at velocity 1),
+    // the dynamic nearest the velocity, each take levelled onto it (BrassVoice's reasoning).
+    const auto curveDb = [&](const wb::samples::Instrument& inst) {
+        return inst.medianDb(std::max(1, inst.layers) - 1) + 1.0f + 20.0f * std::log10(curveFloor + (1.0f - curveFloor) * std::pow(velocity, 1.5f));
+    };
+    // `shift`: a doubling player picks its dynamic a little softer (its layer changes at
+    // another velocity than the lead's, so the two tone changes never coincide).
+    const auto layerFor = [&](const wb::samples::Instrument& inst, float shift = 0.0f) {
+        const int layers = std::max(1, inst.layers);
+        return std::clamp(int(std::floor((velocity + shift) * float(layers))), 0, layers - 1);
+    };
+    const float slur = legato ? slurSkipSeconds : 0.0f;
+    const float attack = legato ? std::max(slurSeconds, attackSeconds * 0.5f) : attackSeconds;
+    for (int i = 0; i < players; ++i) {
+        const auto& p = player[std::size_t(i)];
+        const float midi = noteMidi + p.semis;
+        const auto* ref = p.sus != nullptr ? p.sus : p.stac;
+        if (ref == nullptr || ref->zones.empty()) continue;
+        const float outside = std::max({ 0.0f, p.lowMidi - midi, midi - p.highMidi });
+        const float share = 1.0f - d::smoothstep(0.0f, std::max(p.fadeSemis, 0.01f), outside);
+        if (share < 0.02f) continue;
+        beyond = std::min(beyond, std::max({ 0.0f, ref->lowRoot - midi, midi - ref->highRoot }));
+        const float pk = pick + 0.37f * float(i) - std::floor(pick + 0.37f * float(i));
+        const auto pg = d::panGains(std::clamp(p.pan, -1.0f, 1.0f));
+        const int delay = int(std::max(0.0f, p.delayMs) * 0.001f * rate);
+        // The key: a doubling player the nearest other recorded note (within 5 semitones).
+        int key = std::clamp(int(std::lround(midi)), ref->lowKey, ref->highKey);
+        const float shift = p.lookup != 0.0f ? -0.12f : 0.0f;
+        if (p.lookup != 0.0f) {
+            const float lv = (float(layerFor(*ref, shift)) + 0.5f) / float(std::max(1, ref->layers));
+            if (const auto* own = ref->find(key, lv, pk)) {
+                const int dir = p.lookup > 0.0f ? 1 : -1;
+                bool found = false;
+                for (int dd = 1; dd <= 5 && !found; ++dd)
+                    for (int side : { dir, -dir }) {
+                        const int k = int(std::lround(midi)) + side * dd;
+                        if (k < ref->lowKey || k > ref->highKey) continue;
+                        if (const auto* z = ref->find(k, lv, pk); z != nullptr && std::abs(z->root - own->root) > 0.5f) {
+                            key = k;
+                            found = true;
+                            break;
+                        }
+                    }
+            }
+        }
+        const uint64_t h = d::mix64(seed + uint64_t(i) * 0x9E3779B97F4A7C15ull + 5u);
+        const float susLevel = curveDb(*ref);
+        const auto add = [&](const wb::samples::Instrument* inst, int kind, float weight, float levelDb, float att, float decay, float skip) {
+            if (inst == nullptr || inst->zones.empty() || readers >= maxReaders) return;
+            const int layer = layerFor(*inst, shift);
+            const float layerVel = (float(layer) + 0.5f) / float(std::max(1, inst->layers));
+            auto& rd = reader[std::size_t(readers)];
+            rd.s.exactTail = true;
+            rd.s.recordedTail = true;   // (a slur may have turned it off on this reader)
+            rd.s.evenLimitDb = 24.0f;
+            const int k = std::clamp(key, inst->lowKey, inst->highKey);
+            // Evened 90 % towards the layer's median: a little of the register's own loudness kept.
+            if (!rd.s.start(*inst, midi, layerVel, pk, rate, att, decay, skip, 0.9f, 0, 0, k)) return;
+            rd.used = true;
+            rd.kind = kind;
+            rd.paired = false;
+            rd.weight = weight * share * d::dbToGain(levelDb - inst->medianDb(layer));
+            rd.baseCents = p.cents;
+            rd.wander = p.wanderCents;
+            rd.wanderHz = p.wanderHz * (0.8f + 0.4f * d::unipolar(h));
+            rd.wanderPhase = d::unipolar(d::mix64(h + 1));
+            rd.s.cents = p.cents;
+            rd.s.update();
+            rd.l = pg.l;
+            rd.r = pg.r;
+            rd.delay = delay;
+            rd.duck = 0;
+            rd.duckStep = 0;
+            ++readers;
+        };
+        const bool tongue = !legato && p.stac != nullptr && stacLevel > 0.01f;
+        const int first = readers;
+        add(p.sus, 0, p.gain, susLevel, attack, 0.0f, slur);
+        if (p.vib != nullptr && readers > first) {
+            const int before = readers;
+            add(p.vib, 1, p.gain, susLevel, attack, 0.0f, slur);
+            reader[std::size_t(first)].paired = readers > before;   // the sustain shares with its vibrato take
+        }
+        if (tongue) {
+            for (int k = first; k < readers; ++k) {
+                reader[std::size_t(k)].duck = susDuck;
+                reader[std::size_t(k)].duckStep = susDuck / (0.07f * rate);
+            }
+            const float w = stacLevel * (0.2f + 0.8f * std::pow(velocity, 1.5f));
+            add(p.stac, 2, p.gain * w, susLevel + stacLiftDb, 0.0f, p.sus != nullptr ? stacDecaySeconds : 0.0f, 0.0f);
+        }
+    }
+    if (beyond > 999.0f) beyond = 0;
+    // The character: filters set from the start (the wheel retunes the low-pass per chunk).
+    darkL.reset();
+    darkR.reset();
+    lowL.reset();
+    lowR.reset();
+    wood.reset();
+    breathBand.reset();
+    lowL2.reset();
+    lowR2.reset();
+    if (lowCutHz > 0.0f) {
+        lowL.set(lowCutHz, 0.54f, rate), lowR.set(lowCutHz, 0.54f, rate);
+        lowL2.set(lowCutHz, 1.31f, rate), lowR2.set(lowCutHz, 1.31f, rate);   // fourth-order Butterworth
+    }
+    if (woodHz > 0.0f) wood.set(woodHz, woodQ, rate);
+    breathBand.set(breathHz, breathQ, rate);
+    presL.reset();
+    presR.reset();
+    presL.set(presenceHz, 0.8f, rate);
+    presR.set(presenceHz, 0.8f, rate);
+    darkNow = darkHz > 0.0f ? darkHz * std::exp2(-darkSoft * (1.0f - velocity)) : 0.0f;
+    if (darkNow > 0.0f) darkL.set(darkNow, darkQ, rate), darkR.set(darkNow, darkQ, rate);
+    glide = legato ? std::clamp(glideSemis, -12.0f, 12.0f) : 0.0f;
+    glideMul = std::exp(-float(d::chunk) / (std::max(glideSeconds, 0.005f) / 3.0f * rate));
+    follow = 0;
+    // The breath follows the note's average level (not its peaks: a bright take's spiky
+    // waveform would breathe louder than a round one at the same loudness).
+    followUp = 1.0f - std::exp(-1.0f / (0.012f * rate));
+    followDown = 1.0f - std::exp(-1.0f / (0.05f * rate));
+    puffEnv = legato ? 0.0f : 1.0f;
+    puffMul = std::exp(-1.0f / (0.05f * rate));
+    noiseState = uint32_t(d::mix64(seed + 99u)) | 1u;
+    slurFade = slurPhase = slurStep = 0;
+    levelNow = 1.0f;
+    levelStep = 0;
+    susW = 1;
+    vibW = 0;
+    update(0.0f, wheel, 0.0f);
+    levelNow += levelStep * float(d::chunk);
+    levelStep = 0;
+    return readers > 0;
+}
+
+void WoodwindVoice::update(float bendSemis, float wheelNow, float chunkSeconds) {
+    wheel = std::clamp(wheelNow, 0.0f, 1.0f);
+    glide *= glideMul;
+    if (std::abs(glide) < 1.0e-4f) glide = 0;
+    // The vibrato takes' share (constant power), the swell's level and brightness.
+    // The two takes play the same pitch with unrelated phases: heard together they beat (and
+    // their sum swings by up to 3 dB), so the crossfade is short (between 0.55 and 0.8 of the
+    // vibrato amount): one take or the other, almost always.
+    const float vib = d::smoothstep(0.55f, 0.8f, std::clamp(vibBase + vibWheel * wheel, 0.0f, 1.0f));
+    susW = std::cos(1.5707963f * vib);
+    vibW = std::sin(1.5707963f * vib);
+    const float target = d::dbToGain(swellDb * wheel);
+    levelStep = (target - levelNow) / float(d::chunk);
+    if (darkNow > 0.0f) {
+        const float hz = std::min(darkNow * std::exp2(swellOpen * wheel), 0.45f * rate);
+        darkL.set(hz, darkQ, rate);
+        darkR.set(hz, darkQ, rate);
+    }
+    for (int k = 0; k < readers; ++k) {
+        auto& rd = reader[std::size_t(k)];
+        if (!rd.used || !rd.s.active()) continue;
+        rd.wanderPhase += rd.wanderHz * chunkSeconds;
+        rd.wanderPhase -= std::floor(rd.wanderPhase);
+        rd.s.bend = bendSemis + glide;
+        rd.s.cents = rd.baseCents + rd.wander * d::sinCycles(rd.wanderPhase);
+        rd.s.vibratoDepth = pitchVibrato * wheel;
+        rd.s.vibratoHz = 5.1f;
+        rd.s.update();
+    }
+}
+
+void WoodwindVoice::tick(float& l, float& r) {
+    float sl = 0, sr = 0;
+    for (int k = 0; k < readers; ++k) {
+        auto& rd = reader[std::size_t(k)];
+        if (!rd.used) continue;
+        if (rd.delay > 0) {
+            --rd.delay;
+            continue;
+        }
+        if (!rd.s.active()) continue;
+        float w = rd.weight;
+        if (rd.kind == 0 && rd.paired) w *= susW;
+        else if (rd.kind == 1) w *= vibW;
+        if (rd.duck > 0.0f) {
+            w *= 1.0f - rd.duck;
+            rd.duck = std::max(0.0f, rd.duck - rd.duckStep);
+        }
+        const float y = rd.s.tick() * w;
+        sl += y * rd.l;
+        sr += y * rd.r;
+    }
+    const float mid = 0.5f * (sl + sr);
+    // The breath: noise in a band, riding the note's own level (so it is shaped, held and
+    // released with it), a puff more on the attack. Added after the darkening (below): the air
+    // over the embouchure stays above the darkened tone, as on a real flute.
+    float breathNow = 0;
+    if (breath > 0.0f || puff > 0.0f) {
+        const float a = std::abs(mid);
+        follow += (a > follow ? followUp : followDown) * (a - follow);
+        noiseState ^= noiseState << 13;
+        noiseState ^= noiseState >> 17;
+        noiseState ^= noiseState << 5;
+        const float white = float(int32_t(noiseState)) * (1.0f / 2147483648.0f);
+        breathNow = breathBand.bandpass(white) * follow * (breath + puff * puffEnv) * 2.5f;
+        puffEnv *= puffMul;
+    }
+    if (woodGain != 0.0f) {
+        const float b = woodGain * wood.bandpass(0.5f * (sl + sr));
+        sl += b;
+        sr += b;
+    }
+    if (lowCutHz > 0.0f) {
+        sl = lowL2.tick(lowL.tick(sl).hp).hp;
+        sr = lowR2.tick(lowR.tick(sr).hp).hp;
+    }
+    if (darkNow > 0.0f) {
+        sl = darkL.tick(sl).lp;
+        sr = darkR.tick(sr).lp;
+    }
+    if (swellPresence > 0.0f) {
+        const float p = swellPresence * wheel;
+        sl += p * presL.bandpass(sl);
+        sr += p * presR.bandpass(sr);
+    }
+    sl += breathNow;
+    sr += breathNow;
+    float g = levelNow;
+    levelNow += levelStep;
+    if (slurStep > 0.0f) {
+        // Once slurring out it stays faded (its filters and breath may still ring for the rest
+        // of the chunk before the voice stops).
+        if (slurPhase < 1.0f) {
+            slurPhase = std::min(1.0f, slurPhase + slurStep);
+            slurFade = slurPhase >= 1.0f ? 0.0f : std::cos(1.5707963f * slurPhase);
+            if (slurPhase >= 1.0f)
+                for (int k = 0; k < readers; ++k) reader[std::size_t(k)].s.reset();
+        }
+        g *= slurFade;
+    }
+    l += sl * g;
+    r += sr * g;
+}
+
 namespace {
 inline float readCubic(const int16_t* data, double pos) {
     const auto i = int(pos);
@@ -382,6 +628,7 @@ void Layer::reset() {
     sample.reset();
     vocal.reset();
     brass.reset();
+    woodwind.reset();
     bellBent = 0;
 }
 
@@ -401,6 +648,7 @@ bool Layer::active() const {
         case Model::Sample: return sample.active();
         case Model::Vocal: return vocal.active();
         case Model::Brass: return brass.active();
+        case Model::Woodwind: return woodwind.active();
         case Model::None: break;
     }
     return false;
@@ -420,6 +668,7 @@ void Layer::release(float seconds, float rate) {
         case Model::Sample: sample.release(seconds); break;
         case Model::Vocal: vocal.release(seconds); break;
         case Model::Brass: brass.release(seconds); break;
+        case Model::Woodwind: woodwind.release(seconds); break;
         case Model::Bell:
             // A struck bell or bar damped: its modes stop over `seconds` (the highs a little first).
             for (int k = 0; k < bell.modes; ++k) {
@@ -459,6 +708,7 @@ void Layer::update(float rate, float bendSemis, float vibrato) {
         case Model::Sample: sample.bend = bendSemis; sample.update(); break;
         case Model::Vocal: vocal.update(bendSemis, float(d::chunk) / rate); break;
         case Model::Brass: brass.update(bendSemis); break;
+        case Model::Woodwind: woodwind.update(bendSemis, woodwind.wheel, float(d::chunk) / rate); break;
         case Model::None: break;
     }
     (void) vibrato;
@@ -496,6 +746,13 @@ void Layer::tick(const d::Stream& noise, float& l, float& r) {
         case Model::Brass: {
             float a = 0, b = 0;
             brass.tick(a, b);
+            l += a * gain;
+            r += b * gain;
+            return;
+        }
+        case Model::Woodwind: {
+            float a = 0, b = 0;
+            woodwind.tick(a, b);
             l += a * gain;
             r += b * gain;
             return;
@@ -586,6 +843,17 @@ void Synth::noteOn(int key, float velocity) noexcept {
         return;
     }
     const auto& des = design(designNow);
+    // Session 17: a recorded woodwind (sound 15) played legato: a note that starts while the
+    // instrument's previous note is still held slurs from it (no tongue, past its attack, its
+    // pitch gliding from the note before), and the note before lets go as it enters. Notes
+    // struck together (within 30 ms: a chord) are not slurred.
+    Voice* slurFrom = nullptr;
+    if (sound >= SoundWoodwinds && designUsesRealWinds(designNow, sound))
+        for (auto& v : voices)
+            if (v.on && v.keyDown && !v.releasing && !v.killing && v.key != key && v.designIndex == designNow && v.age >= 0.03f
+                && (slurFrom == nullptr || v.order > slurFrom->order))
+                slurFrom = &v;
+    const float slurFromMidi = slurFrom != nullptr ? float(slurFrom->key) + des.transpose : 0.0f;
     // The same key again: the old note lets go quickly (a re-strike, not a pile-up).
     for (auto& v : voices)
         if (v.on && v.key == key && !v.killing) kill(v);
@@ -640,6 +908,10 @@ void Synth::noteOn(int key, float velocity) noexcept {
     n.rate = rate;
     n.bpm = tempo;
     n.noiseAt = d::mix64(noteCount + 77) << 8;
+    if (slurFrom != nullptr && slurFrom != &v && slurFrom->on && !slurFrom->killing) {
+        n.legato = true;
+        n.legatoFromMidi = slurFromMidi;
+    }
     v.note = n;
     // The post: tone follows the Tone macro (two octaves either way) and the velocity.
     const auto& p = des.post;
@@ -705,6 +977,14 @@ void Synth::noteOn(int key, float velocity) noexcept {
         bool recorded = false;
         for (const auto& L : v.layer) recorded |= L.model == Model::Sample || L.model == Model::Vocal;
         if (!recorded) v.gain = d::dbToGain(standInTrimDb(designNow) + presenceTrimDb + seatLevelDb(designNow, sound, false));
+    }
+    // The slurred note's predecessor lets go as it enters (its own recorded release, quickly).
+    if (n.legato && slurFrom != nullptr && slurFrom->on && !slurFrom->releasing) {
+        slurFrom->releasing = true;
+        for (auto& L : slurFrom->layer) {
+            if (L.model == Model::Woodwind) L.woodwind.slurOut(0.035f);
+            else if (L.model != Model::None) L.release(0.09f, rate);
+        }
     }
     // Velocity sets the level of the blown, bowed, sung and held sources (struck and
     // plucked models already respond to it in their own way).
@@ -817,7 +1097,9 @@ void Synth::controlChunk() noexcept {
         float vibrato = 0;
         float toneMul = 1;
         v.wheelLevel = 1;
-        switch (des.wheel) {
+        const ModWheel wheel = wheelOf(v.designIndex, v.note.sound);
+        switch (wheel) {
+            case ModWheel::Expression: toneMul = std::exp2(0.6f * modNow); break;   // the woodwind voice swells (below); the tone opens
             case ModWheel::Vibrato: vibrato = 0.35f * modNow; break;
             case ModWheel::Brightness: toneMul = std::exp2(2.0f * modNow); break;
             case ModWheel::Tremolo: {
@@ -829,7 +1111,7 @@ void Synth::controlChunk() noexcept {
             case ModWheel::Growl: v.drive = v.baseDrive + 0.6f * modNow; break;
             case ModWheel::Swell: v.wheelLevel = 0.55f + 0.9f * modNow; break;
         }
-        if (toneMul != 1.0f || des.wheel == ModWheel::Brightness) v.tone.set(std::min(v.toneHz * toneMul, 0.45f * rate), v.toneQ, rate);
+        if (toneMul != 1.0f || wheel == ModWheel::Brightness || wheel == ModWheel::Expression) v.tone.set(std::min(v.toneHz * toneMul, 0.45f * rate), v.toneQ, rate);
         for (auto& L : v.layer) {
             if (L.model == Model::None) continue;
             // Vibrato by wheel: the models with a vibrato take it directly; the others
@@ -851,6 +1133,7 @@ void Synth::controlChunk() noexcept {
                     }
                 }
             }
+            if (L.model == Model::Woodwind) L.woodwind.wheel = wheel == ModWheel::Expression ? modNow : 0.0f;
             L.update(rate, bendSemis + bendExtra, vibrato);
         }
         bool any = false;

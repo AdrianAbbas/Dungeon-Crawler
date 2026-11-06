@@ -519,3 +519,25 @@ The developer heard almost no difference in Session 15 (the place covered the st
 - [ ] Listen: test-logs `dungeonsynth/`: each instrument's `-ab-0-classic100-modern100.wav`
       first (0 %, Classic 100 %, Modern 100 % back to back), then `-classic-50`, `-modern-50`.
 
+## Session 17: real woodwinds
+
+- [ ] Tin Whistle (Village Green), Wooden Flute (Forest Edge), Shepherd's Flute (Foothills),
+      Murky Reed (Bog): real flute, clarinet and bassoon now? Does each still sound like its
+      place (a small weary folk whistle; two uneasy wooden flutes; a breathy flute far off on
+      the hills; a murky low reed) and like DUNGEON CRAWLER, not a stock orchestral library?
+- [ ] The attacks: breathy and natural, a soft tongue on harder notes; the key and breath
+      noise subtle (Breath / Murk add more).
+- [ ] Play each from soft to hard: the level and tone rise evenly, no jump where the recorded
+      dynamic changes.
+- [ ] The mod wheel (Expression): up, the note swells a little and brightens; on the flutes the
+      vibrato comes in. Move it fast while holding a note: no click.
+- [ ] Legato: hold a note and play the next before letting go: a slur (no new attack, a short
+      glide), no gap, no click. A chord: all its notes sound.
+- [ ] Long notes (10 s and more): no pulse as the loop turns; let go: the recorded release.
+- [ ] The extremes (the Wooden and Shepherd's Flutes below G3, the whistle very high, the reed
+      very low): the note hands over to the synthesis smoothly.
+- [ ] DUNGEON SYNTH at 50 and 100 % on each: still works (Classic, Modern).
+- [ ] A project saved with the Session 16 version: the synthesised winds exactly as before.
+- [ ] Listen: test-logs `realwinds/` (each `-dry-1-before` / `-dry-2-after`, then
+      `-in-its-place-`, then `-expression-swell`), `realwinds-report.txt` for the numbers
+      (the cents of every set and instrument).

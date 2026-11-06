@@ -68,8 +68,9 @@ std::string dsName(Ds d) { return std::to_string(juce::roundToInt(d.amount * 100
 void setDs(InstHost& h, Ds d) { h.set(dc::ids::dungeonSynth, d.amount); h.set(dc::ids::dungeonSynthEra, float(d.era)); }
 void setDs(Host& h, Ds d) { h.set(dc::ids::dungeonSynth, d.amount); h.set(dc::ids::dungeonSynthEra, float(d.era)); }
 // The melody on an instrument in its place (or dry), with DUNGEON SYNTH set; `tail` after it.
-effectstests::Take instMelody(int instrument, Ds d, double tail = 3.0, bool inPlace = true) {
+effectstests::Take instMelody(int instrument, Ds d, double tail = 3.0, bool inPlace = true, int sound = dc::inst::SoundLatest) {
     InstHost h;
+    h.p->setSoundGeneration(sound);
     h.play(instrument);
     if (!inPlace) h.dry();
     setDs(h, d);
@@ -538,7 +539,13 @@ Strength measureStrength() {
             }
         m.bright.push_back(b);
     };
-    for (int instrument : brightInstruments()) bright(instName(instrument) + " dry", [instrument](Ds d) { return instMelody(instrument, d, 1.0, false); });
+    // Session 17: the Wooden Flute's bright material is its synthesis (sound 14), as these checks
+    // were written for: the recorded flute (sound 15) is dark by design (it has little above
+    // 8 kHz for the stage to roll off; the realwinds group checks the roller on it).
+    for (int instrument : brightInstruments())
+        bright(instName(instrument) + " dry", [instrument](Ds d) {
+            return instMelody(instrument, d, 1.0, false, instrument == dc::inst::designFor(dc::HauntedForest, 0) ? int(dc::inst::SoundSeated) : int(dc::inst::SoundLatest));
+        });
     bright("FX dry path", [](Ds d) { return fxDry(d); });
     return m;
 }

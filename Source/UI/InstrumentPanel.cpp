@@ -193,7 +193,7 @@ void InstrumentPanel::refresh() {
     place.setText(shownPlace, juce::dontSendNotification);
     if (elsewhere) shownPlace << juce::String::fromUTF8(" \xe2\x80\x94 played in ") << dc::subLocationName(here, hereSub);
     juce::String text;
-    text << "Mod wheel:\n" << d.modLabel;
+    text << "Mod wheel:\n" << dc::inst::wheelLabel(index, processor.soundGenerationUsed());
     if (elsewhere) text << "\n\nLocked, played in\n" << dc::subLocationName(here, hereSub);
     else if (shownLock) text << "\n\nLocked";
     status.setText(text, juce::dontSendNotification);

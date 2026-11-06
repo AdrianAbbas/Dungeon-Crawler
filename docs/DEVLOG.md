@@ -3798,8 +3798,143 @@ Checklist (resume from the first open item after a limit):
 
 - [x] 1. Licence and fetch: the woodwind folders added to `scripts/ci-fetch-brass.sh` (same pin, licence check; cache key and completeness marker per path list), `docs/LICENSES/VSCO-2-CE.txt` lists them
 - [x] 2. Preparation: `tools/sample-prep/woodwinds.py` (sustains looped, vibrato sustains, staccatos, dynamics as velocity layers, tuned, the library's octave naming checked against the audio)
-- [ ] 3. Engine: a woodwind sampler voice (`WoodwindVoice`, Model::Woodwind), sound 15: breathy attack, tongued staccato onset, vibrato takes, legato (slurred) transitions, mod wheel = expression (and vibrato on the flutes); per-instrument character processing
-- [ ] 4. Instruments: Village Green (flute + piccolo, small, woody, folky), Forest Edge (two flutes, darker, detuned, uneasy), Foothills (flute, breathy, distant, echoing), Bog (low clarinet + bassoon, with a darkened oboe edge); stand-ins kept; ready for a second (developer) sample set
-- [ ] 5. Tests (`--only realwinds`, CI shard `15-realwinds`: in tune with cents report, dynamics smooth, no clicks at loops / note-offs / legato, level-matched, distinct from siblings, the dungeon synth roller) and listening renders (`--listen-realwinds`, CI step)
+- [x] 3. Engine: a woodwind sampler voice (`WoodwindVoice`, Model::Woodwind), sound 15: breathy attack, tongued staccato onset, vibrato takes, legato (slurred) transitions, mod wheel = expression (and vibrato on the flutes); per-instrument character processing
+- [x] 4. Instruments: Village Green (flute + piccolo, small, woody, folky), Forest Edge (two flutes, darker, detuned, uneasy), Foothills (flute, breathy, distant, echoing), Bog (low clarinet + bassoon, with a darkened oboe edge); stand-ins kept; ready for a second (developer) sample set
+- [x] 5. Tests (`--only realwinds`, CI shard `15-realwinds`: in tune with cents report, dynamics smooth, no clicks at loops / note-offs / legato, level-matched, distinct from siblings, the dungeon synth roller) and listening renders (`--listen-realwinds`, CI step)
 - [ ] 6a. README / MANUAL_TEST / DEVLOG handoff; final push
 - [ ] 6b. CI green
+
+### 1. The licence and the fetch
+
+The same library, pin and licence as the brass (Session 13): VSCO 2 Community Edition at
+commit `4403009` (library 1.1.0), `LICENSE` the full CC0 1.0 text (SHA-256 checked again by the
+fetch). `docs/LICENSES/VSCO-2-CE.txt` now lists the woodwind folders used (380 WAVs, 44.1 kHz).
+`scripts/ci-fetch-brass.sh` fetches `Woodwinds/{Flute,Piccolo,Oboe,Clarinet,Bassoon}` with the
+brass (sparse, blobless, the same pinned commit); a checkout is complete for its commit *and
+its list of folders* (a marker named by both), and CI's cache key gained `-woodwinds`, so a
+cached brass-only checkout is fetched again once. It then runs `tools/sample-prep/woodwinds.py`
+into the same samples folder (merged into `index.json`, the licence copied to
+`licenses/woodwind-samples-CC0.txt`) and sets `DC_REQUIRE_WOODWINDS=1`. Nothing of the
+library is committed.
+
+### 2. Preparation (`tools/sample-prep/woodwinds.py`)
+
+brass.py's steps and helpers (mono, DC off, trimmed to the onset, tuned by YIN and the
+harmonics, sustains looped with the hold after the loop cut out, one gain per instrument,
+velocity layers, key ranges), with what the woodwinds need:
+- the names differ per instrument (`LDFlute_susNV_C4_v1_1`, `piccolo_C5_sustain1`,
+  `Oboe_Sus_A#2_v1_Main`, `DCClar_susLong_D2_v1_rr1_sum`, `PSBassoon_A#0_v1_1`); the octave
+  is **checked against the audio** per instrument (a broad pitch of every third take, the
+  octave most agree on): every one sounds an octave above its names, as the brass does;
+- the dynamics **by rank**: the library numbers them per note (a flute note recorded p and f is
+  `v1`/`v3`, its neighbour `v1`/`v2`): the layer count most notes have is kept and each note's
+  dynamics take those layers, a note recorded only loud stays loud;
+- loops searched in the first 4 s of the hold; vibrato takes tuned by their first held
+  seconds (0.4-2.0 s), plain sustains by their loop, staccatos by 20-130 ms (what sounds of
+  them as the tongued onset);
+- a set whose borrowed take (a note lacking a dynamic, raised to that layer) would clip is
+  written a little lower (the sampler levels every take by its loudness, so nothing heard changes).
+
+The sets (`ww-<instrument>-<sus|vib|stac>`): flute 20 / 13 / 50 notes (sustain p/f, vibrato one
+dynamic, staccato p/mp/mf; C4-C7), piccolo 5 / 5 (G5-G7), oboe 18 / 18 / 52 (B-flat 3-F6),
+clarinet 33 / 66 (p/mp/mf, D3-F6), bassoon 26 / 22 / 52 (B-flat 1-E-flat 5): 13 sets, 31 MB of
+FLAC, every sustain looped. Not used: the flute's `expvib` (expressive swells: they change level
+by themselves). Problems the script reports: the clarinet's top `F#5` takes sound F6 (mapped
+where they sound); some clarinet staccatos 25-46 cents flat at their start (tuned where they
+sound).
+
+### 3. The engine: `WoodwindVoice` (Model::Woodwind), sound 15
+
+Up to three players per note (instrument, interval, detune, pan, late entry, the sounding range
+it plays with a fade beyond, a slow wander in pitch; a doubling player plays another recording
+and picks its dynamic 0.12 softer, so the two never change tone at the same velocity). Each
+player: its sustain, its vibrato sustain beside it where the library has one, and its staccato
+as the **tongued onset** (more the harder the key is struck, dying 60 dB over 0.3 s under the
+held note, the sustain dipped under it). The dynamic nearest the velocity, levelled onto a
+smooth velocity curve (about 11 dB from velocity 0.2 to 1), each take **evened 90 %** towards its
+layer's median with a limit of 24 dB (`SampleVoice::evenLimitDb`, 12 for every other
+instrument as before: a flute's lowest notes are 20-30 dB softer than its top; at 12 dB the low
+notes stepped up to 4.8 dB at the layer change).
+- **Vibrato takes**: the plain and the vibrato take play the same pitch with unrelated phases;
+  heard together they beat (their sum swings by up to 3 dB), so the crossfade is short (between
+  0.55 and 0.8 of the vibrato amount).
+- **Expression** (`ModWheel::Expression`, the panel's label "Expression & Vibrato", "Expression"
+  on the reed): the wheel swells the held note (1.5-3 dB), opens the voice's low-pass and the
+  instrument's tone (0.6 octave), and on the flutes moves into the vibrato takes (Village
+  Green) or deepens the vibrato (Foothills; a slight waver on the Forest Edge).
+- **Legato** (`Note::legato`): a note starting while the instrument's previous note is still
+  held (and at least 30 ms old, so a chord is not slurred) slurs: no tongue, it starts at its
+  loop (past the attack), fades in over 25 ms, its pitch gliding from half-way (gliding from the
+  old note's very pitch, the two crossing notes cancelled for 5 ms where their phases opposed:
+  -13 dB); the note before fades out along a quarter cosine over 35 ms (its exponential release
+  fell 13 dB in the first 10 ms: a dip), and stays silent until its voice stops (it first
+  snapped back to full gain for the rest of the chunk while its filters still rang: a 24x click).
+- **Character** per instrument: the breath (noise in a band following the note's *average*
+  level, added above the darkening, a puff on a tongued attack), a woody body (a band
+  resonance), a low cut (fourth order: a small instrument), a darkening low-pass (lower
+  played softly).
+- The voice's level sits on its layer (`realWindTrimDb`), the instrument's design post (tone,
+  high-pass, body) and place as before. The Murky Reed's post drive is 0 on the recordings (the
+  stand-in's grit flattened their dynamics to 4.4 dB).
+
+**Sound 15** (`SoundWoodwinds`, the latest): the four woodwinds play the recordings when they are
+in the build; without them, or in a session saved at 14 (or before), they play the Session 16
+synthesis, sample for sample (tested, dry and in their places), with their old wheel. Every other
+instrument plays 15 exactly as 14 (tested). Projects saved at 14 stay at 14; new instances, Init
+and the factory presets get 15.
+
+### 4. Which instruments use which woodwinds
+
+| instrument (place) | recorded woodwinds (sets) | made its own |
+|---|---|---|
+| Tin Whistle (Village Green) | flute `ww-flute-sus/vib/stac`; piccolo `ww-piccolo-sus/stac` from E6 up | small (low cut 450 Hz, 4th order), woody body at 1.5 kHz, darker top, a little flat and wandering (5 cents), breath (Breath) and a breathy tongued attack; no vibrato at rest, the wheel brings in the vibrato takes |
+| Wooden Flute (Forest Edge) | flute `ww-flute-sus/vib/stac`, two players | the second another recording, flat by Detune (6-36 cents), 14 ms late, the two wandering apart; darker (4.2 kHz), woody body at 700 Hz, breathy; reaches 5 semitones below the flute (G3) before handing over |
+| Shepherd's Flute (Foothills) | flute `ww-flute-sus/vib/stac` | very breathy (breath and a long puff), soft-edged (slow attack, little tongue), open and distant (low cut 260 Hz), the vibrato takes at rest; its place's space and echoes up (reverb x1.3, echoes x1.5, pre-delay +30 ms); the synthesised shepherd's breath (Breath) kept; reaches 5 semitones down |
+| Murky Reed (Bog) | clarinet `ww-clarinet-sus/stac` from D3; bassoon `ww-bassoon-sus/vib/stac` below; oboe `ww-oboe-sus/vib/stac` faintly on the unison from B-flat 3 | a dark, closed top (2.4 kHz, lower played softly; Murk closes it further), a low woody body at 320 Hz, breath in the mud (Murk), a slow sag in pitch, no vibrato |
+
+No other layer of the plug-in is a woodwind (the organs' reed ranks and the Ancient Grove's
+breath are not). **Ready for the developer's recordings**: each folk wind asks for a developer
+set first (`windSource` in `Designs.cpp`): the Tin Whistle `recorder-alto` then `ocarina`, the
+Wooden Flute `recorder-alto`, the Shepherd's Flute `ocarina` then `recorder-alto`. When the
+private Samples repository has `<id>-sus` (prepared by `tools/sample-prep/prepare.py` from a
+`manifest.json` entry, looped, its dynamics as layers; `<id>-vib` and `<id>-stac` optional), it is
+played in place of the flute with the same processing (the whistle then without the piccolo);
+its level is the instrument's trim (`--realwinds-calibrate` once the recordings are in).
+
+### 5. Tests (`--only realwinds`, CI shard `15-realwinds`, after the shards) and renders
+
+`Tests/RealWindTests.inc`, the recordings' checks required in CI (`DC_REQUIRE_WOODWINDS`):
+the licence (the woodwinds listed, the fetch at the pin with the licence check, the cache key,
+shipped with the notes, this DEVLOG); without the samples and at sound 14, the synthesis sample
+for sample (the woodwind phrase, dry and in its place), every other instrument 15 = 14; the 13
+sets loaded, every sustain looped, the four sustains with 2+ dynamics; **in tune** (every set,
+every other key, soft and loud: held part 8 cents, vibrato centre 12, staccato body 15; each
+instrument at six keys within 10 cents; the cents are printed and in `realwinds-report.txt`);
+**dynamics smooth** (every sustain set in steps of 0.05; each instrument 0.2 to 1: under 2 dB,
+never falling more than 0.5, at least 6 dB of range; the wheel louder and brighter step by step,
+at most 4.5 dB; a fast wheel sweep without a click); **level-matched** (the melody within 1 dB of
+sound 14's, within 3 dB of the median of all 40, in its place against dry as at 14 within
+1.5 dB); **clean** (six-second holds over the loop and the note-off; the woodwind phrase with
+tongued notes, a slurred run, staccatos and note-offs against the synthesis and the recordings'
+own steepest front; never above -0.1 dBFS dry or in its place; velocity 1 chords, Level +12 dB,
+the wheel full never clip); **legato** (a slurred step: no gap and no new attack, within
+-6 / +2 dB of the held notes, joined where a tongued step is not, no click, landing in tune; a
+chord is not slurred); **character** (distinct from its siblings by the instruments group's
+measure, the three flutes from one another, the whistle small, the wooden flute darker than the
+whistle, the reed low and murky, the Foothills' space and echoes up); **the DUNGEON SYNTH roller**
+(Classic and Modern at 100 % change each, never clip, keep the level in its place).
+
+Existing checks changed: `seat`'s "a new instance plays sound 14" reads "14 or later" (15 is the
+latest and keeps everything of 14); `dungeonsynth`'s bright material for the top's checks plays
+the Wooden Flute's synthesis (sound 14: the recorded flute is dark by design, with little above
+8 kHz for the stage to roll off; the realwinds group checks the roller on the recorded one).
+
+Development aids: `--realwinds-report` (every set's cents per key soft / loud, each instrument's
+cents by key over 2.5 octaves, levels; `DC_REALWINDS_ONLY=sets|index`; `DC_REALWINDS_VCURVE`,
+`_SLUR`, `_PAIR`, `_DS` for one measurement), `--realwinds-calibrate` (the trims and make-ups).
+
+Renders (CI test-logs `realwinds/`, `--listen-realwinds dir`): each of the four playing a
+woodwind phrase (tongued line, a slurred run, staccatos, a held end) `-dry-` and
+`-in-its-place-`, `1-before` (sound 14, the synthesis) and `2-after` (15), and
+`-expression-swell` (a held note, the wheel up and down, in its place); `realwinds-sets.txt`,
+`realwinds-report.txt` and the preparation's log.

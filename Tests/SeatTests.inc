@@ -283,7 +283,8 @@ void testSeat(Suite& s) {
     const auto value = [](DungeonCrawlerProcessor& p, const char* id) { auto* q = p.parameters.getParameter(id); return q->convertFrom0to1(q->getValue()); };
     {
         DungeonCrawlerProcessor fresh(PluginKind::Instrument);
-        s.check(fresh.soundGenerationUsed() == SoundSeated && SoundLatest == SoundSeated, "a new instance plays sound 14");
+        // Session 17: sound 15 (the recorded woodwinds) is the latest; it keeps everything of 14.
+        s.check(fresh.soundGenerationUsed() == SoundLatest && SoundLatest >= SoundSeated, "a new instance plays sound 14 or later (the latest)");
     }
     {
         const auto block = saved(before, 9, 0.0f, 1.0f);

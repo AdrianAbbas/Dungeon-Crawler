@@ -244,6 +244,16 @@ jobs:
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-report > build/test-logs/dungeonsynth/dungeonsynth-report.txt || true
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-strength > build/test-logs/dungeonsynth/dungeonsynth-strength.txt || true
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-audit > build/test-logs/dungeonsynth/dungeonsynth-audit.txt || true
+      # Session 17: the woodwinds (Village Green tin whistle, Forest Edge wooden flute, Foothills
+      # shepherd's flute, Bog murky reed) playing a woodwind phrase before (sound 14, the
+      # synthesis) and after (sound 15, the recorded woodwinds), dry and in its place, an
+      # Expression swell each, and the numbers behind the checks (the cents report).
+      - name: Listening renders (recorded woodwinds before and after, dry and in its place)
+        if: always()
+        run: |
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-realwinds build/test-logs/realwinds
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --realwinds-report > build/test-logs/realwinds/realwinds-report.txt || true
+          cp "${{ runner.temp }}/samples.woodwinds.log" build/test-logs/realwinds/woodwinds-prep.txt || true
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4

@@ -251,6 +251,33 @@ where Level and Punch were left at their defaults they get the new defaults; whe
 set, they are kept as they were heard (the Level raised by what the new default takes away,
 Punch at the same dB on the hit). Older projects (sound 12 and before) are unchanged.
 
+**Real woodwinds (Session 17)**: the woodwinds play recorded flute, piccolo, oboe, clarinet
+and bassoon from the same CC0 library as the brass (sustains looped with their own recorded
+release, vibrato sustains where the library has them, staccatos as the tongued attack, every
+dynamic as a velocity layer), each made into DUNGEON CRAWLER's own dark, weary wind:
+- **Tin Whistle** (Village Green): the flute (the piccolo above E6) made small and folky: its
+  low end cut, a woody body, a darker top, its pitch a little tired and wandering, a breathy
+  tongued attack (Breath: how much air).
+- **Wooden Flute** (Forest Edge): two flutes not quite agreeing (the second another recording,
+  flat by Detune, a moment late, the two wandering apart), darker, woody, no vibrato at rest:
+  uneasy.
+- **Shepherd's Flute** (Foothills): the flute far off on the hills: very breathy, soft-edged,
+  open and distant, its vibrato takes at rest, more of the place's echoes and space.
+- **Murky Reed** (Bog): the clarinet in its lowest register, the bassoon below it, a darkened
+  oboe faintly on the unison from B-flat 3; a dark, closed top (Murk closes it further), a
+  low woody body, the breath in the mud.
+
+The **mod wheel** is their **Expression**: a little louder and brighter as it rises (on the
+flutes into their vibrato takes). **Overlapping notes slur** (legato): a note played while the
+previous one is still held enters without a new tongued attack, gliding from it, and the
+previous one lets go; notes struck together (a chord) are not slurred. Keys beyond the
+recordings hand over to the synthesis. A build without the samples, and any project saved
+before this version (sound 14), plays the synthesised winds exactly as before; new
+instances, Init and the factory presets play the recorded woodwinds (sound 15). The folk
+winds (Tin Whistle, Wooden Flute, Shepherd's Flute) are ready for the developer's own alto
+recorder and ocarina: prepared from the Samples repository as `recorder-alto-sus` (and
+optionally `-vib`, `-stac`) or `ocarina-sus`, they are played in place of the flute.
+
 ## Dungeon Synth (both plug-ins, Session 15; made unmistakable in Session 16)
 
 A **DUNGEON SYNTH** roller with an **Era** switch makes any instrument (or anything through
@@ -397,12 +424,13 @@ build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-instrum
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-recordings build/recordings     # the instruments with the new recordings; the FX's voice places before/after
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-realbrass build/realbrass       # every brass instrument before / after the recorded brass, dry and in its place
 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-seat build/seat               # the brass and the war drums before / after Session 14, alone and in a short mix
+build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-realwinds build/realwinds     # every woodwind before / after the recorded woodwinds, dry and in its place, an Expression swell
 ```
 
-The recorded brass (Session 13, CC0) for a local build:
+The recorded brass and woodwinds (Sessions 13 and 17, CC0) for a local build:
 
 ```bash
-bash scripts/ci-fetch-brass.sh build/vsco-2-ce build/samples   # fetches the library (pinned), checks its licence, prepares it
+bash scripts/ci-fetch-brass.sh build/vsco-2-ce build/samples   # fetches the library (pinned), checks its licence, prepares brass and woodwinds
 ```
 
 The instrument's sampled instruments use the developer's recordings (the private

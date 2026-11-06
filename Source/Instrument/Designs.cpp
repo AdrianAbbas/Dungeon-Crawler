@@ -136,6 +136,84 @@ void weigh(Layer& L, float share, float keep) {
     if (L.model == M::Synth) L.gain *= keep + (1.0f - keep) * (1.0f - share);
 }
 
+// Session 17: the recorded woodwinds (WoodwindVoice) on a layer, or nullptr (a sound before
+// 15, or a build without the samples: the caller's synthesis plays alone, exactly as in 14).
+const wb::samples::Instrument* windSet(const char* inst, const char* kind) {
+    char id[48];
+    std::snprintf(id, sizeof id, "ww-%s-%s", inst, kind);
+    return sampled(id);
+}
+// One wind's recordings: the developer's own when the samples have them (kept ready for the
+// folk winds: an alto recorder, an ocarina, prepared from the Samples repository by
+// tools/sample-prep/prepare.py as "<id>-sus", optionally "<id>-vib" and "<id>-stac"), else the
+// library's.
+struct WindSource {
+    const wb::samples::Instrument *sus = nullptr, *vib = nullptr, *stac = nullptr;
+    bool developer = false;
+};
+WindSource windSource(const char* library, std::initializer_list<const char*> developer = {}) {
+    for (const char* id : developer) {
+        char key[48];
+        std::snprintf(key, sizeof key, "%s-sus", id);
+        if (const auto* sus = sampled(key)) {
+            WindSource w { sus, nullptr, nullptr, true };
+            std::snprintf(key, sizeof key, "%s-vib", id);
+            w.vib = sampled(key);
+            std::snprintf(key, sizeof key, "%s-stac", id);
+            w.stac = sampled(key);
+            return w;
+        }
+    }
+    return { windSet(library, "sus"), windSet(library, "vib"), windSet(library, "stac"), false };
+}
+WoodwindVoice::Player windPlayer(const WindSource& w, float semis = 0, float cents = 0, float gain = 1, float pan = 0) {
+    WoodwindVoice::Player p;
+    p.sus = w.sus;
+    p.vib = w.vib;
+    p.stac = w.stac;
+    p.semis = semis;
+    p.cents = cents;
+    p.gain = gain;
+    p.pan = pan;
+    return p;
+}
+float realWindTrim(int index) { return d::dbToGain(realWindTrimDb(index)); }
+WoodwindVoice* realWinds(Layer& L, const Note& n, int index) {
+    if (n.sound < SoundWoodwinds || windSet("flute", "sus") == nullptr) return nullptr;
+    L.use(M::Woodwind, realWindTrim(index));
+    L.woodwind.reset();
+    return &L.woodwind;
+}
+// Starts it: the attack (`attack` seconds at the Attack macro's middle; above it slower and
+// less tongued), a slurred note's glide from the note before. Returns how much of the note the
+// recordings carry (1, falling to 0 over the 6 semitones beyond them, where the synthesis
+// takes over; `reach` semitones further for a wind pitched below its recordings on purpose:
+// the low wooden and shepherd's flutes are the flute taken down, darker and slower).
+float startWinds(Layer& L, float hz, const Note& n, float attack, float reach = 0) {
+    auto& w = L.woodwind;
+    const float scale = n.scale(1);
+    w.stacLevel *= std::clamp(1.0f / scale, 0.0f, 1.5f);
+    w.legato = n.legato;
+    const float interval = n.legatoFromMidi - midiOf(n.hz);
+    // The glide starts half-way from the note before (at its very pitch, the two crossing
+    // notes would cancel for a moment where their phases oppose).
+    w.glideSemis = n.legato && std::abs(interval) <= 7.0f ? 0.5f * interval : 0.0f;
+    if (!w.start(midiOf(hz), n.velocity, n.random, n.rate, attack * scale, n.noiseAt)) {
+        L.use(M::None);
+        return 0.0f;
+    }
+    const float share = 1.0f - d::smoothstep(1.0f + reach, 6.0f + reach, w.beyond);
+    L.gain *= share;
+    return share;
+}
+// The stand-in's tonal layers under the recordings: silent where the recordings play, all of
+// them beyond (a layer fully replaced is not run at all).
+void standInUnder(Layer& L, float share) {
+    if (L.model == M::None) return;
+    if (share >= 0.999f) L.use(M::None);
+    else L.gain *= 1.0f - share;
+}
+
 void choir(Layer& L, float hz, float attack, float vowel, float bright, float breath, float detune, const Note& n, float gain = 1, float pan = 0) {
     L.use(M::Choir, gain, pan);
     L.hz = hz;
@@ -795,6 +873,40 @@ void villageGreen(Voice& v, const Note& n) {
     v.layer[0].wind.wander = 4;
     v.layer[0].wind.vibratoDepth = 0.08f;
     v.layer[0].wind.air = 0.06f + 0.15f * sig(n);
+    // Session 17 (sound 15): the recorded flute, the piccolo taking its top (from E6), made a
+    // small, woody, folk whistle: the low end cut (a small bore), a woody body, a darker top, a
+    // little tired (its pitch wandering, a touch flat), its breath (Breath) and a breathy puff
+    // on the tongued attack, barely any vibrato at rest (the wheel brings it in). Ready for the
+    // developer's alto recorder (`recorder-alto`), or an ocarina, in place of the flute.
+    if (auto* w = realWinds(v.layer[3], n, 22)) {
+        const auto flute = windSource("flute", { "recorder-alto", "ocarina" });
+        auto lead = windPlayer(flute, 0, -2);
+        lead.wanderCents = 5;
+        lead.highMidi = flute.developer ? 1000.0f : 88.0f;
+        w->addPlayer(lead);
+        if (!flute.developer) {
+            auto top = windPlayer(windSource("piccolo"), 0, -2);
+            top.lowMidi = 89;
+            top.wanderCents = 5;
+            w->addPlayer(top);
+        }
+        w->stacLevel = 0.55f;
+        w->stacLiftDb = -1;
+        w->lowCutHz = 450;
+        w->woodHz = 1500;
+        w->woodQ = 1.1f;
+        w->woodGain = 0.7f;
+        w->darkHz = 5200;
+        w->darkSoft = 0.8f;
+        w->breath = 0.05f + 0.16f * sig(n);
+        w->breathHz = 3800;
+        w->puff = 0.5f;
+        w->vibBase = 0.0f;
+        w->vibWheel = 1.0f;
+        w->swellDb = 1.5f;
+        const float share = startWinds(v.layer[3], n.hz, n, 0.02f);
+        standInUnder(v.layer[0], share);
+    }
 }
 
 // Tavern: a weary guitar (the developer's classical guitar): warm, dull, slower to
@@ -841,6 +953,41 @@ void forestEdge(Voice& v, const Note& n) {
     const float cents = -6.0f - 30.0f * sig(n);
     wind(v.layer[1], n.hz * std::exp2(cents / 1200.0f), a * 1.4f, 0.3f, 0.12f, 0.0f, 0.0f, 0.34f, 0.15f, n, 0.7f, 0.35f);
     v.layer[1].wind.wander = 8;
+    // Session 17 (sound 15): two recorded flutes not quite agreeing: the second plays another
+    // recording, `cents` flat (Detune), a little late, the two wandering apart; darker, woody
+    // (a hollow body low in the tone), breathy, no vibrato at rest (uneasy: only the wander;
+    // the wheel lets a little in). Ready for the developer's alto recorder (`recorder-alto`).
+    if (auto* w = realWinds(v.layer[3], n, 14)) {
+        const auto flute = windSource("flute", { "recorder-alto" });
+        auto first = windPlayer(flute, 0, 0, 1.0f, -0.3f);
+        first.wanderCents = 4;
+        first.wanderHz = 0.13f;
+        w->addPlayer(first);
+        auto second = windPlayer(flute, 0, cents, 0.72f, 0.35f);
+        second.lookup = 1;
+        second.delayMs = 14;
+        second.wanderCents = 5;
+        second.wanderHz = 0.21f;
+        w->addPlayer(second);
+        w->stacLevel = 0.35f;
+        w->woodHz = 700;
+        w->woodQ = 1.0f;
+        w->woodGain = 1.1f;
+        w->darkHz = 4200;
+        w->darkSoft = 1.0f;
+        w->breath = 0.1f;
+        w->breathHz = 3400;
+        w->puff = 0.4f;
+        w->vibBase = 0.0f;
+        w->vibWheel = 0.0f;       // no vibrato take: the wheel lets in only a slight, uneasy waver
+        w->pitchVibrato = 0.08f;
+        w->swellDb = 1.0f;
+        w->swellOpen = 1.5f;
+        w->swellPresence = 1.0f;
+        const float share = startWinds(v.layer[3], n.hz, n, 0.05f, 5.0f);
+        standInUnder(v.layer[0], share);
+        standInUnder(v.layer[1], share);
+    }
 }
 
 // Old Path: creaking cello harmonics: a thin flageolet bowed near the bridge, and the
@@ -953,6 +1100,45 @@ void bog(Voice& v, const Note& n) {
     v.layer[0].wind.wander = 3;
     v.layer[0].wind.vibratoDepth = 0.03f;
     v.layer[0].wind.air = 0.04f + 0.1f * sig(n);
+    // Session 17 (sound 15): the recorded clarinet in its lowest register (the chalumeau, from
+    // its bottom D3), the bassoon taking the notes below it, a darkened oboe faintly on the
+    // unison from B-flat 3 (the double reed's nasal edge in the mud); murky: a dark, closed
+    // top (lower played softly; Murk closes it further), a woody low body, a slow sag in
+    // pitch, the breath in the mud (Murk). No vibrato: the wheel is its expression.
+    if (auto* w = realWinds(v.layer[3], n, 27)) {
+        // The post's drive (the stand-in's grit) would flatten the recordings' dynamics: none.
+        v.drive = v.baseDrive = 0.0f;
+        auto clarinet = windPlayer(windSource("clarinet"));
+        clarinet.lowMidi = 50;
+        clarinet.fadeSemis = 2;
+        clarinet.wanderCents = 3;
+        w->addPlayer(clarinet);
+        auto bassoon = windPlayer(windSource("bassoon"), 0, -3, 0.95f);
+        bassoon.highMidi = 49;
+        bassoon.fadeSemis = 2;
+        bassoon.wanderCents = 3;
+        w->addPlayer(bassoon);
+        auto oboe = windPlayer(windSource("oboe"), 0, 6, 0.2f, 0.15f);
+        oboe.lowMidi = 58;
+        oboe.fadeSemis = 2;
+        oboe.delayMs = 7;
+        w->addPlayer(oboe);
+        w->stacLevel = 0.4f;
+        w->woodHz = 320;
+        w->woodQ = 0.9f;
+        w->woodGain = 0.7f;
+        w->darkHz = 2400.0f * std::exp2(-0.8f * sig(n));
+        w->darkSoft = 1.0f;
+        w->darkQ = 0.7f;
+        w->breath = 0.03f + 0.12f * sig(n);
+        w->breathHz = 1300;
+        w->breathQ = 0.6f;
+        w->puff = 0.3f;
+        w->swellDb = 3;
+        w->swellOpen = 1.0f;
+        const float share = startWinds(v.layer[3], n.hz, n, 0.04f);
+        standInUnder(v.layer[0], share);
+    }
 }
 
 // Sunken Ruins: bells under water, drifting in pitch, with a glassy pad below (Pad).
@@ -984,6 +1170,35 @@ void foothills(Voice& v, const Note& n) {
         wind(L, n.hz, 0.1f, 0, 0, 0, 0, 1.0f, 0.0f, n, 0.25f * sig(n));
         L.wind.tone = 0;
         L.wind.breathQ = 2.5f;
+    }
+    // Session 17 (sound 15): the recorded flute as a shepherd's end-blown flute far off on the
+    // hills: very breathy (the breath riding the note, a long puff as it speaks), soft-edged
+    // (its attack slower, little tongue), open and distant (its lows thinned, its top closed,
+    // darker played softly), its vibrato takes half in at rest (the shepherd's 4-5 Hz
+    // vibrato; the wheel brings in the rest), the place's echoes louder on it (mixFit). The
+    // shepherd's breath (Breath) stays the synthesised tuned breath above. Ready for the
+    // developer's ocarina (`ocarina`) or alto recorder.
+    if (auto* w = realWinds(v.layer[3], n, 29)) {
+        auto flute = windPlayer(windSource("flute", { "ocarina", "recorder-alto" }), 0, -3);
+        flute.wanderCents = 4;
+        w->addPlayer(flute);
+        w->stacLevel = 0.25f;
+        w->lowCutHz = 260;
+        w->woodHz = 650;
+        w->woodQ = 0.8f;
+        w->woodGain = 0.35f;
+        w->darkHz = 5200;
+        w->darkSoft = 1.0f;
+        w->breath = 0.2f;
+        w->breathHz = 4200;
+        w->breathQ = 0.6f;
+        w->puff = 0.9f;
+        w->vibBase = 1.0f;   // the vibrato take at rest; the wheel deepens it
+        w->pitchVibrato = 0.1f;
+        w->swellDb = 2.0f;
+        w->swellOpen = 0.7f;
+        const float share = startWinds(v.layer[3], n.hz, n, 0.07f, 5.0f);
+        standInUnder(v.layer[0], share);
     }
 }
 
@@ -1445,6 +1660,18 @@ float seatMakeupDb(int index) noexcept {
     }
 }
 
+// Session 17: the recorded winds' make-up in their places (dB, on top of sound 14's fit;
+// measured by `--realwinds-calibrate`).
+static float realWindMakeupDb(int index) noexcept {
+    switch (index) {
+        case 14: return 3.34f;    // Wooden Flute
+        case 22: return 0.73f;   // Tin Whistle
+        case 27: return 4.00f;    // Murky Reed
+        case 29: return 3.92f;    // Shepherd's Flute
+        default: return 0.0f;
+    }
+}
+
 MixFit mixFit(int index, int sound) noexcept {
     // The Weary Guitar's Tavern is a small, nearly dry room: nothing to take back there.
     if (sound < SoundMix || index == 23) return {};
@@ -1463,6 +1690,17 @@ MixFit mixFit(int index, int sound) noexcept {
         fit.echoes = 0.75f;   // sound 13: 0.65
         fit.preDelayMs = 50.0f;
         fit.makeupDb += seatMakeupDb(index);
+        return fit;
+    }
+    // Session 17: the recorded woodwinds in their places: the Foothills' shepherd's flute
+    // echoing across the hills (more of the place's echoes, a little more reverb, later), the
+    // Village Green's small whistle closer (a little less reverb); their make-up measured
+    // (the melody in its place against dry as in sound 14).
+    if (designUsesRealWinds(index, sound)) {
+        auto fit = mixFit(index, SoundSeated);
+        if (index == 29) fit.reverb = 1.3f, fit.echoes = 1.5f, fit.preDelayMs = 30.0f;
+        if (index == 22) fit.reverb = 0.85f;
+        fit.makeupDb += realWindMakeupDb(index);
         return fit;
     }
     if (designUsesRealBrass(index, sound)) {
@@ -1608,5 +1846,39 @@ float realBrassTrimDb(int index) noexcept {
         case 32: return 11.3f;   // Dwarven Chant (its low brass)
         default: return 0.0f;
     }
+}
+// Session 17: the recorded woodwinds.
+bool designUsesRealWinds(int index, int sound) noexcept {
+    if (sound < SoundWoodwinds || windSet("flute", "sus") == nullptr) return false;
+    return index == 14 || index == 22 || index == 27 || index == 29;
+}
+namespace {
+std::array<float, instrumentCount>& windTrimOverrides() {
+    static std::array<float, instrumentCount> t = [] { std::array<float, instrumentCount> a {}; a.fill(std::numeric_limits<float>::quiet_NaN()); return a; }();
+    return t;
+}
+}
+void overrideRealWindTrimDb(int index, float db) noexcept {
+    if (index >= 0 && index < instrumentCount) windTrimOverrides()[std::size_t(index)] = db;
+}
+// The recorded winds' level in each instrument (dB on its layer), measured by
+// `--realwinds-calibrate`: the dry melody as loud as sound 14's synthesis.
+float realWindTrimDb(int index) noexcept {
+    if (index >= 0 && index < instrumentCount && !std::isnan(windTrimOverrides()[std::size_t(index)])) return windTrimOverrides()[std::size_t(index)];
+    switch (index) {
+        case 14: return 21.14f;   // Wooden Flute (Forest Edge)
+        case 22: return 22.21f;   // Tin Whistle (Village Green)
+        case 27: return 11.76f;   // Murky Reed (Bog)
+        case 29: return 24.47f;   // Shepherd's Flute (Foothills)
+        default: return 0.0f;
+    }
+}
+ModWheel wheelOf(int index, int sound) noexcept {
+    if (designUsesRealWinds(index, sound)) return ModWheel::Expression;
+    return design(index).wheel;
+}
+const char* wheelLabel(int index, int sound) noexcept {
+    if (!designUsesRealWinds(index, sound)) return design(index).modLabel;
+    return index == 27 ? "Expression" : "Expression & Vibrato";
 }
 }

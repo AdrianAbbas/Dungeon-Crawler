@@ -7,7 +7,7 @@
 # So does the navigation group (Session 16).
 # Together the shards cover every test group and every location (9-recordings: Session 8;
 # 10-mix: Session 11; 11-brass: Session 12; 12-realbrass: Session 13; 13-seat: Session 14;
-# 14-dungeonsynth: Session 15, its control's checks in 1-basics).
+# 14-dungeonsynth: Session 15, its control's checks in 1-basics; 15-realwinds: Session 17).
 # Usage: scripts/run-tests-parallel.sh path/to/DungeonCrawlerTests [log directory]
 set -u
 tests="${1:?the DungeonCrawlerTests binary}"
@@ -35,6 +35,8 @@ wait
 "$tests" --only seat > "$logs/13-seat.txt" 2>&1
 # Session 15: DUNGEON SYNTH (the null test at 0 %, what each Era does, levels, clicks; alone too).
 "$tests" --only dungeonsynth > "$logs/14-dungeonsynth.txt" 2>&1
+# Session 17: the recorded woodwinds (VSCO 2 CE, CC0; alone too, like the recorded brass).
+"$tests" --only realwinds > "$logs/15-realwinds.txt" 2>&1
 # Session 16: the navigation group joins them (its journey notice is a 2.5 s wall-clock timer;
 # with the dungeon synth presets at 85-100 % the concurrent shards render more, and on the CI
 # runner the notice had gone before its check read it, three runs in a row).

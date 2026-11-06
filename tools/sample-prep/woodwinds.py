@@ -19,7 +19,7 @@ The steps are brass.py's (its helpers are used), with these differences:
    the octave offset most takes agree on.
  - A sustain's loop is searched in its first 4 s of hold (the takes are 5-11 s long); a
    vibrato sustain the same way (its loop then holds several vibrato cycles).
- - A staccato is tuned by its body (20-120 ms: a woodwind staccato is shorter than a brass
+ - A staccato is tuned by its body (20-130 ms: a woodwind staccato is shorter than a brass
    one) and keeps its natural end (60 dB under its peak).
  - Sets: ww-<instrument>-<sus|vib|stac>, one gain per instrument for all of them (its loudest
    peak at -1 dBFS), so the dynamics and the articulations' balance stay as recorded.
@@ -127,7 +127,9 @@ def process(source, inst, folder, kind, sub, offset, report):
                 found = P.find_loop(y, 440 * 2 ** ((label - 69) / 12), (a, min(b, a + int(4.0 * RATE))))
                 if found:
                     s, e, cost, _ = found
-                    root = B.pitch(y[s:e], label)
+                    # A vibrato take's centre over its first held seconds (0.4-2.0 s: what is heard
+                    # first; its loop lies within), a plain sustain's over its loop.
+                    root = B.pitch(y[int(0.4 * RATE):int(2.0 * RATE)] if kind == "vib" else y[s:e], label)
                     if cost > 0.1:
                         report["warnings"].append(f"{where}: the best loop matches poorly ({cost:.3f}); crossfaded")
                     y = P.crossfade_loop(y, s, e, int(0.15 * RATE))
@@ -150,9 +152,10 @@ def process(source, inst, folder, kind, sub, offset, report):
             entry["loop"] = f"{loop[0] / RATE:.2f}-{loop[1] / RATE:.2f}s (match {loop[2]:.3f})" if loop else "none"
             body = y[loop[0]:loop[1]] if loop else y[int(0.3 * RATE):int(1.5 * RATE)]
         else:
-            body = y[int(0.02 * RATE):int(0.12 * RATE)]
+            # Tuned by what sounds of it as the tongued onset (20-130 ms; the tests' window).
+            body = y[int(0.02 * RATE):int(0.13 * RATE)]
             root = B.pitch(y[int(0.02 * RATE):int(0.2 * RATE)], label)
-            fine = B.periodic_pitch(y[int(0.02 * RATE):int(0.2 * RATE)], root if root is not None else float(label))
+            fine = B.periodic_pitch(body, root if root is not None else float(label))
             if fine is not None and abs(fine - (root if root is not None else float(label))) < 0.5:
                 root = fine
         if root is None:
