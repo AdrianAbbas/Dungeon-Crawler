@@ -15,9 +15,14 @@ source_url="https://github.com/sgossner/VSCO-2-CE.git"
 commit="440300901dfe9275fd84e0b7763af1f8443ae62e"   # master, 2020-08-04 (library version 1.1.0)
 licence_sha256="36ffd9dc085d529a7e60e1276d73ae5a030b020313e6c5408593a6ae2af39673"
 paths=("/LICENSE" "/Readme.txt" "/Brass/F Horn/sus/" "/Brass/F Horn/stac/" "/Brass/Trumpet/sus/" "/Brass/Trumpet/stac/"
-       "/Brass/Tenor Trombone/sus/" "/Brass/Tenor Trombone/stac/" "/Brass/Tuba/sus/" "/Brass/Tuba/stac/")
+       "/Brass/Tenor Trombone/sus/" "/Brass/Tenor Trombone/stac/" "/Brass/Tuba/sus/" "/Brass/Tuba/stac/"
+       # Session 17: the woodwinds (tools/sample-prep/woodwinds.py), the same pin and licence.
+       "/Woodwinds/Flute/" "/Woodwinds/Piccolo/" "/Woodwinds/Oboe/" "/Woodwinds/Clarinet/" "/Woodwinds/Bassoon/")
+# A checkout is complete for this commit and this list of folders (a cached checkout made
+# with fewer folders is fetched again).
+marker=".complete-$commit-$(printf '%s\n' "${paths[@]}" | python3 -I -c 'import hashlib,sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest()[:12])')"
 
-if [[ -f "$checkout/.complete-$commit" ]]; then
+if [[ -f "$checkout/$marker" ]]; then
     echo "Brass library: cached checkout of $commit"
 else
     rm -rf "$checkout"
@@ -36,7 +41,7 @@ else
         exit 1
     fi
     git -C "$checkout" checkout -q FETCH_HEAD
-    touch "$checkout/.complete-$commit"
+    touch "$checkout/$marker"
 fi
 
 # The licence must still be the CC0 1.0 text recorded in docs/LICENSES/VSCO-2-CE.txt.
@@ -50,14 +55,23 @@ if digest != sys.argv[2] or not data.startswith(b"CC0 1.0 Universal"):
 print("Brass library licence: CC0 1.0 Universal (sha256 matches docs/LICENSES/VSCO-2-CE.txt)")
 PY
 echo "Brass library: $(find "$checkout/Brass" -iname '*.wav' | wc -l | tr -d ' ') WAVs at $commit"
+echo "Woodwinds: $(find "$checkout/Woodwinds" -iname '*.wav' | wc -l | tr -d ' ') WAVs at $commit"
 
 python3 -m pip install --quiet -r "$here/tools/sample-prep/requirements.txt"
 mkdir -p "$out"
 python3 -I "$here/tools/sample-prep/brass.py" --source "$checkout" --out "$out" --commit "$commit" > "$out.brass.log"
 grep -E '^Prepared: |^FLAC total' "$out.brass.log"
 { sed -n '/^Problems/,/^Warnings/p' "$out.brass.log" || true; } | head -20
+# Session 17: the woodwinds into the same folder (merged into index.json).
+python3 -I "$here/tools/sample-prep/woodwinds.py" --source "$checkout" --out "$out" --commit "$commit" > "$out.woodwinds.log"
+grep -E '^Prepared: |^FLAC total' "$out.woodwinds.log"
+{ sed -n '/^Problems/,/^Warnings/p' "$out.woodwinds.log" || true; } | head -20
 test -f "$out/index.json"
 test -f "$out/licenses/brass-samples-CC0.txt"
-# Every later check requires the recorded brass.
-[[ -n "${GITHUB_ENV:-}" ]] && echo "DC_REQUIRE_BRASS=1" >> "$GITHUB_ENV"
+test -f "$out/licenses/woodwind-samples-CC0.txt"
+# Every later check requires the recorded brass and woodwinds.
+if [[ -n "${GITHUB_ENV:-}" ]]; then
+    echo "DC_REQUIRE_BRASS=1" >> "$GITHUB_ENV"
+    echo "DC_REQUIRE_WOODWINDS=1" >> "$GITHUB_ENV"
+fi
 exit 0

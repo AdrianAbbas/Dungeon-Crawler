@@ -1,5 +1,5 @@
-VSCO 2 Community Edition (Versilian Studios): the recorded brass in the instrument
-==================================================================================
+VSCO 2 Community Edition (Versilian Studios): the recorded brass and woodwinds in the instrument
+================================================================================================
 
 What:     VS Chamber Orchestra 2: Community Edition ("VSCO 2: CE"), a free orchestral
           sample library by Versilian Studios LLC (recorded by Sam Gossner and Simon
@@ -22,6 +22,12 @@ Used:     Brass/F Horn/{sus,stac}, Brass/Trumpet/{sus,stac},
           the source above at the pinned commit (scripts/ci-fetch-brass.sh, cached),
           tools/sample-prep/brass.py prepares them (mono FLAC notes, tuned, looped), and
           the prepared notes ship inside the instrument's bundle with a copy of this file.
+          Session 17 (2026-11-06, the same commit and licence, checked again):
+          Woodwinds/Flute/{susNV,susvib,expvib,stac}, Woodwinds/Piccolo/{Sus,Stac},
+          Woodwinds/Oboe/{Sus,Vib,Stacc}, Woodwinds/Clarinet/{susLong,stac},
+          Woodwinds/Bassoon/{sus,vib,stac} (380 WAV files, 44.1 kHz). Fetched by the same
+          script, prepared by tools/sample-prep/woodwinds.py, shipped with a copy of this
+          file (licenses/woodwind-samples-CC0.txt).
 
 The library's own terms (Readme.txt, section 2, quoted): "You are permitted to use these
 samples for ANY purpose. We ask that you do not sell the samples directly, and encourage

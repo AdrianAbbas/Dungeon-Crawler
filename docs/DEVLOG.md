@@ -3796,8 +3796,8 @@ weary sound; its synthesis stays as the stand-in for builds without the samples,
 Push with `[skip ci]` after each part; the last push without, then wait for CI until green.
 Checklist (resume from the first open item after a limit):
 
-- [ ] 1. Licence and fetch: the woodwind folders added to `scripts/ci-fetch-brass.sh` (same pin, licence check; cache key and completeness marker per path list), `docs/LICENSES/VSCO-2-CE.txt` lists them
-- [ ] 2. Preparation: `tools/sample-prep/woodwinds.py` (sustains looped, vibrato sustains, staccatos, dynamics as velocity layers, tuned, the library's octave naming checked against the audio)
+- [x] 1. Licence and fetch: the woodwind folders added to `scripts/ci-fetch-brass.sh` (same pin, licence check; cache key and completeness marker per path list), `docs/LICENSES/VSCO-2-CE.txt` lists them
+- [x] 2. Preparation: `tools/sample-prep/woodwinds.py` (sustains looped, vibrato sustains, staccatos, dynamics as velocity layers, tuned, the library's octave naming checked against the audio)
 - [ ] 3. Engine: a woodwind sampler voice (`WoodwindVoice`, Model::Woodwind), sound 15: breathy attack, tongued staccato onset, vibrato takes, legato (slurred) transitions, mod wheel = expression (and vibrato on the flutes); per-instrument character processing
 - [ ] 4. Instruments: Village Green (flute + piccolo, small, woody, folky), Forest Edge (two flutes, darker, detuned, uneasy), Foothills (flute, breathy, distant, echoing), Bog (low clarinet + bassoon, with a darkened oboe edge); stand-ins kept; ready for a second (developer) sample set
 - [ ] 5. Tests (`--only realwinds`, CI shard `15-realwinds`: in tune with cents report, dynamics smooth, no clicks at loops / note-offs / legato, level-matched, distinct from siblings, the dungeon synth roller) and listening renders (`--listen-realwinds`, CI step)
