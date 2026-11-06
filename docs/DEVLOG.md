@@ -3352,3 +3352,18 @@ again (it passed in the second run): the next run is its one re-run, then it is 
 **CI, fourth run: green** (`run 42009586981`, macOS and Linux): Linux 2856 passed, 0 failed (the
 Dwarven Chant's soft darkness reported, as above); the journey note passed on its re-run.
 
+
+## Session 15: the DUNGEON SYNTH roller (2026-11-06, unattended)
+
+A "DUNGEON SYNTH" character control for both plug-ins: a roller (0-100 %, default 0 % =
+exactly as before) and an Era switch (Classic: the 90s cassette sound; Modern: cleaner and
+warmer). After the instrument, before and alongside the place's space. Push with `[skip ci]`
+after each part; the last push without, then wait for CI until green. Checklist (resume from
+the first open item after a limit):
+
+- [ ] 1. DSP: `Source/DSP/DungeonSynth` (sampler lo-fi, tape wow/flutter and hiss, saturation, tone, narrow image, ensemble chorus, the dark hall, level match); `dsAmount` / `dsEra` parameters (appended, both plug-ins); the processor chain; bit-exact at 0 %
+- [ ] 2. UI: the roller (drawn like Effects) and the Era switch on the instrument panel and in the FX's controls; snapshots `docs/snapshots/session15/`
+- [ ] 3. Factory presets built around it (instrument and FX), search tags "dungeon synth", "lo-fi", "retro", "cassette"
+- [ ] 4. Tests (`dungeonsynth` group: null test at 0 %, roll-off / harmonics / wow-flutter / tail per Era, level, clicks, sessions, presets, places still differ), listening renders (`--listen-dungeonsynth`, CI step)
+- [ ] 5a. README / MANUAL_TEST / DEVLOG handoff; final push
+- [ ] 5b. CI green
