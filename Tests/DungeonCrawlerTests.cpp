@@ -11,6 +11,8 @@
 //   DungeonCrawlerTests --calibrate-instruments Source/Instrument/Trims.h   the instruments' level trims
 //   DungeonCrawlerTests --listen-instruments dir   one melody on every instrument, dry then in its place
 //   DungeonCrawlerTests --listen-recordings dir    melody and chords on the instruments with the new recordings; the FX's voice places before/after
+//   DungeonCrawlerTests --listen-dungeonsynth dir  Session 15: the dark fantasy melody on five instruments at 0 / 50 / 100 %, Classic and Modern
+//   DungeonCrawlerTests --ds-report | --ds-hashes | --ds-snapshots dir   Session 15: the numbers, the null-test hashes, the control's snapshots
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 #include "UI/Scenes.h"
@@ -2683,6 +2685,7 @@ int main(int argc, char** argv) {
         else if (arg == "--listen-seat" && i + 1 < argc) return listenSeat(argv[i + 1]);
         else if (arg == "--ds-hashes") return dsHashes();
         else if (arg == "--ds-report") return dsReport();
+        else if (arg == "--listen-dungeonsynth" && i + 1 < argc) return listenDungeonSynth(argv[i + 1]);
         else if (arg == "--ds-snapshots" && i + 1 < argc) return dsSnapshots(argv[i + 1]);
         else if (arg == "--render" && i + 2 < argc)
             return renderToFile(argv[i + 1], juce::String(argv[i + 2]).getIntValue(), i + 3 < argc ? juce::String(argv[i + 3]).getDoubleValue() : 8.0);

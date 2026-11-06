@@ -3365,5 +3365,153 @@ the first open item after a limit):
 - [x] 2. UI: the roller (drawn like Effects) and the Era switch on the instrument panel and in the FX's controls; snapshots `docs/snapshots/session15/`
 - [x] 3. Factory presets built around it (instrument and FX), search tags "dungeon synth", "lo-fi", "retro", "cassette"
 - [ ] 4. Tests (`dungeonsynth` group: null test at 0 %, roll-off / harmonics / wow-flutter / tail per Era, level, clicks, sessions, presets, places still differ), listening renders (`--listen-dungeonsynth`, CI step)
-- [ ] 5a. README / MANUAL_TEST / DEVLOG handoff; final push
+- [x] 5a. README / MANUAL_TEST / DEVLOG handoff; final push
 - [ ] 5b. CI green
+
+### 1. The stage (`Source/DSP/DungeonSynth.h/.cpp`)
+
+One amount (0..1, smoothed over 80 ms) and the Era (0 Classic .. 1 Modern, smoothed over
+250 ms, so switching it glides instead of jumping) set every stage; the derived values are
+updated every 16 samples and glide across those 16 samples, filters are re-tuned every 16.
+Every amount, mix and depth is 0 at 0 %, so the stage fades in from the identity. In the
+order the signal meets them:
+
+| | Classic (at 100 %) | Modern (at 100 %) |
+|---|---|---|
+| sampler | 12 bits (gently companded, as the old samplers were), held at the host rate / 2 (22.05 kHz at 44.1, 24 kHz at 48), 4th-order filters before and after it (the aliasing stays soft and high) | the same sampler at 16 bits (the hint of lo-fi) |
+| chorus | three voices from the mid (7 / 10 / 13 ms, slow sweeps and a 5.6 Hz vibrato), 0.18 x the instrument's chorus weight | the same at 0.5 x (the vintage ensemble) |
+| tape saturation | tanh, +3.5 dB drive, a little asymmetry (small-signal gain 1) | +8 dB drive, more asymmetry (even harmonics: warmth) |
+| wow / flutter | one modulated delay for both sides: 0.55 Hz wow (1.1 ms, with a slow random drift), 6.4 + 11.3 Hz flutter | 0.3 x the wow, 0.25 x the flutter |
+| hiss | filtered noise at -48 dB, following the music's envelope (none in silence), before the roll-off (it is darkened with the tape) | -64 dB |
+| low cut, warmth | 75 Hz; +0.5 dB at 220 Hz | 35 Hz; +2.5 dB at 220 Hz |
+| roll-off | two low-passes, 4.2 kHz (front-loaded: by 50 % already at 6.6 kHz) | 6.8 kHz and a -4 dB shelf above 3.5 kHz |
+| image | side x 0.6 (nearly mono) | unchanged |
+| hall | an 8-line feedback delay network (Hadamard), 4 diffusers, 22 ms pre-delay, loop T60 5.5 s (1.8 s near 0 %; measured broadband 3.8 s, the mids damped), static (metallic), its output held at 16 kHz and 12 bits (the old-digital grain), 240 Hz high-pass, 4th-order low-pass at 3.4 kHz, half the width | 38 ms pre-delay, loop T60 6.5 s (measured 5.7 s), every line slowly modulated (lush), no grain, low-pass at 4.6 kHz, full width |
+
+The instrument's chorus weight (`Source/Instrument/DungeonSynthFit.h`): 1 on pads, strings,
+choirs and organs, 0.3-0.7 on winds, plucks, bells and mallets, 0.1-0.2 on the war drums, the
+chains and the anvil; the FX 0.6 (it does not know what it is given).
+
+**Level.** The stage has its own level matcher (0.6 s window, gated like the engine's, +/-6 dB)
+that hears as a loudness meter does (a 60 Hz high-pass and +4 dB above 1.7 kHz): a plain RMS
+matcher made up the low end the low cut takes away, and the dark, low instruments came out up
+to 4 dB louder. The hall is **not** added after the place: it joins the place's wet signal
+inside the engine (`Engine::process(..., addL, addR)`), before the place's trims and its level
+matcher, so the place and the hall are levelled together. Added after them, the hall bypassed
+the trims that tame the places' build-up on sustained notes (the Chamber Organ came out 5 dB
+louder at 100 %). The first hall (-5 dB on noise) was also too loud for the matcher to catch at
+its onset (+3 dB for the first second): it is now about -11 dB, with a longer decay.
+
+**What went wrong on the way (all measured, `--ds-report`)**: the first top was *brighter*, not
+darker, on dark sounds: (1) the hall's grain (a sample-and-hold) put its images above its
+filters, (2) the hiss came after the roll-off, (3) a sample rate swept just below the host's
+folded images into 8-10 kHz, (4) a fractional hold jittered (broadband noise) and (5) a
+partial blend of the sampler path and the direct path comb-filtered the top (25 % darker than
+50 %). Now: the grain before a 4th-order low-pass, the hiss before the roll-off, a whole-number
+hold, 4th-order anti-alias and reconstruction filters, and the sampler path fully in by 17 %.
+
+### 2. In the processor
+
+`process`: the input (the instrument's output, or the FX's input) goes through the stage
+first, so the dry path, the place and Mix all carry it; Intensity x Effects at 0 gives the
+staged dry instrument without the place or the hall. Bypass crossfades to the untouched
+input (its own aligned copy). At 0 % (and once the hall has rung out, 0.5 s under -120 dB) the
+stage is never called: the code path is the one before this session. Sessions: the two new
+parameters are appended last (`dungeonSynth`, `dungeonSynthEra`); a session saved before them
+opens at 0 % Classic; presets and sessions keep them; Init and the older factory presets set
+0 %.
+
+### 3. The control (`Source/UI/DungeonSynthControl.h`)
+
+The Effects roller's wheel (no notch; double-click: 0 %) with the title across the top and
+Classic / Modern stacked beside it (a `ParameterAttachment`: automation moves the switch, a
+click is one gesture). Instrument: right of the keyboard (the keyboard 104 px narrower, a
+divider). FX: between Travel (its time slider 74 px narrower) and the switches (18 px right,
+14 px narrower). Snapshots: `docs/snapshots/session15/` (`--ds-snapshots dir`).
+
+### 4. Presets and search
+
+Ten instrument presets and three FX presets, category **Dungeon synth**, appended after the
+others (no existing preset index moves): Cassette Castle Theme (Royal Strings, Classic 85 %),
+Modern Dungeon Synth Pad (Dark Choir Pad, Modern 80 %), Crypt Organ Drone (the Pipe Organ in
+the Crypt, Classic 75 %), Lo-fi Fantasy Flute (Wooden Flute, Classic 90 %), Tape Harp of the
+Grove (Modern 60 %), Frozen Tower on Cassette (the ice glockenspiel in the Observatory),
+Hall of the Old Kings (the Heroic Horn in the Dwarven Hall), Starlit Modern Pad (Celestial
+Pad, Modern 90 %), Necropolis Choir Tape (the Soft Choir at the Gates, Classic 100 %),
+Harpsichord Demo Tape; FX: Cassette Dungeon, Lo-fi Crypt, Modern Dark Hall. Their search
+entries get "dungeon synth", "lo-fi", "lofi", "retro" and "cassette" (Classic) or "tape",
+"warm", "chorus" (Modern), and a line in the description.
+
+### 5. Tests (`--only dungeonsynth`, CI shard `14-dungeonsynth`, after the shards; `dungeonsynthui` in 1-basics)
+
+- **Null test at 0 %**: eleven renders (the FX in four places, five instruments in their
+  places, one locked elsewhere, one dry) at 0 % Classic and 0 % Modern are bit for bit the
+  renders with the stage switched off in code (`setDungeonSynthEnabledForTest(false)`: the
+  path before this session). Here also against the build before the session: `--ds-hashes`
+  printed the same eleven hashes from `1adeed7` and from this build. Back at 0 % after 100 %,
+  the stage rests once its hall has rung out and the FX's dry path is the input exactly again.
+- **Per Era at 50 / 100 %** (the stage alone, on the dry path): above 6 kHz down 2 dB / 4 dB
+  or more on five instruments; harmonics on a -10 dBFS sine (none at 0 %, gentle Classic,
+  more in Modern); wow and flutter on a held 1 kHz tone (cents RMS); the hall's T60; the tail
+  after the melody in two places; Classic narrows the image, Modern's ensemble widens the
+  strings.
+- **Level**: the loudest 400 ms (K-weighted) within 1.5 dB of 0 % at 50 / 100 % in both Eras,
+  five instruments in their places and the FX in four places.
+- **Click-free**: a held sine in the FX (Crypt, Corridors) while the roller sweeps 0 -> 100 ->
+  0 % a step every block, jumps, and the Era flips four times: under 2x the largest steady step
+  at 0 / 100 %; a held string chord in the instrument while it sweeps and the Era switches:
+  under 1.5x.
+- **Sessions and presets** (both plug-ins): saved, older sessions at 0 %, user presets, factory
+  presets without it at 0 %, Init; the Dungeon synth presets (on, named, play cleanly) and the
+  searches "dungeon synth", "lo-fi", "retro", "cassette", "lofi".
+- **With the rest**: Lock instrument while travelling; Effects 0 % and the MIX Reverb at 0 %
+  take the hall away with the place; Punch still lands; Bypass is the input; three places stay
+  different (the Soft Choir in the Crypt, the Gates and the Dwarven Hall, both Eras); silence
+  stays silent (no hiss without notes) and the tail dies away; no allocation in processBlock;
+  mono outputs.
+- **UI** (`dungeonsynthui`): both windows have the control, shown, inside the window and
+  overlapping nothing; the roller sets the amount, a click on Modern sets the Era, automation
+  moves both.
+- `cpu` (report-only): the FX in the Crypt at 0 % and 100 %.
+
+Renders (CI test-logs `dungeonsynth/`, `--listen-dungeonsynth dir`): the dark fantasy test
+melody (the A minor phrase twice over held Am-F-G-E chords, 9.6 s) on Royal Strings, Dark
+Choir Pad, Chamber Organ, Wooden Flute and Lute in their places, `-0-off`, `-classic-50`,
+`-classic-100`, `-modern-50`, `-modern-100`; the FX's material through the Crypt and the Gates,
+all five settings in one file each; `dungeonsynth-report.txt` (`--ds-report`).
+
+### Results and handoff (end of session 15)
+
+Measured here (Linux, the recorded brass, without the developer's private recordings; the
+Dark Choir Pad, the Lute and the Soft Choir play their stand-ins here and the recordings in CI):
+
+| in its place, 50 / 100 % | loudness vs 0 % (Classic) | (Modern) | above 6 kHz, the stage alone (Classic) | (Modern) | tail after the melody (Classic / Modern, 100 %) |
+|---|---|---|---|---|---|
+| Royal Strings | +0.1 / +0.3 dB | +0.1 / +0.2 dB | -3.6 / -7.6 dB | -4.5 / -7.1 dB | +0.2 / +1.0 dB |
+| Dark Choir Pad | -0.2 / -1.5 dB | -0.0 / -0.2 dB | -2.9 / -5.0 dB | -4.4 / -6.8 dB | -0.5 / -0.3 dB |
+| Chamber Organ | +0.5 / +1.4 dB | -0.6 / -1.1 dB | -3.6 / -4.7 dB | -4.2 / -5.6 dB | -2.9 / -0.6 dB |
+| Wooden Flute | -0.1 / +0.3 dB | +0.0 / +0.3 dB | -7.6 / -13.8 dB | -8.2 / -12.0 dB | +3.1 / +2.7 dB |
+| Lute | +0.2 / +1.2 dB | +0.1 / +0.4 dB | -5.8 / -10.1 dB | -6.3 / -9.0 dB | +9.1 / +14.9 dB |
+
+The FX (loudness vs 0 %, 100 %): Corridors +1.0 / +1.1, Crypt -1.3 / -0.5, Gates +1.0 / +0.6,
+Dwarven Hall -0.4 / +1.0 dB. Harmonics on a -10 dBFS sine: Classic -43 / -48 dB, Modern -35 /
+-31 dB (none at 0 %). Wow and flutter: Classic 2.0 / 3.9 cents RMS, Modern 0.8 / 1.7. The hall's
+T60: Classic 3.8 s, Modern 5.7 s. Worst loudness deviation of all 36 checks: 1.48 dB. CPU: the
+FX in the Crypt 5.2 % of one core at 0 %, 7.0 % at 100 %.
+
+**Linux (this container)**: the whole suite in its CI shards, 2991 passed, 0 failed (before this
+session: 2820 passed, 1 failed, the search's 5 ms keystroke timer under contention, which
+passed this time); `dungeonsynth` 134, `dungeonsynthui` 16. Every target builds. The null test
+also against the previous build: the same eleven hashes.
+
+**Listen to** (test-logs `dungeonsynth/`, MANUAL_TEST "Session 15"): each instrument `-0-off`
+then `-classic-50`, `-classic-100`, `-modern-50`, `-modern-100`; the FX's Crypt and Gates files.
+
+**Known limits**: tuned by measurement, not by ear. The places that add sounds of their own
+(wind, drips, voices, shimmer) keep their own highs: in a dark place (the Crypt) the output's top
+can even rise a little at 100 %, because the hall, dark as it is, is brighter than the Crypt;
+the stage itself always darkens (the checks measure it on the dry path). The level match is the
+tightest part (1.48 dB worst, the Dark Choir Pad in Classic); with the developer's voice in CI the
+voiced instruments may land differently. The Era glides over 250 ms (a short morph, not a cut).
+Nothing seen on a Mac yet.
+

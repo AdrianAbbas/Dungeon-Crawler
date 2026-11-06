@@ -472,3 +472,27 @@ validated.
 - [ ] Listen: test-logs `seat/` (each instrument `-dry-1-before` / `-dry-2-after`, then
       `-in-its-place-`; `mix-choir-strings-brass-drums-1-before` / `-2-after`), and
       `seat-report.txt` for the numbers.
+
+## Session 15: Dungeon Synth
+
+- [ ] An existing project: opens with Dungeon Synth at 0 % and sounds exactly as before.
+- [ ] New instance, Royal Strings in the Throne Room, a slow dark melody: roll Dungeon Synth
+      0 -> 25 -> 50 -> 100 % in Classic. 25 %: a little older and darker; 50 %: clearly a
+      90s tape; 100 %: the full cassette sound (muffled top, wobble, a little hiss, nearly
+      mono, a big grainy hall). Too much anywhere? Is the hiss ever annoying?
+- [ ] The same in Modern: warmer, saturated, the chorus on the strings, the lush dark hall;
+      only a hint of lo-fi. Does it still sound like dungeon synth, not just "reverb"?
+- [ ] Move the roller and flip the Era while a chord is held: no click, no jump in loudness.
+- [ ] The same instrument (Lock instrument) in the Crypt, the Necropolis Gates and the Dwarven
+      Hall at 100 %: still three different places?
+- [ ] With it on: Effects to 0 % (the stage stays, the place and hall go), the MIX section's
+      Reverb down (the hall goes down too), Punch on the brass (still hits), Bypass (the dry
+      instrument, untouched).
+- [ ] The factory presets in "Dungeon synth" (and searching "dungeon synth", "lo-fi", "retro",
+      "cassette"): Cassette Castle Theme, Modern Dungeon Synth Pad, Crypt Organ Drone, Lo-fi
+      Fantasy Flute... do they sound like the genre? Which is the best and the worst?
+- [ ] DUNGEON CRAWLER FX on a guitar or a synth: the same roller and switch between Travel and
+      the switches.
+- [ ] Listen: test-logs `dungeonsynth/` (each instrument `-0-off`, `-classic-50`, `-classic-100`,
+      `-modern-50`, `-modern-100`; the FX's Crypt and Gates, all five in one file each), and
+      `dungeonsynth-report.txt` for the numbers.

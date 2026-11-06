@@ -394,6 +394,8 @@ void testDungeonSynth(Suite& s) {
     }
     {
         const double c50 = hallT60(0.5f, 0), c100 = hallT60(1.0f, 0), m50 = hallT60(0.5f, 1), m100 = hallT60(1.0f, 1);
+        s.metric("the hall's T60, Classic 100 %", c100, " s");
+        s.metric("the hall's T60, Modern 100 %", m100, " s");
         s.check(c50 > 2.0 && c100 > 3.5 && c100 > c50 && m50 > 2.0 && m100 > 4.0 && m100 > m50, "the hall: a long tail, longer at 100 % (T60)",
                 "Classic " + fmt(c50, 2) + " / " + fmt(c100, 2) + " s, Modern " + fmt(m50, 2) + " / " + fmt(m100, 2) + " s");
         // In a place: the tail after the melody grows (a plucked lute and a flute in their places).
@@ -782,4 +784,57 @@ int dsSnapshots(const juce::String& directory) {
     }
     std::cout << written << " snapshots written to " << dir.getFullPathName() << "\n";
     return written == 5 ? 0 : 1;
+}
+
+namespace dstests {
+// The dark fantasy test melody for the listening render: the A minor phrase twice (the second
+// time a little higher), over held chords on the same instrument (Am, F, G, E), 9.6 s.
+void darkFantasyPhrase(InstHost& h, double t) {
+    melody(h, t, 57, 0.8f);
+    melody(h, t + 4.8, 60, 0.75f);
+    const int chords[4][3] { { 45, 48, 52 }, { 41, 45, 48 }, { 43, 47, 50 }, { 40, 44, 47 } };
+    for (int c = 0; c < 4; ++c)
+        for (int k : chords[c]) h.note(t + c * 2.4, 2.3, k, 0.45f);
+}
+constexpr double phraseSeconds = 9.6;
+}
+
+// `--listen-dungeonsynth dir`: the dark fantasy test melody on five instruments in their places
+// at 0 %, Classic 50 / 100 % and Modern 50 / 100 % (one file each), the FX's guitar-and-synth material through the Crypt and the Gates
+// the same way, and the numbers (dungeonsynth-report.txt is written by --ds-report).
+int listenDungeonSynth(const juce::String& directory) {
+    using namespace dstests;
+    juce::File dir(directory);
+    dir.createDirectory();
+    const std::vector<std::pair<Ds, std::string>> settings { { { 0, 0 }, "0-off" }, { { 0.5f, 0 }, "classic-50" }, { { 1, 0 }, "classic-100" },
+                                                             { { 0.5f, 1 }, "modern-50" }, { { 1, 1 }, "modern-100" } };
+    const auto slug = [](std::string name) {
+        for (auto& c : name) c = c == ' ' || c == '\'' ? '-' : char(std::tolower(static_cast<unsigned char>(c)));
+        return name;
+    };
+    const auto append = [](std::vector<float>& all, const std::vector<float>& part) {
+        all.insert(all.end(), part.begin(), part.end());
+        all.insert(all.end(), std::size_t(0.6 * 48000), 0.0f);
+    };
+    for (int instrument : dsInstruments()) {
+        for (const auto& [d, label] : settings) {
+            InstHost h;
+            h.play(instrument);
+            setDs(h, d);
+            h.render(0.05);
+            darkFantasyPhrase(h, 0.1);
+            h.render(0.05 + phraseSeconds + 3.5);
+            brasstests::writeWav(dir.getChildFile(slug(instName(instrument)) + "-" + label + ".wav"), h.outL, h.outR);
+        }
+    }
+    for (const auto& [l, k] : std::vector<std::pair<int, int>> { { dc::Cathedral, 2 }, { dc::Necropolis, 0 } }) {
+        std::vector<float> sl, sr;
+        for (const auto& [d, label] : settings) {
+            const auto t = fxMaterial(l, k, d, 8.0);
+            append(sl, t.l);
+            append(sr, t.r);
+        }
+        brasstests::writeWav(dir.getChildFile("fx-" + slug(dc::subLocationName(l, k)) + "-all-0-c50-c100-m50-m100.wav"), sl, sr);
+    }
+    return 0;
 }

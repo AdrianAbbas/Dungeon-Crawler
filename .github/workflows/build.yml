@@ -226,6 +226,15 @@ jobs:
         run: |
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-seat build/test-logs/seat
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --seat-report > build/test-logs/seat/seat-report.txt || true
+      # Session 15: DUNGEON SYNTH. The dark fantasy test melody on five instruments in their places
+      # (Royal Strings, Dark Choir Pad, Chamber Organ, Wooden Flute, Lute) at 0 %, Classic 50 and
+      # 100 %, Modern 50 and 100 %, one WAV each; the FX's material through the Crypt and the Gates
+      # the same way in one file each; and the numbers behind the checks.
+      - name: Listening renders (dungeon synth, Classic and Modern, 0 / 50 / 100 %, WAV)
+        if: always()
+        run: |
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-dungeonsynth build/test-logs/dungeonsynth
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-report > build/test-logs/dungeonsynth/dungeonsynth-report.txt || true
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4

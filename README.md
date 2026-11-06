@@ -251,6 +251,38 @@ where Level and Punch were left at their defaults they get the new defaults; whe
 set, they are kept as they were heard (the Level raised by what the new default takes away,
 Punch at the same dB on the hit). Older projects (sound 12 and before) are unchanged.
 
+## Dungeon Synth (both plug-ins, Session 15)
+
+A **DUNGEON SYNTH** roller with an **Era** switch makes any instrument (or anything through
+the FX) sound like dungeon synth instead of general dark fantasy. On the instrument panel it
+sits to the right of the keyboard; in the FX between Travel and the switches. **0 %** (the
+default, and what every project saved before it opens at) is the sound exactly as before;
+**25 %** subtle, **50 %** clearly dungeon synth, **100 %** the full genre sound. Drag it, use
+the mouse wheel, double-click for 0 %; both controls are automatable and saved with presets
+and projects.
+
+- **Classic** (the 90s cassette sound): a cheap sampler's character (a gentle 12-bit,
+  22-24 kHz sampler with soft, filtered aliasing), the keyboard's chorus, cassette wow and
+  flutter and a little hiss that follows the music (none in silence), a rolled-off top, a
+  narrower, nearly mono image, and a big dark, grainy old-digital hall.
+- **Modern** (cleaner and warmer): tape saturation and low-mid warmth, a softer top, a
+  vintage ensemble chorus (strongest on pads, strings, choirs and organs, almost none on
+  drums), a lush dark modulated hall, only a hint of lo-fi (16 bits).
+
+It sits after the instrument and before the place: the place's space and effects still work
+on it, so the Crypt, the Necropolis and the Dwarven Hall still sound different. Its hall
+joins the place's own space, so **Intensity**, **Effects** (towards 0 %: the stage stays on
+the dry instrument, the hall goes with the place), the **MIX** section's Reverb and **Mix**
+move it as they move the place. **Lock instrument** and **Punch** work as before; **Bypass**
+is always the untouched input. Loudness stays within about 1.5 dB as it moves (it is levelled
+like the places are), and moving it or switching the Era is click-free.
+
+Factory presets built around it (category **Dungeon synth**, at the end of the preset list;
+search "dungeon synth", "lo-fi", "retro" or "cassette"): Cassette Castle Theme, Modern
+Dungeon Synth Pad, Crypt Organ Drone, Lo-fi Fantasy Flute, Tape Harp of the Grove, Frozen
+Tower on Cassette, Hall of the Old Kings, Starlit Modern Pad, Necropolis Choir Tape,
+Harpsichord Demo Tape; in the FX: Cassette Dungeon, Lo-fi Crypt, Modern Dark Hall.
+
 ## Search (both plug-ins)
 
 The magnifier at the top right of the window (or **Cmd+F**) opens the search over the
@@ -298,6 +330,7 @@ where it belongs and its tags.
 | **↶ ↷** | Undo / redo of your edits in the window. |
 | **⚙** | Window size (75–200 %, or drag the corner) and Quality: Eco (lightest: no animation, mono spectral layer), Standard, High (smoothest animation). |
 | **Mix** | The MIX section: reverb, echoes, modulation, character, atmosphere, and the reverbs' low cut, pre-delay and duck (see Mix above). |
+| **Dungeon Synth** (roller) + **Classic / Modern** | How much it sounds like dungeon synth (0 %: as it is, 100 %: the full genre sound) and which era (see Dungeon Synth above). |
 | **Magnifier** (top right), Cmd+F | Search places, instruments, presets and sounds (see Search above). |
 | **▾** (above the controls) | Hide the controls to see the whole picture. |
 
