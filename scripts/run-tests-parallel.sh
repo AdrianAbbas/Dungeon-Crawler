@@ -4,6 +4,7 @@
 # hold wall-clock checks too (a full repaint fits a 30 fps frame; Eco costs less than
 # Standard), so they also run alone, after the shards: with the seventh shard
 # (instruments, Direction Update 3) they failed under contention on the 4-core runner.
+# So does the navigation group (Session 16).
 # Together the shards cover every test group and every location (9-recordings: Session 8;
 # 10-mix: Session 11; 11-brass: Session 12; 12-realbrass: Session 13; 13-seat: Session 14;
 # 14-dungeonsynth: Session 15, its control's checks in 1-basics).
@@ -14,7 +15,7 @@ logs="${2:-build/test-logs}"
 mkdir -p "$logs"
 
 "$tests" --only smoke,parameters,state,layouts,transparency,art,levels,instrumenteditor,window,search,dungeonsynthui > "$logs/1-basics.txt" 2>&1 &
-"$tests" --only rates,extremes,realtime,place,journeys,atmosphere,navigation,instrument,effects > "$logs/2-robustness.txt" 2>&1 &
+"$tests" --only rates,extremes,realtime,place,journeys,atmosphere,instrument,effects > "$logs/2-robustness.txt" 2>&1 &
 "$tests" --only locations,travel,modules,musicality > "$logs/3-locations.txt" 2>&1 &
 "$tests" --only qa > "$logs/5-qa.txt" 2>&1 &
 "$tests" --only strength,like > "$logs/6-strength.txt" 2>&1 &
@@ -34,7 +35,10 @@ wait
 "$tests" --only seat > "$logs/13-seat.txt" 2>&1
 # Session 15: DUNGEON SYNTH (the null test at 0 %, what each Era does, levels, clicks; alone too).
 "$tests" --only dungeonsynth > "$logs/14-dungeonsynth.txt" 2>&1
-"$tests" --only editor,workflow > "$logs/8-timed.txt" 2>&1
+# Session 16: the navigation group joins them (its journey notice is a 2.5 s wall-clock timer;
+# with the dungeon synth presets at 85-100 % the concurrent shards render more, and on the CI
+# runner the notice had gone before its check read it, three runs in a row).
+"$tests" --only editor,workflow,navigation > "$logs/8-timed.txt" 2>&1
 "$tests" --only cpu > "$logs/4-cpu.txt" 2>&1
 
 passed=0

@@ -3767,3 +3767,15 @@ After these fixes, here: the whole suite in its CI shards 3051 passed, 1 failed 
 of its difference at 0 %; the null test still bit for bit. CPU: the FX in the Crypt 7.0 % of
 one core at 0 %, 9.0 % at 100 % (this run, under the shards; 6.4 / 7.6 % before).
 
+**CI, Session 16 second run** (`8c86d78`, run 42226408753): macOS green. Linux: 3086 passed,
+1 failed: both dungeon synth failures of the first run are fixed (the Lute widens, the Crypt
+and the Gates stay apart with the developer's voice); what failed was again only *Stop ends
+the journey where it is (Castle / Great Hall) with a note*, the navigation group's wall-clock
+check (its "Journey stopped" note lasts 2.5 s of real time, and the test renders 9 s of audio
+after the click before it reads the note). Re-run once (attempt 2): the same, alone. It passed
+here in every run (the group alone and in the shards) and on CI before this session; what is
+new is load: the dungeon synth presets now run the stage at 85-100 % in the concurrent shards
+that render every preset. The check is not changed; its group now runs after the shards with
+the other wall-clock groups (`8-timed`: editor, workflow, navigation), as Session 13 did for
+the same notice. Here: 101 of 101 there.
+
