@@ -3541,9 +3541,84 @@ wiring, then make it strong (100 %: obviously dungeon synth; 50 %: clearly audib
 subtle), the two Eras clearly different. Push with `[skip ci]` after each part; the last push
 without, then wait for CI until green. Checklist (resume from the first open item after a limit):
 
-- [ ] 1. Audit: where the roller and the Era reach the signal, what masks or undoes them (measured, `--ds-audit`); the wiring fix
-- [ ] 2. DSP: the stronger Classic and Modern (targets in the brief of this session), level-matched, click-free
+- [x] 1. Audit: where the roller and the Era reach the signal, what masks or undoes them (measured, `--ds-audit`); the wiring fix
+- [x] 2. DSP: the stronger Classic and Modern (targets in the brief of this session), level-matched, click-free
 - [ ] 3. Tests that fail when it is too subtle (`dungeonsynth` group), the AU harness checks (both plug-ins, in and out of process)
 - [ ] 4. Factory presets that show it off; listening render (`--listen-dungeonsynth`)
 - [ ] 5a. README / MANUAL_TEST / DEVLOG handoff; final push without `[skip ci]`
 - [ ] 5b. CI green
+
+### 1. The audit: the stage reached the audio, and the place covered it
+
+**Reached the audio: yes.** Both parameters are read in `process()` on every block, for both
+plug-ins, every instrument and every place (the instrument's index chooses only the chorus
+weight); nothing bypassed the stage, and the null test at 0 % held. The AU host harnesses never
+touched the two parameters at all, so nothing proved them in a real host: Session 16 adds that
+check (in and out of process, both plug-ins; part 3).
+
+**The wiring bug: where the stage sat.** In Session 15 the stage processed the instrument (or
+the FX's input) *before* the place. Everything the place adds after that never went through
+it: its reverbs and echoes (wide, bright, smooth), its air, shimmer, drips, voices and the
+Atmosphere. In the output these covered what the stage did: its narrow image came back wide,
+its dark top came back bright, its wow and hiss were buried under a clean reverb, and the
+place's level matcher (which compared against the staged signal) had nothing to complain about.
+Measured with `--ds-audit` on the Session 15 build (0 % against 100 %; the stage alone = the
+instrument dry, then in its place):
+
+| | stage alone: spectrum moves | in its place | above 6 kHz, in its place (Classic) | width, in its place (Classic) | Classic against Modern, in its place |
+|---|---|---|---|---|---|
+| Royal Strings | 6.1 dB | 3.4 dB | -5.0 dB | -0.3 dB | 0.9 dB |
+| Dark Choir Pad | 0.9 dB | 0.6 dB | **+0.4 dB** (brighter) | -0.6 dB | 0.6 dB |
+| Chamber Organ | 0.3 dB | 0.8 dB | **+0.1 dB** | -0.8 dB | 0.9 dB |
+| Wooden Flute | 5.3 dB | 0.8 dB | -0.9 dB | -0.4 dB | 0.4 dB |
+| Lute | 7.4 dB | 2.4 dB | -4.1 dB | -0.6 dB | 0.8 dB |
+| FX, the Crypt | | 8.7 dB | **+2.7 dB** | +0.6 dB | 2.1 dB |
+
+So Classic's "nearly mono" image measured -0.3 to -0.8 dB of side in a place, and Classic and
+Modern differed by under 1 dB of spectrum: "almost no difference" was what the plug-in did.
+(The settings were mild too: 22 kHz sampling, 12 companded bits, 2-4 cents of wow, a hall
+11 dB down; part 2.)
+
+**Fix**: the stage now works on the plug-in's whole output, after the place, the Mix and the
+Output gain, before the safety limiter (`PluginProcessor::process`), as a cassette records the
+whole sound. Its hall is inside the stage (no longer added to the place's wet path in the
+engine; `Engine::process`'s `addL/addR` is unused now) and follows Intensity x Effects (none at
+the dry path), the MIX section's Reverb (the user's slider: the hall is the genre's own, not
+the instrument's fitted reverb share) and Mix. Bypass still crossfades to the untouched input.
+At 0 % (and once the hall has rung out) the stage is not called: the eleven null-test renders
+are bit for bit the Session 15 build's (`--ds-hashes`, same hashes before and after).
+
+### 2. The stage, rebuilt (`Source/DSP/DungeonSynth.h/.cpp`)
+
+In the order the signal meets it (at 100 %; every amount fades in from the identity, the curves
+shaped so 25 % is subtle and 50 % clearly heard):
+
+| | Classic (the 90s cassette demo) | Modern (warm, wide, polished) |
+|---|---|---|
+| sampler | 13 kHz (29 kHz at 25 %, 21 kHz at 50 %), the anti-alias filter opening towards 100 % so the aliasing is heard; 8.5 bits, no dither, scaled to the music's envelope (as a sample is normalised: the grain stays whatever the level; silence stays silent); a line between its samples, its output filter at 0.45 x its rate | none |
+| chorus | the keyboard's, light (0.3 x the instrument's weight) | a deep vintage ensemble: three voices, 3.4 ms sweeps and a vibrato, cross-mixed wide (1 x the weight) |
+| hall (a send from here; its return joins before the tape) | old digital: 8-line FDN, static, little diffusion, T60 4 s measured, its output held at 11 kHz and 12 bits, dark | lush: modulated lines, T60 9.7 s measured, darker still, full width |
+| tape saturation | mild (+4 dB) | heavy (+14 dB) and asymmetric: harmonics 2-5 at -21 dB on a -10 dBFS sine. Its drive follows the music's level (rising at once, falling over 0.5 s): the same colour loud or soft, no clipped onsets |
+| wow / flutter | 0.55 % peak at 0.45 Hz with a slow random drift (5.6 cents RMS), flutter 6.8 + 11.3 Hz (1.8 cents RMS) | 0.18 % (1.9 cents RMS) |
+| hiss | -45 dBFS while it plays (fades over a second of silence), dark, before the roll-off | about -68 dBFS |
+| EQ | low cut 95 Hz, the cheap keyboard's boxy middle (+3 dB at 1.4 kHz), low-pass 5.5 kHz (sixth order) | low cut 30 Hz, warmth +4.5 dB at 180 Hz, low-pass 10 kHz, -4.5 dB shelf above 4 kHz |
+| image | side x 0.1 (-20 dB: nearly mono), the power it takes away given back evenly | side x 1.3 |
+
+**Level** (+/-1.5 dB of 0 % on the loudest 400 ms, K-weighted, at 25 / 50 / 100 %; worst now
+1.12 dB): three things were needed, each found by measuring the matcher's gain over time.
+(1) The hall's own limiter: on long chords its energy stays at least 3 dB under the music's
+(the music's 0.2 s level, held with a 1.5 s release, slower than the hall decays, so the tails
+ring freely); the first version held the music's *peaks* and let the hall build 5 dB over the
+organ's sustain. (2) The matcher (the output against the input, 0.3 s) learns only while the
+music plays, and a fast ceiling (50 ms) keeps the output within 0.5 dB of the input while it
+plays (the hall's onset); in the gaps both hold, so the tails keep their level. (3) The
+saturation's level follower first rose slowly: after silence it clipped every onset at full
+drive (the output 7 dB under the input for a quarter of a second, then the matcher's boost
+met the hall: +2.5 dB).
+
+**What went wrong on the way (measured)**: the first "above 6 kHz" meter (a second-order
+high-pass) counted the strong 3-6 kHz the cassette keeps; the steep third-octave bands are used
+now. On dark sounds (the places have almost nothing above 8 kHz, -50 to -76 dB) the hiss and the
+grain raise that share however dark the stage makes the music: the top's checks use bright
+material dry. A hard sample-and-hold at a rate the host's is no multiple of folded its images
+back to 7-10 kHz (at 25 % the strings came out brighter): a line between the samples now.

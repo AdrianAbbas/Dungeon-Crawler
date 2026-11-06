@@ -152,6 +152,7 @@ public:
     // Tests: false runs the code path exactly as before Session 15 (the stage never called),
     // for the null test against DUNGEON SYNTH at 0 %.
     void setDungeonSynthEnabledForTest(bool on) noexcept { dungeonEnabled = on; }
+    const dc::DungeonSynth& dungeonSynthForTest() const noexcept { return dungeon; }
     int qualityMode() const noexcept;
     // Presets: factory (the effect: favourite spots, journeys; the instrument: instrument
     // presets, instruments elsewhere, journeys) and user presets (state files).
@@ -277,7 +278,8 @@ private:
     dc::DungeonSynth dungeon;
     bool dungeonEnabled = true;
     std::array<dc::dsp::DelayLine, 2> rawDelay;
-    std::array<std::array<float, dc::maxChunk>, 2> rawAligned {}, staged {}, hallReturn {};
+    std::array<std::array<float, dc::maxChunk>, 2> rawAligned {}, post {};
+    std::array<float, dc::maxChunk> bypassedAt {};
     dc::dsp::Smoothed inputGain, outputGain, wetMix, placeGain;
     dc::dsp::Ramp bypassRamp;
     // Intensity 0 is a true dry path: the output crossfades (30 ms) to the latency-aligned

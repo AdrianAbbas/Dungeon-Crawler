@@ -2,7 +2,7 @@
 // Session 15: the DUNGEON SYNTH control (both plug-ins): a roller drawn like the Effects
 // roller (0 %: the sound exactly as it is; 25 % subtle, 50 % clearly dungeon synth, 100 % the
 // full genre sound) and the Era switch beside it (Classic: the cassette era; Modern: cleaner
-// and warmer). The title runs across the top. On the instrument panel it sits to the right of
+// and warmer; Session 16: warm, wide and polished). The title runs across the top. On the instrument panel it sits to the right of
 // the keyboard; in the FX's controls between Travel and the switches.
 //
 // The roller is the Effects roller's slider (vertical drag, the mouse wheel, double-click back
@@ -24,8 +24,8 @@ public:
         }
         roller.setTooltip("Dungeon Synth: how much it sounds like dungeon synth (0 %: as it is; 25 % subtle, 50 % clearly, 100 % the full genre sound)");
         addAndMakeVisible(roller);
-        classic.setTooltip("Classic: the 90s cassette sound (a cheap sampler, tape wow and a little hiss, a rolled-off top, a narrow image, a big grainy hall)");
-        modern.setTooltip("Modern: cleaner and warmer (tape saturation, a vintage ensemble chorus on pads and strings, a lush dark hall, a hint of lo-fi)");
+        classic.setTooltip("Classic: the 90s cassette demo (a cheap 13 kHz, 8-bit sampler with its aliasing, tape wow, flutter and hiss, a dark top, nearly mono, a big grainy old-digital hall)");
+        modern.setTooltip("Modern: warm, wide and polished (heavy tape saturation, a deep vintage ensemble chorus, a softer top, a slight wow, a lush, very long dark hall)");
         for (auto* b : { &classic, &modern }) {
             b->setClickingTogglesState(false);
             b->setColour(juce::TextButton::buttonOnColourId, colours::blood.withAlpha(0.85f));

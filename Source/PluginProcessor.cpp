@@ -450,10 +450,9 @@ void DungeonCrawlerProcessor::prepareToPlay(double sampleRate, int) {
     latency = world.latencySamples();
     for (auto& d : dryDelay) d.prepare(static_cast<std::size_t>(latency + 8));
     for (auto& d : rawDelay) d.prepare(static_cast<std::size_t>(latency + 8));
-    // Session 15: DUNGEON SYNTH (its hall waits for the engine's latency, as the place does).
-    dungeon.setControls(dungeonSynthAmount(), dungeonSynthEra(), dc::inst::dungeonSynthChorusFx, 0.0f, 0.0f);
+    // Session 15/16: DUNGEON SYNTH (on the whole output, after the place).
+    dungeon.setControls(dungeonSynthAmount(), dungeonSynthEra(), dc::inst::dungeonSynthChorusFx, 0.0f);
     dungeon.prepare(rate);
-    dungeon.setHallDelay(latency);
     for (auto* s : { &inputGain, &outputGain, &wetMix }) s->setTime(0.02, rate);
     placeGain.setTime(0.3, rate);
     placeGain.snap(1.0f);
@@ -666,6 +665,8 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
     controls.bpm = bpm;
     // Session 11: the MIX section (100 % = as designed) and the reverb helpers.
     for (std::size_t g = 0; g < controls.mix.size(); ++g) controls.mix[g] = juce::jlimit(0.0f, dc::mixMax, finiteOr(mixGroups[g]->load(), 1.0f));
+    // The user's MIX Reverb, before the instrument's fit below (DUNGEON SYNTH's hall follows it).
+    const float userReverb = controls.mix[dc::MixReverb];
     controls.reverbLowCut = juce::jlimit(dc::mixLowCutOff, 600.0f, finiteOr(mixLowCut->load(), dc::mixLowCutOff));
     controls.reverbPreDelay = juce::jlimit(-40.0f, 120.0f, finiteOr(mixPreDelay->load(), 0.0f));
     controls.reverbDuck = juce::jlimit(0.0f, 1.0f, finiteOr(mixDuck->load(), 0.0f));
@@ -738,15 +739,19 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
     const float atmosDense = juce::jlimit(0.0f, 1.0f, finiteOr(atmosDensity->load(), 0.35f));
     const int atmosSeedValue = juce::jlimit(1, 999, static_cast<int>(std::lround(finiteOr(atmosSeed->load(), 1))));
     const double beatsPerSample = bpm / 60.0 / rate;
-    // Session 15: DUNGEON SYNTH, after the instrument (or the FX's input), before the dry path
-    // and the place; its hall joins the place's wet signal inside the engine (before its trims
-    // and level matcher, which level the place and the hall together), so Intensity x Effects
-    // (towards 0 %: the dry path, without it), the MIX section's Reverb and Mix move it as they
-    // move the place. The stage's own matcher keeps its output at the input's loudness.
+    // Session 16: DUNGEON SYNTH works on the whole output (after the place, the Mix and the
+    // Output gain, before the safety limiter), as a cassette records the whole sound. In Session 15
+    // it was before the place, whose own reverb, air and ambience then covered it (in its place
+    // the Dark Choir Pad at Classic 100 % came out brighter than at 0 %). Its hall follows the
+    // place's wet path: Intensity x Effects (towards 0 %: the dry path, without it), the MIX
+    // section's Reverb and Mix; its own matcher keeps the output at the input's loudness. The
+    // hall is the genre's own: it follows the user's MIX Reverb, not the instrument's fit (which
+    // keeps strings, brass and plucks drier in a song) that the place's reverbs follow.
     {
-        const float hallSend = (amount <= neutralIntensity ? 0.0f : juce::jmin(1.25f, amount)) * juce::jlimit(0.0f, dc::mixMax, controls.mix[dc::MixReverb]);
+        const float hallSend = (amount <= neutralIntensity ? 0.0f : juce::jmin(1.25f, amount)) * juce::jlimit(0.0f, dc::mixMax, userReverb)
+                             * juce::jlimit(0.0f, 1.0f, finiteOr(mix->load(), 1.0f));
         const float chorus = isInstrument() ? dc::inst::dungeonSynthChorus(index) : dc::inst::dungeonSynthChorusFx;
-        dungeon.setControls(dungeonSynthAmount(), dungeonSynthEra(), chorus, hallSend, 0.0f);
+        dungeon.setControls(dungeonSynthAmount(), dungeonSynthEra(), chorus, hallSend);
     }
     const bool staging = dungeonEnabled && dungeon.active();
     float inPeak = 0, outPeak = 0;
@@ -760,18 +765,11 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
             const float x0 = std::isfinite(rawL) ? juce::jlimit(-32.0f, 32.0f, rawL) : 0.0f;
             const float x1 = std::isfinite(rawR) ? juce::jlimit(-32.0f, 32.0f, rawR) : 0.0f;
             inPeak = juce::jmax(inPeak, std::abs(x0), std::abs(x1));
-            staged[0][k] = x0;
-            staged[1][k] = x1;
             // Bypass always crossfades to the untouched input.
             rawDelay[0].push(x0);
             rawDelay[1].push(x1);
             rawAligned[0][k] = rawDelay[0].readInteger(static_cast<std::size_t>(latency) + 1);
             rawAligned[1][k] = rawDelay[1].readInteger(static_cast<std::size_t>(latency) + 1);
-        }
-        if (staging) dungeon.process(staged[0].data(), staged[1].data(), hallReturn[0].data(), hallReturn[1].data(), n);
-        for (int i = 0; i < n; ++i) {
-            const auto k = static_cast<std::size_t>(i);
-            const float x0 = staged[0][k], x1 = staged[1][k];
             dryDelay[0].push(x0);
             dryDelay[1].push(x1);
             dryAligned[0][k] = dryDelay[0].readInteger(static_cast<std::size_t>(latency) + 1);
@@ -780,8 +778,7 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
             l[i] = x0 * g;
             r[i] = x1 * g;
         }
-        if (staging) world.process(l, r, n, dryAligned[0].data(), dryAligned[1].data(), hallReturn[0].data(), hallReturn[1].data());
-        else world.process(l, r, n, dryAligned[0].data(), dryAligned[1].data());
+        world.process(l, r, n, dryAligned[0].data(), dryAligned[1].data());
         if (isInstrument()) {
             // The instrument in its place: a measured correction per place (some spaces
             // build up on sustained or ringing notes more than on the effect's material).
@@ -797,13 +794,22 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
                                atmosAmount, atmosDense, atmosSeedValue, dryAligned[0].data(), dryAligned[1].data());
         for (int i = 0; i < n; ++i) {
             const auto k = static_cast<std::size_t>(i);
-            const float m = wetMix.next(), og = outputGain.next(), bypassed = bypassRamp.next(bypassTarget);
+            const float m = wetMix.next(), og = outputGain.next();
+            bypassedAt[k] = bypassRamp.next(bypassTarget);
             const float dry = neutralRamp.next(neutralTarget);
             const float dl = dryAligned[0][k], dr = dryAligned[1][k];
             float ol = (dl + (l[i] - dl) * m) * og, orr = (dr + (r[i] - dr) * m) * og;
             ol += dry * (dl * og - ol);
             orr += dry * (dr * og - orr);
+            post[0][k] = ol;
+            post[1][k] = orr;
+        }
+        if (staging) dungeon.process(post[0].data(), post[1].data(), n);
+        for (int i = 0; i < n; ++i) {
+            const auto k = static_cast<std::size_t>(i);
+            float ol = post[0][k], orr = post[1][k];
             limiter.process(ol, orr);
+            const float bypassed = bypassedAt[k];
             const float bl = rawAligned[0][k], br = rawAligned[1][k];
             ol += bypassed * (bl - ol);
             orr += bypassed * (br - orr);
