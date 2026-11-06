@@ -3529,3 +3529,21 @@ higher; here the build before and after this session cost the same within noise 
 about +7.5 min on the old tests and renders; the new dungeonsynth shard about +5 min, its
 render +4.3 min, the fetch and an uncached build about +2 min.
 
+
+---
+
+## Session 16: DUNGEON SYNTH made unmistakable (2026-11-06, unattended)
+
+The developer, in GarageBand: "almost NO difference between 0 % and 100 %, and almost NO
+difference between Classic and Modern". First prove the roller and the Era reach the audio
+(both plug-ins, every instrument and place, the AU host in and out of process), fix any
+wiring, then make it strong (100 %: obviously dungeon synth; 50 %: clearly audible; 25 %:
+subtle), the two Eras clearly different. Push with `[skip ci]` after each part; the last push
+without, then wait for CI until green. Checklist (resume from the first open item after a limit):
+
+- [ ] 1. Audit: where the roller and the Era reach the signal, what masks or undoes them (measured, `--ds-audit`); the wiring fix
+- [ ] 2. DSP: the stronger Classic and Modern (targets in the brief of this session), level-matched, click-free
+- [ ] 3. Tests that fail when it is too subtle (`dungeonsynth` group), the AU harness checks (both plug-ins, in and out of process)
+- [ ] 4. Factory presets that show it off; listening render (`--listen-dungeonsynth`)
+- [ ] 5a. README / MANUAL_TEST / DEVLOG handoff; final push without `[skip ci]`
+- [ ] 5b. CI green
