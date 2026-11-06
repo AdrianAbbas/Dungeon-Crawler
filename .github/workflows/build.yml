@@ -123,7 +123,8 @@ jobs:
           if-no-files-found: warn
   linux:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    # Session 15: 90 (as the macOS job): the dungeon synth shard and render took the job past 60.
+    timeout-minutes: 90
     env:
       CCACHE_BASEDIR: ${{ github.workspace }}
       CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime

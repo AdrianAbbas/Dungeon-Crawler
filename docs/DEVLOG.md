@@ -3515,3 +3515,10 @@ tightest part (1.48 dB worst, the Dark Choir Pad in Classic); with the developer
 voiced instruments may land differently. The Era glides over 250 ms (a short morph, not a cut).
 Nothing seen on a Mac yet.
 
+**CI, Session 15 first run** (`a8137ba`, run 42167887313): macOS green. Linux: every step
+passed (the suite 3026 passed, 0 failed, with the developer's recordings, nothing
+report-only; all the renders written and uploaded), but the job hit its 60-minute limit as it
+finished (the suite 33 min, 23 min before; the new shard and the dungeon synth render added
+about 14 min) and was cancelled. Fix: the Linux job's `timeout-minutes` 60 -> 90, as the macOS
+job has. No check changed.
+
