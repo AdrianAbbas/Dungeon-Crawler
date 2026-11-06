@@ -764,6 +764,40 @@ void testDungeonSynth(Suite& s) {
         s.check(dc::inst::dungeonSynthChorus(strings) > dc::inst::dungeonSynthChorus(dc::inst::designFor(dc::Mountains, 1)) + 0.5f,
                 "the chorus belongs on pads and strings (the war drums take almost none)");
     }
+    // The AU host harnesses' DUNGEON SYNTH checks (tools/au-harness, in and out of process on
+    // macOS), measured the same way here so a change that would fail them fails first here.
+    {
+        const auto fxRun = [](Ds d) {
+            Host h;
+            h.set(dc::ids::intensity, 0.0f);
+            setDs(h, d);
+            h.render(4.0, sine(440.0, 0.25f));
+            effectstests::Take t { h.outL, h.outR };
+            return std::make_tuple(h.residualDb(h.at(2.0), h.end()), widthDb(t, h.at(2.0), h.end()), toDb(h.rms(h.at(2.0), h.end())));
+        };
+        const auto [r0, w0, l0] = fxRun({ 0, 0 });
+        const auto [rc, wc, lc] = fxRun({ 1, 0 });
+        const auto [rm, wm, lm] = fxRun({ 1, 1 });
+        s.check(r0 < -40.0 && rc > -10.0 && rm > -14.0 && wm > wc + 10.0 && std::abs(lc - l0) < 3.0 && std::abs(lm - l0) < 3.0,
+                "the FX harness's figures: 0 % passes, Classic and Modern change a sine strongly, Modern widens it, the level stays",
+                "residual " + fmt(r0) + " / " + fmt(rc) + " / " + fmt(rm) + " dB, side against mid Classic " + fmt(wc) + ", Modern " + fmt(wm) + " dB, level "
+                    + fmt(l0) + " / " + fmt(lc) + " / " + fmt(lm) + " dBFS");
+        const auto chord = [](Ds d) {
+            InstHost h;
+            setDs(h, d);
+            h.render(0.3);
+            for (int key : { 57, 64, 69 }) h.on(0.3, key, 100.0f / 127.0f);
+            h.render(3.0);
+            effectstests::Take t { h.outL, h.outR };
+            return std::make_pair(widthDb(t, h.idx(1.3), h.outL.size()), effectstests::levelDb(t.l, t.r, h.idx(0.35), h.idx(0.9)));
+        };
+        const auto [iw0, il0] = chord({ 0, 0 });
+        const auto [iwc, ilc] = chord({ 1, 0 });
+        const auto [iwm, ilm] = chord({ 1, 1 });
+        s.check(iwc < iw0 - 8.0 && iwm > iwc + 8.0 && std::abs(ilc - il0) < 3.0 && std::abs(ilm - il0) < 3.0,
+                "the instrument harness's figures: a chord's image folds to mono in Classic, stays wide in Modern, its attack's level stays",
+                "side against mid " + fmt(iw0) + " / " + fmt(iwc) + " / " + fmt(iwm) + " dB, level " + fmt(il0) + " / " + fmt(ilc) + " / " + fmt(ilm) + " dB");
+    }
     const std::vector<Ds> halfAndFull { { 0.25f, 0 }, { 0.5f, 0 }, { 1, 0 }, { 0.25f, 1 }, { 0.5f, 1 }, { 1, 1 } };
     // Level-matched: the loudest 400 ms (K-weighted) within 1.5 dB of 0 % at 25, 50 and 100 %.
     {
@@ -978,8 +1012,9 @@ void testDungeonSynth(Suite& s) {
                 if (juce::String(presets[std::size_t(k)].category) != "Dungeon synth") continue;
                 ++found;
                 p.applyFactoryPreset(k);
-                s.check(p.dungeonSynthAmount() > 0.2f && p.presetDisplayName() == juce::String(presets[std::size_t(k)].name),
-                        std::string(instrument ? "instrument" : "FX") + " preset " + presets[std::size_t(k)].name + ": dungeon synth on, named, unmodified");
+                s.check(p.dungeonSynthAmount() >= 0.85f && p.presetDisplayName() == juce::String(presets[std::size_t(k)].name),
+                        std::string(instrument ? "instrument" : "FX") + " preset " + presets[std::size_t(k)].name + ": dungeon synth shown off (85 % or more), named, unmodified",
+                        fmt(p.dungeonSynthAmount() * 100.0, 0) + " %");
             }
             s.check(found >= (instrument ? 8 : 3), std::string(instrument ? "instrument: 8 or more" : "FX: 3 or more") + " dungeon synth presets", std::to_string(found));
             const auto& index = dc::search::index(instrument);
@@ -1133,7 +1168,8 @@ constexpr double phraseSeconds = 9.6;
 }
 
 // `--listen-dungeonsynth dir`: the dark fantasy test melody on five instruments in their places
-// at 0 %, Classic 50 / 100 % and Modern 50 / 100 % (one file each), the FX's guitar-and-synth material through the Crypt and the Gates
+// at 0 %, Classic 50 / 100 % and Modern 50 / 100 % (one file each, and an A/B file: 0 %, Classic
+// 100 %, Modern 100 % back to back), the FX's guitar-and-synth material through the Crypt and the Gates
 // the same way, and the numbers (dungeonsynth-report.txt is written by --ds-report).
 int listenDungeonSynth(const juce::String& directory) {
     using namespace dstests;
@@ -1150,6 +1186,8 @@ int listenDungeonSynth(const juce::String& directory) {
         all.insert(all.end(), std::size_t(0.6 * 48000), 0.0f);
     };
     for (int instrument : dsInstruments()) {
+        // Session 16: also one A/B file each: 0 %, Classic 100 %, Modern 100 %, back to back.
+        std::vector<float> al, ar;
         for (const auto& [d, label] : settings) {
             InstHost h;
             h.play(instrument);
@@ -1158,7 +1196,9 @@ int listenDungeonSynth(const juce::String& directory) {
             darkFantasyPhrase(h, 0.1);
             h.render(0.05 + phraseSeconds + 3.5);
             brasstests::writeWav(dir.getChildFile(slug(instName(instrument)) + "-" + label + ".wav"), h.outL, h.outR);
+            if (d.amount == 0.0f || d.amount == 1.0f) { append(al, h.outL); append(ar, h.outR); }
         }
+        brasstests::writeWav(dir.getChildFile(slug(instName(instrument)) + "-ab-0-classic100-modern100.wav"), al, ar);
     }
     for (const auto& [l, k] : std::vector<std::pair<int, int>> { { dc::Cathedral, 2 }, { dc::Necropolis, 0 } }) {
         std::vector<float> sl, sr;

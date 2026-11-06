@@ -496,3 +496,26 @@ validated.
 - [ ] Listen: test-logs `dungeonsynth/` (each instrument `-0-off`, `-classic-50`, `-classic-100`,
       `-modern-50`, `-modern-100`; the FX's Crypt and Gates, all five in one file each), and
       `dungeonsynth-report.txt` for the numbers.
+
+## Session 16: Dungeon Synth made unmistakable
+
+The developer heard almost no difference in Session 15 (the place covered the stage). Now:
+
+- [ ] An existing project: opens with Dungeon Synth at 0 % and sounds exactly as before.
+- [ ] Royal Strings in the Throne Room, a slow dark melody, Classic: 0 -> 25 -> 50 -> 100 %.
+      100 % should be obvious at once even to someone who does not know the genre: a
+      wobbling, hissing, crunchy, muffled, nearly mono old tape in a huge cold hall. 50 %
+      clearly that; 25 % only a little darker and older. Is the hiss too loud? The grit too much?
+- [ ] The same in Modern: warm and wide (the ensemble chorus), saturated, a softer top, a very
+      long dark hall, no crunch. Classic and Modern should sound like two different records.
+- [ ] Move the roller and flip the Era while a chord is held: no click, no jump in loudness.
+- [ ] Lock instrument: the same instrument in the Crypt, the Necropolis Gates and the Dwarven
+      Hall at 100 %: still three different places?
+- [ ] With it on: Effects to 0 % (the tape stays on the dry instrument, the place and hall go),
+      the MIX section's Reverb down (the hall goes down too), Mix to 0, Punch on the brass,
+      Bypass (the dry instrument, untouched).
+- [ ] The "Dungeon synth" presets (85-100 % now): do they sound like the genre at once?
+- [ ] DUNGEON CRAWLER FX on a guitar or a synth: the same.
+- [ ] Listen: test-logs `dungeonsynth/`: each instrument's `-ab-0-classic100-modern100.wav`
+      first (0 %, Classic 100 %, Modern 100 % back to back), then `-classic-50`, `-modern-50`.
+

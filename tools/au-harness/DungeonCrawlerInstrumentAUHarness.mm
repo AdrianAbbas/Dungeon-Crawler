@@ -203,11 +203,13 @@ AudioStreamBasicDescription floatFormat(double sampleRate, UInt32 channels) {
 struct RenderResult {
     OSStatus status = noErr;
     double outRms[2] {};
+    double midRms = 0, sideRms = 0;   // Session 16: the image
     float peak = 0;
     bool finite = true;
     UInt32 outChannels = 0;
 
     double rmsDb() const { return toDb(outChannels > 1 ? std::sqrt(0.5 * (outRms[0] * outRms[0] + outRms[1] * outRms[1])) : outRms[0]); }
+    double widthDb() const { return toDb(sideRms) - toDb(midRms); }   // side against mid
     std::string describe() const {
         return strf("status=%s out=%.1f dBFS (L %.1f / R %.1f) peak=%.3f finite=%d",
                       statusText(status).c_str(), rmsDb(), toDb(outRms[0]), toDb(outRms[1]), double(peak), int(finite));
@@ -215,7 +217,7 @@ struct RenderResult {
 };
 
 struct Meter {
-    double sum[2] {};
+    double sum[2] {}, midSum = 0, sideSum = 0;
     size_t counted = 0;
     float peak = 0;
     bool finite = true;
@@ -229,13 +231,22 @@ struct Meter {
                 peak = std::max(peak, std::abs(v));
                 if (index >= skip && c < 2) sum[c] += double(v) * v;
             }
-            if (index >= skip) ++counted;
+            if (index >= skip) {
+                ++counted;
+                if (numChannels > 1 && std::isfinite(channels[0][n]) && std::isfinite(channels[1][n])) {
+                    const double m = 0.5 * (double(channels[0][n]) + channels[1][n]), sd = 0.5 * (double(channels[0][n]) - channels[1][n]);
+                    midSum += m * m;
+                    sideSum += sd * sd;
+                }
+            }
         }
     }
     void finish(RenderResult& r, UInt32 numChannels) const {
         const double n = double(std::max<size_t>(counted, 1));
         r.outRms[0] = std::sqrt(sum[0] / n);
         r.outRms[1] = numChannels > 1 ? std::sqrt(sum[1] / n) : r.outRms[0];
+        r.midRms = std::sqrt(midSum / n);
+        r.sideRms = std::sqrt(sideSum / n);
         r.peak = peak;
         r.finite = finite;
         r.outChannels = numChannels;
@@ -597,6 +608,50 @@ void v2Suite(Report& r, AudioComponent component, bool outOfProcess, bool useWin
             r.check(audible == tried, "locked instruments chosen by parameter play", strf("%d of %d audible", audible, tried));
             setParameter(unit, lock->id, lock->info.minValue);
             host.render(6.0, 0.0);
+        }
+
+        // 4b. Session 16: DUNGEON SYNTH reaches the audio in this host (in and out of process):
+        // a held chord in the place's instrument at 0 %, then Classic and Modern at 100 %:
+        // Classic folds the place's wide image nearly to mono, Modern's ensemble keeps it wide
+        // (far wider than Classic), the level stays. The Linux suite measures the stage itself.
+        {
+            const auto* amount = findParameter(params, { "Dungeon Synth" });
+            const auto* era = findParameter(params, { "Dungeon Synth Era" });
+            if (r.check(amount != nullptr && era != nullptr, "parameters Dungeon Synth and Dungeon Synth Era exist")) {
+                const float amountWas = getParameter(unit, amount->id), eraWas = getParameter(unit, era->id);
+                // The chord's first 0.6 s (its level, before the hall has grown), then the next
+                // 2 s (its image, the hall in it).
+                struct Chord { RenderResult attack, held; };
+                const auto chord = [&](float value, float eraValue) {
+                    setParameter(unit, amount->id, value);
+                    setParameter(unit, era->id, eraValue);
+                    host.render(0.3, 0.0);
+                    for (int key : { 57, 64, 69 }) MusicDeviceMIDIEvent(unit, 0x90, UInt32(key), 100, 0);
+                    Chord c { host.render(0.6, 0.05), {} };
+                    c.held = host.render(2.4, 0.4);
+                    for (int key : { 57, 64, 69 }) MusicDeviceMIDIEvent(unit, 0x80, UInt32(key), 0, 0);
+                    host.render(8.0, 0.0);
+                    return c;
+                };
+                const auto offChord = chord(amount->info.minValue, era->info.minValue);
+                const auto classicChord = chord(amount->info.maxValue, era->info.minValue);
+                const auto modernChord = chord(amount->info.maxValue, era->info.maxValue);
+                const auto& off = offChord.held;
+                const auto& classic = classicChord.held;
+                const auto& modern = modernChord.held;
+                r.check(off.finite && classic.finite && modern.finite && off.rmsDb() > -50.0 && classic.rmsDb() > -50.0 && modern.rmsDb() > -50.0,
+                        "a chord plays at 0 % and at 100 % (Classic, Modern)", strf("%.1f / %.1f / %.1f dBFS", off.rmsDb(), classic.rmsDb(), modern.rmsDb()));
+                r.check(classic.widthDb() < off.widthDb() - 8.0, "Dungeon Synth 100 % Classic is heard: the image folds nearly to mono",
+                        strf("side against mid: 0 %% %.1f dB, Classic %.1f dB", off.widthDb(), classic.widthDb()));
+                r.check(modern.widthDb() > classic.widthDb() + 8.0, "the Era switch is heard: Modern stays wide, far wider than Classic",
+                        strf("side against mid: Classic %.1f dB, Modern %.1f dB", classic.widthDb(), modern.widthDb()));
+                const double a0 = offChord.attack.rmsDb(), ac = classicChord.attack.rmsDb(), am = modernChord.attack.rmsDb();
+                r.check(std::abs(ac - a0) < 3.0 && std::abs(am - a0) < 3.0, "Dungeon Synth keeps the level (the chord's attack within 3 dB of 0 %)",
+                        strf("0 %% %.1f, Classic %.1f, Modern %.1f dBFS", a0, ac, am));
+                setParameter(unit, amount->id, amountWas);
+                setParameter(unit, era->id, eraWas);
+                host.render(2.0, 0.0);
+            }
         }
 
         // 4c. The recorded instruments loaded from inside the installed bundle

@@ -231,11 +231,15 @@ jobs:
       # (Royal Strings, Dark Choir Pad, Chamber Organ, Wooden Flute, Lute) at 0 %, Classic 50 and
       # 100 %, Modern 50 and 100 %, one WAV each; the FX's material through the Crypt and the Gates
       # the same way in one file each; and the numbers behind the checks.
+      # Session 16: an A/B file per instrument (0 %, Classic 100 %, Modern 100 %), the strength
+      # numbers and the audit (what of the stage reaches the output).
       - name: Listening renders (dungeon synth, Classic and Modern, 0 / 50 / 100 %, WAV)
         if: always()
         run: |
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-dungeonsynth build/test-logs/dungeonsynth
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-report > build/test-logs/dungeonsynth/dungeonsynth-report.txt || true
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-strength > build/test-logs/dungeonsynth/dungeonsynth-strength.txt || true
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-audit > build/test-logs/dungeonsynth/dungeonsynth-audit.txt || true
       - name: Upload test logs
         if: always()
         uses: actions/upload-artifact@v4

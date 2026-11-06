@@ -60,9 +60,10 @@ inline const std::vector<FactoryPreset>& factoryPresets() {
         { "Swamp Wander", "Journeys",
           { { "location", Swamp }, { "roamOn", 1 }, { "roamBars", 3 }, { "roamRandomness", 0.3f }, { "travelTime", 3.0f } }, {} },
         // Session 15: built around DUNGEON SYNTH (dungeonSynthEra: 0 Classic, 1 Modern).
-        { "Cassette Dungeon", "Dungeon synth", { { "location", Dungeon }, { "subLocation", 0 }, { "dungeonSynth", 0.8f }, { "dungeonSynthEra", 0 } }, {} },
-        { "Lo-fi Crypt", "Dungeon synth", { { "location", Cathedral }, { "subLocation", 2 }, { "dungeonSynth", 0.65f }, { "dungeonSynthEra", 0 } }, {} },
-        { "Modern Dark Hall", "Dungeon synth", { { "location", Necropolis }, { "subLocation", 0 }, { "dungeonSynth", 0.7f }, { "dungeonSynthEra", 1 } }, {} },
+        // Session 16: the stronger stage, the amounts raised to show it off.
+        { "Cassette Dungeon", "Dungeon synth", { { "location", Dungeon }, { "subLocation", 0 }, { "dungeonSynth", 1.0f }, { "dungeonSynthEra", 0 } }, {} },
+        { "Lo-fi Crypt", "Dungeon synth", { { "location", Cathedral }, { "subLocation", 2 }, { "dungeonSynth", 0.9f }, { "dungeonSynthEra", 0 } }, {} },
+        { "Modern Dark Hall", "Dungeon synth", { { "location", Necropolis }, { "subLocation", 0 }, { "dungeonSynth", 1.0f }, { "dungeonSynthEra", 1 } }, {} },
     };
     return presets;
 }

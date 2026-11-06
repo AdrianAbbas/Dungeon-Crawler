@@ -233,6 +233,7 @@ struct RenderResult {
     OSStatus status = noErr;
     double outRms[2] {};
     double inRms = 0, diffRms = 0;   // diff = output channel 0 minus input, sample aligned
+    double midRms = 0, sideRms = 0;  // Session 16: the image (stereo outputs)
     float peak = 0;
     bool finite = true;
     UInt64 pulls = 0;
@@ -240,6 +241,7 @@ struct RenderResult {
 
     double rmsDb() const { return toDb(outChannels > 1 ? std::sqrt(0.5 * (outRms[0] * outRms[0] + outRms[1] * outRms[1])) : outRms[0]); }
     double diffDb() const { return toDb(diffRms) - toDb(inRms); }   // 0 dB = as loud as the input
+    double widthDb() const { return toDb(sideRms) - toDb(midRms); }   // side against mid
     std::string describe() const {
         return strf("status=%s out=%.1f dBFS (L %.1f / R %.1f) in=%.1f dBFS diff-vs-input=%.1f dB peak=%.3f finite=%d input-pulls=%llu",
                       statusText(status).c_str(), rmsDb(), toDb(outRms[0]), toDb(outRms[1]), toDb(inRms), diffDb(),
@@ -250,7 +252,7 @@ struct RenderResult {
 // Accumulates statistics for output written into `channels`, comparing channel 0 to
 // the source's captured input `latency` samples earlier (the plug-in's reported latency).
 struct Meter {
-    double sum[2] {}, inSum = 0, diffSum = 0;
+    double sum[2] {}, inSum = 0, diffSum = 0, midSum = 0, sideSum = 0;
     size_t counted = 0, latency = 0;
     float peak = 0;
     bool finite = true;
@@ -269,6 +271,11 @@ struct Meter {
                 const float out = std::isfinite(channels[0][n]) ? channels[0][n] : 0.0f;
                 inSum += double(in) * in;
                 diffSum += double(out - in) * (out - in);
+                if (numChannels > 1 && std::isfinite(channels[1][n])) {
+                    const double m = 0.5 * (double(out) + channels[1][n]), sd = 0.5 * (double(out) - channels[1][n]);
+                    midSum += m * m;
+                    sideSum += sd * sd;
+                }
                 ++counted;
             }
         }
@@ -279,6 +286,8 @@ struct Meter {
         r.outRms[1] = numChannels > 1 ? std::sqrt(sum[1] / n) : r.outRms[0];
         r.inRms = std::sqrt(inSum / n);
         r.diffRms = std::sqrt(diffSum / n);
+        r.midRms = std::sqrt(midSum / n);
+        r.sideRms = std::sqrt(sideSum / n);
         r.peak = peak;
         r.finite = finite;
         r.outChannels = numChannels;
@@ -666,6 +675,44 @@ void v2Suite(Report& r, AudioComponent component, bool outOfProcess, bool useWin
             host.render(1.5, 0.0);
         } else {
             r.check(false, "parameters named Location and Intensity exist");
+        }
+
+        // 3c. Session 16: DUNGEON SYNTH reaches the audio in this host (in and out of process).
+        // On the dry path (Intensity 0: the place out, only the stage acts) a mono 440 Hz sine:
+        // 0 % passes it untouched; Classic and Modern at 100 % change it strongly (the tape's
+        // wow alone moves its phase); Modern's ensemble widens the mono tone, Classic keeps it
+        // nearly mono; back at 0 % it passes untouched again. The Linux suite measures the stage
+        // itself (group "dungeonsynth").
+        {
+            const auto* amount = findParameter(params, { "Dungeon Synth" });
+            const auto* era = findParameter(params, { "Dungeon Synth Era" });
+            if (r.check(amount != nullptr && era != nullptr && intensity != nullptr, "parameters Dungeon Synth and Dungeon Synth Era exist")) {
+                const float amountWas = getParameter(unit, amount->id), eraWas = getParameter(unit, era->id), intensityWas = getParameter(unit, intensity->id);
+                setParameter(unit, intensity->id, intensity->info.minValue);
+                setParameter(unit, amount->id, amount->info.minValue);
+                auto off = host.render(2.0, 1.0);
+                setParameter(unit, amount->id, amount->info.maxValue);
+                setParameter(unit, era->id, era->info.minValue);
+                auto classic = host.render(4.0, 2.0);
+                s = setParameter(unit, era->id, era->info.maxValue);
+                auto modern = host.render(4.0, 2.0);
+                setParameter(unit, amount->id, amount->info.minValue);
+                auto back = host.render(2.5, 1.5);
+                r.check(off.finite && off.diffDb() < -40.0, "Dungeon Synth 0 % passes the input through (residual < -40 dB)", off.describe());
+                r.check(classic.finite && classic.diffDb() > -10.0 && classic.rmsDb() > -40.0, "Dungeon Synth 100 % Classic changes the sound strongly (residual > -10 dB)",
+                        classic.describe());
+                r.check(s == noErr && modern.finite && modern.diffDb() > -14.0 && modern.rmsDb() > -40.0, "Dungeon Synth 100 % Modern changes the sound strongly (residual > -14 dB)",
+                        modern.describe());
+                r.check(modern.widthDb() > classic.widthDb() + 10.0, "the Era switch is heard: Modern's ensemble widens a mono tone, Classic keeps it nearly mono",
+                        strf("side against mid: Classic %.1f dB, Modern %.1f dB", classic.widthDb(), modern.widthDb()));
+                r.check(std::abs(classic.rmsDb() - off.rmsDb()) < 3.0 && std::abs(modern.rmsDb() - off.rmsDb()) < 3.0, "Dungeon Synth keeps the level (within 3 dB of 0 %)",
+                        strf("0 %% %.1f, Classic %.1f, Modern %.1f dBFS", off.rmsDb(), classic.rmsDb(), modern.rmsDb()));
+                r.check(back.finite && back.diffDb() < -40.0, "back at 0 %: the input passes untouched again", back.describe());
+                setParameter(unit, amount->id, amountWas);
+                setParameter(unit, era->id, eraWas);
+                setParameter(unit, intensity->id, intensityWas);
+                host.render(1.5, 0.0);
+            }
         }
 
         // 4. Wet/Dry 0 with unity output gain: output equals input.

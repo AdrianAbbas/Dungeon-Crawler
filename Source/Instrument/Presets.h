@@ -94,16 +94,17 @@ inline const std::vector<FactoryPreset>& instrumentPresets() {
             for (const auto& e : extra) f.values.push_back(e);
             p.push_back(std::move(f));
         };
-        dungeon("Cassette Castle Theme", Castle, 2, Castle, 2, 0.85f, 0, { { ids::instMacros[2], 0.6f } });
-        dungeon("Modern Dungeon Synth Pad", Necropolis, 0, Necropolis, 0, 0.8f, 1, { { ids::instMacros[1], 0.6f } });
-        dungeon("Crypt Organ Drone", Cathedral, 1, Cathedral, 2, 0.75f, 0, { { ids::instMacros[2], 0.65f } });
-        dungeon("Lo-fi Fantasy Flute", HauntedForest, 0, HauntedForest, 0, 0.9f, 0);
-        dungeon("Tape Harp of the Grove", HauntedForest, 3, HauntedForest, 3, 0.6f, 1);
-        dungeon("Frozen Tower on Cassette", Mountains, 2, WizardsTower, 3, 0.7f, 0);
-        dungeon("Hall of the Old Kings", Castle, 4, Mountains, 3, 0.65f, 0);
-        dungeon("Starlit Modern Pad", WizardsTower, 3, WizardsTower, 3, 0.9f, 1);
+        // Session 16: the stronger stage; the amounts raised to show it off (Classic 90-100 %, Modern 85-100 %).
+        dungeon("Cassette Castle Theme", Castle, 2, Castle, 2, 1.0f, 0, { { ids::instMacros[2], 0.6f } });
+        dungeon("Modern Dungeon Synth Pad", Necropolis, 0, Necropolis, 0, 1.0f, 1, { { ids::instMacros[1], 0.6f } });
+        dungeon("Crypt Organ Drone", Cathedral, 1, Cathedral, 2, 0.9f, 0, { { ids::instMacros[2], 0.65f } });
+        dungeon("Lo-fi Fantasy Flute", HauntedForest, 0, HauntedForest, 0, 1.0f, 0);
+        dungeon("Tape Harp of the Grove", HauntedForest, 3, HauntedForest, 3, 0.85f, 1);
+        dungeon("Frozen Tower on Cassette", Mountains, 2, WizardsTower, 3, 0.9f, 0);
+        dungeon("Hall of the Old Kings", Castle, 4, Mountains, 3, 0.9f, 0);
+        dungeon("Starlit Modern Pad", WizardsTower, 3, WizardsTower, 3, 1.0f, 1);
         dungeon("Necropolis Choir Tape", Cathedral, 0, Necropolis, 0, 1.0f, 0);
-        dungeon("Harpsichord Demo Tape", WizardsTower, 0, WizardsTower, 0, 0.8f, 0, { { "atmosLevel", 0.2f } });
+        dungeon("Harpsichord Demo Tape", WizardsTower, 0, WizardsTower, 0, 1.0f, 0, { { "atmosLevel", 0.2f } });
         return p;
     }();
     return presets;

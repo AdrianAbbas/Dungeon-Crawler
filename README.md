@@ -251,7 +251,7 @@ where Level and Punch were left at their defaults they get the new defaults; whe
 set, they are kept as they were heard (the Level raised by what the new default takes away,
 Punch at the same dB on the hit). Older projects (sound 12 and before) are unchanged.
 
-## Dungeon Synth (both plug-ins, Session 15)
+## Dungeon Synth (both plug-ins, Session 15; made unmistakable in Session 16)
 
 A **DUNGEON SYNTH** roller with an **Era** switch makes any instrument (or anything through
 the FX) sound like dungeon synth instead of general dark fantasy. On the instrument panel it
@@ -261,26 +261,28 @@ default, and what every project saved before it opens at) is the sound exactly a
 the mouse wheel, double-click for 0 %; both controls are automatable and saved with presets
 and projects.
 
-- **Classic** (the 90s cassette sound): a cheap sampler's character (a gentle 12-bit,
-  22-24 kHz sampler with soft, filtered aliasing), the keyboard's chorus, cassette wow and
-  flutter and a little hiss that follows the music (none in silence), a rolled-off top, a
-  narrower, nearly mono image, and a big dark, grainy old-digital hall.
-- **Modern** (cleaner and warmer): tape saturation and low-mid warmth, a softer top, a
-  vintage ensemble chorus (strongest on pads, strings, choirs and organs, almost none on
-  drums), a lush dark modulated hall, only a hint of lo-fi (16 bits).
+- **Classic** (the 90s cassette demo: an old tape of a cheap keyboard in a huge cold
+  castle): a cheap sampler (down to about 13 kHz with its aliasing grit, about 8 bits), the
+  keyboard's light chorus, a big dark, grainy old-digital hall at a high wet level, cassette
+  wow (about 0.5 %, slow and drifting) and flutter, tape hiss (about -45 dBFS while it plays,
+  fading out in silence), a dark top (5.5 kHz) with a boxy middle, a nearly mono image.
+- **Modern** (warm, wide, nostalgic, polished): no crushing; heavy warm tape saturation,
+  a deep, wide vintage ensemble chorus (strongest on pads, strings, choirs and organs, almost
+  none on drums), a softer top (10 kHz) and low-mid warmth, a slight slow wow, and a lush,
+  very long, dark modulated hall.
 
-It sits after the instrument and before the place: the place's space and effects still work
-on it, so the Crypt, the Necropolis and the Dwarven Hall still sound different. Its hall
-joins the place's own space, so **Intensity**, **Effects** (towards 0 %: the stage stays on
-the dry instrument, the hall goes with the place), the **MIX** section's Reverb and **Mix**
-move it as they move the place. **Lock instrument** and **Punch** work as before; **Bypass**
-is always the untouched input. Loudness stays within about 1.5 dB as it moves (it is levelled
-like the places are), and moving it or switching the Era is click-free.
+It works on the whole sound, after the place (as a cassette records everything): the place's
+space and effects come first, so the Crypt, the Necropolis and the Dwarven Hall still sound
+different, and then all of it goes through the tape. Its hall follows **Intensity**,
+**Effects** (towards 0 %: the stage stays on the dry instrument, the hall goes with the
+place), the **MIX** section's Reverb and **Mix**. **Lock instrument** and **Punch** work as
+before; **Bypass** is always the untouched input. Loudness stays within about 1.5 dB as it
+moves (its own level matcher), and moving it or switching the Era is click-free.
 
 Factory presets built around it (category **Dungeon synth**, at the end of the preset list;
-search "dungeon synth", "lo-fi", "retro" or "cassette"): Cassette Castle Theme, Modern
-Dungeon Synth Pad, Crypt Organ Drone, Lo-fi Fantasy Flute, Tape Harp of the Grove, Frozen
-Tower on Cassette, Hall of the Old Kings, Starlit Modern Pad, Necropolis Choir Tape,
+search "dungeon synth", "lo-fi", "retro" or "cassette"), at 85-100 %: Cassette Castle Theme,
+Modern Dungeon Synth Pad, Crypt Organ Drone, Lo-fi Fantasy Flute, Tape Harp of the Grove,
+Frozen Tower on Cassette, Hall of the Old Kings, Starlit Modern Pad, Necropolis Choir Tape,
 Harpsichord Demo Tape; in the FX: Cassette Dungeon, Lo-fi Crypt, Modern Dark Hall.
 
 ## Search (both plug-ins)
