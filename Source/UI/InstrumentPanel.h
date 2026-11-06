@@ -5,8 +5,8 @@
 // the previous or next, choose any of the forty, Lock instrument, the pitch-bend range),
 // its five macros (their names follow the instrument), Vowel and Ensemble (on the
 // instruments that sing with the recorded voice; dimmed on the others), Level, Intensity,
-// the Effects roller, the pitch-bend and mod wheels, the sustain pedal and an on-screen
-// keyboard lit by the notes the host plays. Dark stone and iron, one crimson accent.
+// the Effects roller, the pitch-bend and mod wheels, the sustain pedal, an on-screen
+// keyboard lit by the notes the host plays and (Session 15) DUNGEON SYNTH right of it. Dark stone and iron, one crimson accent.
 //
 // Drawing: nothing animates on its own. A 15 Hz check compares what the audio thread last
 // saw with what is drawn and repaints only the keyboard, a wheel or the pedal when it
@@ -14,6 +14,7 @@
 #include "../PluginProcessor.h"
 #include "EngravedLookAndFeel.h"
 #include "EffectsRoller.h"
+#include "DungeonSynthControl.h"
 #include "Hover.h"
 
 namespace dc::ui {
@@ -46,6 +47,7 @@ public:
     EffectsRoller& effectsRoller() { return effects; }
     EffectsRoller& bendWheel() { return bend; }
     EffectsRoller& modWheel() { return mod; }
+    DungeonSynthControl& dungeonSynthControl() { return dungeon; }
     juce::Component& keyboardForTest() { return keyboard; }
     void pollForTest() { timerCallback(); }
     int keyRepaints() const noexcept { return keyboard.repaints; }
@@ -97,6 +99,7 @@ private:
     std::array<juce::Label, sliderCount> macroLabels;
     std::array<std::unique_ptr<juce::SliderParameterAttachment>, sliderCount> attachments;
     EffectsRoller effects, bend, mod;
+    DungeonSynthControl dungeon;   // Session 15: right of the keyboard
     juce::Label bendLabel, modLabel;
     juce::TextButton sustain { "Sustain" };
     juce::TextButton mix { "Mix" };

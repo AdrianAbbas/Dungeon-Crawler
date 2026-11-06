@@ -14,7 +14,7 @@ int whiteIndex(int key) {
 const juce::Colour stoneTop { 0xff1d1a20 }, stoneBottom { 0xff0d0c10 }, boneKey { 0xffcdc4b2 }, boneKeyShade { 0xffa79e8d };
 }
 
-InstrumentPanel::InstrumentPanel(DungeonCrawlerProcessor& p) : processor(p), keyboard(p) {
+InstrumentPanel::InstrumentPanel(DungeonCrawlerProcessor& p) : processor(p), dungeon(p.parameters), keyboard(p) {
     setOpaque(true);
     setLookAndFeel(&look);
     place.setFont(labelFont(13.5f));
@@ -127,6 +127,7 @@ InstrumentPanel::InstrumentPanel(DungeonCrawlerProcessor& p) : processor(p), key
     if (auto* parameter = processor.parameters.getParameter(dc::ids::effects)) effects.attach(*parameter);
     effects.setTooltip("Effects: how much of the place's effects (0 %: nearly dry, 100 %: as designed, 150 %: stronger)");
     addAndMakeVisible(effects);
+    addAndMakeVisible(dungeon);   // Session 15
 
     // The wheels: bend springs back to the middle; mod stays where it is left.
     for (auto* w : { &bend, &mod }) {
@@ -267,6 +268,7 @@ void InstrumentPanel::paint(juce::Graphics& g) {
     g.fillRect(262.0f, 12.0f, 1.0f, 90.0f);    // instrument | sliders
     g.fillRect(808.0f, 12.0f, 1.0f, 90.0f);    // sliders | Effects
     g.fillRect(12.0f, 109.0f, area.getWidth() - 24.0f, 1.0f);   // the keyboard row
+    g.fillRect(area.getWidth() - 108.0f, 116.0f, 1.0f, 70.0f);   // keyboard | DUNGEON SYNTH (Session 15)
     // A faint crimson glow behind the roller: the panel's main control.
     const auto glow = effects.getBounds().toFloat();
     g.setGradientFill(juce::ColourGradient(colours::blood.withAlpha(0.13f), glow.getCentre(), colours::blood.withAlpha(0.0f),
@@ -306,7 +308,8 @@ void InstrumentPanel::resized() {
     bend.setBounds(10, 127, 30, 62);
     mod.setBounds(46, 127, 30, 62);
     sustain.setBounds(84, 150, 62, 30);
-    keyboard.setBounds(154, 115, getWidth() - 162, getHeight() - 121);
+    keyboard.setBounds(154, 115, getWidth() - 162 - 104, getHeight() - 121);
+    dungeon.setBounds(getWidth() - 102, 111, 96, getHeight() - 115);
 }
 
 //==============================================================================

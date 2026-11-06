@@ -220,7 +220,7 @@ void DungeonCrawlerView::PlaceButton::paintHover(juce::Graphics& g, bool hover, 
 }
 
 DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
-    : processor(p), cache([this] { sceneReady(); }), drawer(p.parameters),
+    : processor(p), cache([this] { sceneReady(); }), dungeonControl(p.parameters), drawer(p.parameters),
       journeyPanel(p, [this] { return dc::Stop { shown, dc::clampSubLocation(shown, shownSub) }; }),
       mixPanel(p.parameters),
       searchPanel(dc::search::index(p.isInstrument())) {
@@ -373,6 +373,9 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
     effectsRoller.attach(*processor.parameters.getParameter(dc::ids::effects));
     effectsRoller.setTooltip("Effects: how much of the place's effects (0 %: nearly dry, 100 %: as designed, 150 %: stronger)");
     addAndMakeVisible(effectsRoller);
+    // Session 15: DUNGEON SYNTH (the FX's, between Travel and the switches; the instrument's
+    // is on its panel).
+    addChildComponent(dungeonControl);
     // The Journey / Roam badge with its Stop button, and the short note.
     steerBadge.stop.setTooltip("Stop the journey here");
     steerBadge.stop.onClick = [this] {
@@ -1559,7 +1562,9 @@ void DungeonCrawlerView::paint(juce::Graphics& g) {
         g.drawText("LEVELS", juce::Rectangle<float>(248.0f, rowTop, 200.0f, 12.0f), juce::Justification::centredLeft);
         g.drawText("TRAVEL", juce::Rectangle<float>(548.0f, rowTop, 200.0f, 12.0f), juce::Justification::centredLeft);
         // Session 9: the levels group is wider in the FX (the Effects roller).
-        for (float x : { 232.0f, processor.isInstrument() ? 504.0f : 540.0f, 784.0f }) {
+        // Session 15: the FX's DUNGEON SYNTH group after Travel.
+        for (float x : { 232.0f, processor.isInstrument() ? 504.0f : 540.0f, processor.isInstrument() ? 784.0f : 802.0f, processor.isInstrument() ? -1.0f : 706.0f }) {
+            if (x < 0.0f) continue;
             juce::ColourGradient div(colours::ivory.withAlpha(0.0f), x, rowTop, colours::ivory.withAlpha(0.0f), x, strip.getBottom() - 8.0f, false);
             div.addColour(0.5, colours::ivory.withAlpha(0.16f));
             g.setGradientFill(div);
@@ -1613,11 +1618,14 @@ void DungeonCrawlerView::resized() {
         place(output, { mainX + 124, row, 62, rowHeight });
     }
     travelLabel.setBounds(548, row + 2, 52, 22);
-    travelTime.setBounds(598, row + 2, 180, 22);
-    travelSync.setBounds(550, row + 36, 150, 24);
-    journeyToggle.setBounds(792, row - 2, 150, 26);
-    bypass.setBounds(792, row + 25, 150, 26);
-    advancedToggle.setBounds(792, row + 52, 150, 26);
+    // Session 15: in the FX the travel group is narrower and DUNGEON SYNTH follows it.
+    travelTime.setBounds(598, row + 2, fx ? 106 : 180, 22);
+    travelSync.setBounds(550, row + 36, fx ? 150 : 150, 24);
+    dungeonControl.setBounds(712, row - 16, 82, rowHeight + 16);
+    const int switchX = fx ? 810 : 792, switchWidth = fx ? 136 : 150;
+    journeyToggle.setBounds(switchX, row - 2, switchWidth, 26);
+    bypass.setBounds(switchX, row + 25, switchWidth, 26);
+    advancedToggle.setBounds(switchX, row + 52, switchWidth, 26);
     macroHeading.setBounds(0, 0, 0, 0);
     controlsToggle.setBounds(w - 38, controlsShown ? top - 30 : h - 32, 30, 26);
     for (auto* c : std::initializer_list<juce::Component*> { &input.slider, &input.label, &intensity.slider, &intensity.label, &mix.slider, &mix.label,
@@ -1630,6 +1638,7 @@ void DungeonCrawlerView::resized() {
         input.label.setVisible(false);
     }
     effectsRoller.setVisible(fx && controlsShown);
+    dungeonControl.setVisible(fx && controlsShown);
     if (shown >= 0)
         for (int m = 0; m < dc::macroCount; ++m) {
             const bool used = m < dc::macroCountFor(shown);

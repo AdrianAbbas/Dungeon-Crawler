@@ -20,6 +20,7 @@
 #include "UI/InstrumentPanel.h"
 #include "UI/Hover.h"
 #include "UI/EffectsRoller.h"
+#include "UI/DungeonSynthControl.h"
 #include "UI/SearchPanel.h"
 #include "UI/MixPanel.h"
 
@@ -79,6 +80,7 @@ public:
     juce::Viewport* drawerViewportForTest() { return drawer.viewportForTest(); }
     juce::Viewport* journeyViewportForTest() { return journeyPanel.viewportForTest(); }
     dc::ui::EffectsRoller& effectsRollerForTest() { return effectsRoller; }
+    dc::ui::DungeonSynthControl& dungeonSynthForTest() { return dungeonControl; }
     juce::Button& advancedButton() { return advancedToggle; }
     juce::Button& mapButton() { return mapCrumb; }
     juce::Button& journeyButton() { return journeyToggle; }
@@ -379,6 +381,7 @@ private:
     std::unique_ptr<juce::ComboBoxParameterAttachment> travelSyncAttachment;
     juce::TextButton bypass { "Bypass" }, advancedToggle { "Advanced" }, controlsToggle, journeyToggle { "Journey" }, mixToggle { "Mix" };
     dc::ui::EffectsRoller effectsRoller;   // the FX's (the instrument's is on its panel)
+    dc::ui::DungeonSynthControl dungeonControl;   // Session 15: the FX's (the instrument's is on its panel)
     juce::TextButton presetButton, prevPreset, nextPreset, slotA { "A" }, slotB { "B" }, copySlot, undoButton, redoButton, settingsButton;
     std::unique_ptr<juce::ButtonParameterAttachment> bypassAttachment;
     bool controlsShown = true;

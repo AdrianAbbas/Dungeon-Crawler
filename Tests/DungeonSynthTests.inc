@@ -687,3 +687,99 @@ void testDungeonSynthCpu(Suite& s) {
         s.metric(std::string("FX Crypt CPU with dungeon synth at ") + (a == 0.0f ? "0" : "100") + " % (% of real time)", seconds / 10.0 * 100.0, " %");
     }
 }
+
+// The control in both windows: attached, where it should be, overlapping nothing.
+void testDungeonSynthUi(Suite& s) {
+    using namespace windowtests;
+    // Visible all the way up to the editor (the test windows are not on the desktop).
+    const auto shown = [](juce::Component* c, juce::Component* top) {
+        for (; c != nullptr && c != top; c = c->getParentComponent())
+            if (!c->isVisible()) return false;
+        return c == top;
+    };
+    s.section("dungeon synth: the control (Session 15)");
+    for (bool instrument : { true, false }) {
+        Window w(instrument);
+        const std::string kind = instrument ? "instrument" : "FX";
+        auto* control = instrument ? (w.editor->instrumentPanel() != nullptr ? &w.editor->instrumentPanel()->dungeonSynthControl() : nullptr) : &w.view().dungeonSynthForTest();
+        if (!s.check(control != nullptr, kind + ": the DUNGEON SYNTH control exists")) continue;
+        s.check(shown(control, w.editor), kind + ": it is shown");
+        auto& roller = control->rollerForTest();
+        roller.setValue(0.5, juce::sendNotificationSync);
+        s.check(std::abs(w.p->dungeonSynthAmount() - 0.5f) < 1.0e-3f, kind + ": the roller sets the amount (50 %)");
+        s.check(roller.readout() == "50 %", kind + ": the roller reads 50 %");
+        control->modernButton().onClick();
+        s.check(w.p->dungeonSynthEra() == dc::DungeonSynth::Modern && control->modernButton().getToggleState() && !control->classicButton().getToggleState(),
+                kind + ": Modern clicked: the Era is Modern and shown");
+        auto* era = w.p->parameters.getParameter(dc::ids::dungeonSynthEra);
+        era->setValueNotifyingHost(era->convertTo0to1(0.0f));   // automation
+        s.check(control->shownEra() == 0 && control->classicButton().getToggleState(), kind + ": automation of the Era moves the switch");
+        auto* amount = w.p->parameters.getParameter(dc::ids::dungeonSynth);
+        amount->setValueNotifyingHost(0.8f);
+        s.check(std::abs(roller.getValue() - 0.8) < 1.0e-3, kind + ": automation of the amount moves the roller");
+        // Inside the window, and clear of every other visible control.
+        const auto bounds = w.editor->getLocalArea(control, control->getLocalBounds());
+        bool clear = w.editor->getLocalBounds().contains(bounds);
+        std::string overlapping;
+        std::function<void(juce::Component&)> walk = [&](juce::Component& c) {
+            for (auto* child : c.getChildren()) {
+                if (child == control || control->isParentOf(child) || child->isParentOf(control) || !shown(child, w.editor)) { if (child->isParentOf(control)) walk(*child); continue; }
+                const bool leaf = dynamic_cast<juce::Button*>(child) != nullptr || dynamic_cast<juce::Slider*>(child) != nullptr || dynamic_cast<juce::ComboBox*>(child) != nullptr
+                                  || dynamic_cast<juce::Label*>(child) != nullptr || child == (instrument ? &w.editor->instrumentPanel()->keyboardForTest() : nullptr);
+                if (leaf) {
+                    if (w.editor->getLocalArea(child, child->getLocalBounds()).intersects(bounds)) { clear = false; overlapping += child->getName().toStdString() + "/" + typeid(*child).name() + " "; }
+                } else walk(*child);
+            }
+        };
+        walk(*w.editor);
+        s.check(clear, kind + ": it sits inside the window and overlaps no other control", overlapping);
+    }
+}
+
+// `--ds-snapshots dir`: the control in the instrument window and panel, and the FX's controls.
+int dsSnapshots(const juce::String& directory) {
+    using namespace windowtests;
+    juce::File dir(directory);
+    dir.createDirectory();
+    int written = 0;
+    const auto save = [&](const juce::Image& image, const char* name) {
+        auto file = dir.getChildFile(name);
+        file.deleteFile();
+        juce::FileOutputStream stream(file);
+        if (stream.openedOk() && juce::PNGImageFormat().writeImageToStream(image, stream)) ++written;
+    };
+    {
+        Window w(true);
+        w.go(dc::Castle, 2);
+        w.p->parameters.getParameter(dc::ids::dungeonSynth)->setValueNotifyingHost(0.65f);
+        w.p->keyboardNote(57, 0.8f);
+        w.p->keyboardNote(64, 0.8f);
+        juce::AudioBuffer<float> buffer(2, 512);
+        juce::MidiBuffer midi;
+        for (int k = 0; k < 8; ++k) w.p->processBlock(buffer, midi);
+        if (auto* panel = w.editor->instrumentPanel()) panel->pollForTest();
+        w.view().setAnimation(false);
+        save(w.editor->createComponentSnapshot(w.editor->getLocalBounds(), true, 1.0f), "s15-instrument-window.png");
+        if (auto* panel = w.editor->instrumentPanel()) {
+            save(w.editor->createComponentSnapshot(panel->getBounds(), true, 2.0f), "s15-instrument-panel-classic-65.png");
+            auto* era = w.p->parameters.getParameter(dc::ids::dungeonSynthEra);
+            era->setValueNotifyingHost(era->convertTo0to1(1.0f));
+            w.p->parameters.getParameter(dc::ids::dungeonSynth)->setValueNotifyingHost(1.0f);
+            const auto& c = panel->dungeonSynthControl();
+            save(w.editor->createComponentSnapshot(panel->getBounds().getX() + c.getX() - 120 > 0 ? juce::Rectangle<int>(panel->getX() + c.getX() - 120, panel->getY() + c.getY() - 6, c.getWidth() + 126, c.getHeight() + 10)
+                                                                                                    : panel->getBounds(), true, 3.0f), "s15-instrument-control-modern-100.png");
+        }
+    }
+    {
+        Window w(false);
+        w.go(dc::Necropolis, 0);
+        w.p->parameters.getParameter(dc::ids::dungeonSynth)->setValueNotifyingHost(0.5f);
+        auto* era = w.p->parameters.getParameter(dc::ids::dungeonSynthEra);
+        era->setValueNotifyingHost(era->convertTo0to1(1.0f));
+        w.view().setAnimation(false);
+        save(w.editor->createComponentSnapshot(w.editor->getLocalBounds(), true, 1.0f), "s15-fx-window.png");
+        save(w.editor->createComponentSnapshot(juce::Rectangle<int>(0, 560 - 150, 960, 150), true, 2.0f), "s15-fx-controls-modern-50.png");
+    }
+    std::cout << written << " snapshots written to " << dir.getFullPathName() << "\n";
+    return written == 5 ? 0 : 1;
+}

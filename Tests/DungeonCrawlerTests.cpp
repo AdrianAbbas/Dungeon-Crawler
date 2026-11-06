@@ -2683,6 +2683,7 @@ int main(int argc, char** argv) {
         else if (arg == "--listen-seat" && i + 1 < argc) return listenSeat(argv[i + 1]);
         else if (arg == "--ds-hashes") return dsHashes();
         else if (arg == "--ds-report") return dsReport();
+        else if (arg == "--ds-snapshots" && i + 1 < argc) return dsSnapshots(argv[i + 1]);
         else if (arg == "--render" && i + 2 < argc)
             return renderToFile(argv[i + 1], juce::String(argv[i + 2]).getIntValue(), i + 3 < argc ? juce::String(argv[i + 3]).getDoubleValue() : 8.0);
     }
@@ -2722,6 +2723,7 @@ int main(int argc, char** argv) {
     if (run("realbrass")) testRealBrass(s);     // Session 13
     if (run("seat")) testSeat(s);               // Session 14
     if (run("dungeonsynth")) testDungeonSynth(s);   // Session 15
+    if (run("dungeonsynthui")) testDungeonSynthUi(s);
     if (only.contains("qa")) testQa(s);   // long (130 journeys): run explicitly
     if (only.contains("cpu")) { testCpu(s); testInstrumentCpu(s); testDungeonSynthCpu(s); }   // report only: run explicitly
     std::cout << "\n" << s.passed << " passed, " << s.failed << " failed" << std::endl;
