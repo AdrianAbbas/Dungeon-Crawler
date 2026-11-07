@@ -508,6 +508,7 @@ The developer heard almost no difference in Session 15 (the place covered the st
       clearly that; 25 % only a little darker and older. Is the hiss too loud? The grit too much?
 - [ ] The same in Modern: warm and wide (the ensemble chorus), saturated, a softer top, a very
       long dark hall, no crunch. Classic and Modern should sound like two different records.
+      (Session 18: Modern rebuilt; see below.)
 - [ ] Move the roller and flip the Era while a chord is held: no click, no jump in loudness.
 - [ ] Lock instrument: the same instrument in the Crypt, the Necropolis Gates and the Dwarven
       Hall at 100 %: still three different places?
@@ -518,6 +519,18 @@ The developer heard almost no difference in Session 15 (the place covered the st
 - [ ] DUNGEON CRAWLER FX on a guitar or a synth: the same.
 - [ ] Listen: test-logs `dungeonsynth/`: each instrument's `-ab-0-classic100-modern100.wav`
       first (0 %, Classic 100 %, Modern 100 % back to back), then `-classic-50`, `-modern-50`.
+
+## Session 18: DUNGEON SYNTH Modern, a lush warm vintage sampler
+
+- [ ] Listen: test-logs `dsmodern/`: each instrument's `-ab-0-modern-before-modern-after.wav`
+      (0 %, Modern 100 % as in Session 17, Modern 100 % now, back to back), then
+      `-modern-100-1-before` against `-modern-100-2-after`, then `-modern-25-after` and
+      `-modern-50-after`. Modern at 100 % should sound expensive and nostalgic: warm and
+      enveloping, a smooth (not dull) top, no fizz, no grit, no hiss you notice, a wide slow
+      ensemble and a long dark hall that blooms; never thin or cheap. 25 / 50 %: subtle, but there.
+- [ ] Royal Strings in the Throne Room, the Dark Choir Pad, the Lute: Modern 0 -> 25 -> 50 ->
+      100 %: no jump in loudness, no click; then flip to Classic and back: Classic as before.
+- [ ] Classic: exactly as in Session 17 (bit for bit in the tests).
 
 ## Session 17: real woodwinds
 

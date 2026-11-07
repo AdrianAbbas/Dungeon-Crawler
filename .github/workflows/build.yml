@@ -126,7 +126,8 @@ jobs:
   linux:
     runs-on: ubuntu-24.04
     # Session 15: 90 (as the macOS job): the dungeon synth shard and render took the job past 60.
-    timeout-minutes: 90
+    # Session 18: 120: the job ran 66 minutes in Session 17; the dsmodern shard and render add about 10.
+    timeout-minutes: 120
     env:
       CCACHE_BASEDIR: ${{ github.workspace }}
       CCACHE_SLOPPINESS: time_macros,include_file_mtime,include_file_ctime
@@ -244,6 +245,14 @@ jobs:
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-report > build/test-logs/dungeonsynth/dungeonsynth-report.txt || true
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-strength > build/test-logs/dungeonsynth/dungeonsynth-strength.txt || true
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-audit > build/test-logs/dungeonsynth/dungeonsynth-audit.txt || true
+      # Session 18: DUNGEON SYNTH Modern rebuilt as a lush, warm vintage sampler. The dark fantasy
+      # melody on five instruments in their places, Modern 100 % before (Session 17) and after, an
+      # A/B file each (0 %, before, after), after at 25 and 50 %, and the numbers.
+      - name: Listening renders (dungeon synth Modern before and after, WAV)
+        if: always()
+        run: |
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-dsmodern build/test-logs/dsmodern
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-modern > build/test-logs/dsmodern/dsmodern-report.txt || true
       # Session 17: the woodwinds (Village Green tin whistle, Forest Edge wooden flute, Foothills
       # shepherd's flute, Bog murky reed) playing a woodwind phrase before (sound 14, the
       # synthesis) and after (sound 15, the recorded woodwinds), dry and in its place, an

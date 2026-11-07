@@ -294,10 +294,13 @@ and projects.
   wow (about 0.5 %, slow and drifting) and flutter, tape hiss riding under the music (about
   -45 dBFS on bright material, gone in silence), a thin bottom, a boxy, honky middle, a dark
   top (5.5 kHz), a nearly mono image.
-- **Modern** (warm, wide, nostalgic, polished): no crushing; heavy warm tape saturation,
-  a deep, wide vintage ensemble chorus (strongest on pads, strings, choirs and organs, almost
-  none on drums), a softer top (10 kHz) and low-mid warmth, a slight slow wow, and a lush,
-  very long, dark modulated hall.
+- **Modern** (lush, warm, nostalgic: a warm vintage sampler, not a broken one; Session 18):
+  gentle bit and rate reduction (12 bits and 32 kHz at 100 %, 29.4 kHz at 44.1 kHz) between
+  clean linear-phase filters (smooth, rounded, no fizz or noise), warm, gentle tape saturation
+  on the body (below about 2.5 kHz, the top left clean), a fuller low-mid and a smooth (not
+  muffled) top, a deep, slow, wide vintage ensemble chorus (strongest on pads, strings, choirs
+  and organs, almost none on drums), a long, dark modulated hall that blooms, a hint of slow
+  wow and very little hiss.
 
 It works on the whole sound, after the place (as a cassette records everything): the place's
 space and effects come first, so the Crypt, the Necropolis and the Dwarven Hall still sound

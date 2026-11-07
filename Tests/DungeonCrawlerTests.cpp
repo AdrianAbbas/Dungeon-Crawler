@@ -14,6 +14,7 @@
 //   DungeonCrawlerTests --listen-dungeonsynth dir  Session 15: the dark fantasy melody on five instruments at 0 / 50 / 100 %, Classic and Modern
 //   DungeonCrawlerTests --ds-report | --ds-hashes | --ds-snapshots dir   Session 15: the numbers, the null-test hashes, the control's snapshots
 //   DungeonCrawlerTests --ds-audit | --ds-strength | --ds-places   Session 16: what of DUNGEON SYNTH reaches the output; the numbers behind the strength checks
+//   DungeonCrawlerTests --ds-modern | --listen-dsmodern dir   Session 18: Modern's numbers; Modern before / after on five instruments
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 #include "UI/Scenes.h"
@@ -2651,6 +2652,7 @@ int qaDebug(int la, int ka, int lb, int kb) {
 #include "RealBrassTests.inc"
 #include "SeatTests.inc"
 #include "DungeonSynthTests.inc"
+#include "DungeonSynthModernTests.inc"   // Session 18
 #include "RealWindTests.inc"
 
 int main(int argc, char** argv) {
@@ -2703,6 +2705,8 @@ int main(int argc, char** argv) {
         else if (arg == "--ds-places") return dsPlaces();
         else if (arg == "--listen-dungeonsynth" && i + 1 < argc) return listenDungeonSynth(argv[i + 1]);
         else if (arg == "--ds-snapshots" && i + 1 < argc) return dsSnapshots(argv[i + 1]);
+        else if (arg == "--ds-modern") return dsModern();                                             // Session 18
+        else if (arg == "--listen-dsmodern" && i + 1 < argc) return listenDsModern(argv[i + 1]);
         else if (arg == "--render" && i + 2 < argc)
             return renderToFile(argv[i + 1], juce::String(argv[i + 2]).getIntValue(), i + 3 < argc ? juce::String(argv[i + 3]).getDoubleValue() : 8.0);
     }
@@ -2743,6 +2747,7 @@ int main(int argc, char** argv) {
     if (run("seat")) testSeat(s);               // Session 14
     if (run("dungeonsynth")) testDungeonSynth(s);   // Session 15
     if (run("dungeonsynthui")) testDungeonSynthUi(s);
+    if (run("dsmodern")) testDungeonSynthModern(s);   // Session 18
     if (run("realwinds")) testRealWinds(s);     // Session 17
     if (only.contains("qa")) testQa(s);   // long (130 journeys): run explicitly
     if (only.contains("cpu")) { testCpu(s); testInstrumentCpu(s); testDungeonSynthCpu(s); }   // report only: run explicitly

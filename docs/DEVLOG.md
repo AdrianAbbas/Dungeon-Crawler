@@ -3984,3 +3984,125 @@ Nothing heard on a Mac yet.
 passed, 0 failed, with the developer's recordings; the woodwinds fetched at the pin (380 WAVs),
 the licence verified, the 13 sets prepared as here. Report-only as listed above.
 
+
+## Session 18: DUNGEON SYNTH Modern, a lush warm vintage sampler (2026-11-07, unattended)
+
+The direction: Classic is good, keep it exactly as it is. Modern was wrong: it made everything
+sound low quality instead of dungeon synth. Modern is now a **lush, warm bitcrusher: the sound
+of a warm vintage sampler, not a broken one**: gentle, warm bit and rate reduction (12 bits,
+32 kHz at 100 %) with the harshness filtered out, warm tape saturation, a fuller low-mid, a
+smooth (not muffled) top, a deep slow ensemble chorus, wide, a long dark hall that blooms, a
+hint of slow wow, very little hiss. 25 / 50 % subtle and there; level-matched; Classic bit-exact.
+
+### What was wrong with Modern (Sessions 15-17)
+
+Measured against the new version (`--ds-modern`, "before" is Session 17's stage):
+- **Heavy saturation**: 14 dB of drive on a level-normalised tanh (harmonics 2-5 of a -10 dBFS
+  sine at **-21 dB**). Every chord became an intermodulated blur, and on dark material it
+  *thinned* the sound: the Dark Choir Pad's low-mid against 1-5 kHz fell **6.2 dB**, the
+  Wooden Flute's 1.1 dB (the harmonics fill the presence band).
+- **Fizz**: on a bright, off-grid saw the non-harmonic energy above 8 kHz was **-41 dB** of the
+  output. Two causes: the tanh at the host's rate folding the treble's harmonics back between
+  the notes, and the linear-interpolated moving reads (the wow, the ensemble) whose treble dip
+  is swept by the moving fraction (an amplitude modulation at about 70 Hz around every high
+  harmonic).
+- A sixth-order 10 kHz top and a -4.5 dB shelf at 4 kHz: muffled, not smooth.
+
+### The new Modern (`Source/DSP/DungeonSynth.*`)
+
+- **The vintage sampler** (`DungeonSynth::Vintage`): a whole-number ratio of the host's rate
+  (2/3: **32 kHz** at 48, 29.4 at 44.1; 2/6 at 88.2/96; 2/12 at 176.4/192), through one
+  linear-phase polyphase Kaiser low-pass both ways (passing 0.39 of its rate, about 70 dB down
+  from 0.53: 12.5 kHz and 17 kHz at 48 kHz; 93 taps, about 62 multiply-adds a sample and
+  channel). What folds back is a whisper at the top of its band. A first try used Classic's
+  structure (a variable rate, a line between held samples): its images alias around the host's
+  Nyquist and no filter after it can remove them (-46 to -52 dB on the saw, worse at 25-50 %).
+  The bits (25 % 18, 50 % 15.5, 100 % 12) follow the music's envelope with a 0.25 s release
+  (Classic's 1.5 s release makes the grain of a decay; Modern's decays stay smooth). It blends
+  in with the amount (a fifth at 25 %, half at 50 %, all from 78 %); the direct path is delayed
+  to its latency (48 samples at 48 kHz) so a partial blend never comb-filters.
+- **Tape**: 5 dB of drive (was 14), a little asymmetry (even harmonics), on the body only:
+  below 2.5 kHz (complementary split, the bands sum back exactly); the top stays clean.
+  Harmonics 2-5 of the -10 dBFS sine: -33.5 dB (gentle, present).
+- **Tone**: low-mid warmth +5 dB at 200 Hz (Q 0.6), a -3.5 dB shelf at 5.5 kHz, the top's
+  low-pass at 14 kHz (the sampler's own filter does the rest).
+- **Ensemble**: deeper (4.2 ms) and slower (0.55x the sweep rates); the image +3.5 dB wider
+  (side x1.6).
+- **Moving reads** (the wow, the ensemble): an eight-point windowed sinc (Kaiser, tabled at 256
+  fractions) instead of linear interpolation: no fizz around the high notes.
+- **Hall**: T60 10 s at 100 % in an average place (8.8 s measured), darker (3 kHz into it, 5 kHz
+  damping), a shorter pre-delay (30 ms), more diffusion, and a **bloom**: two long diffusers
+  (23.3 and 41.1 ms) before the tank, so it builds up instead of starting at once.
+- **Wow** as before (0.12 %, slow), flutter halved; **hiss** 8 dB lower than Session 17's Modern.
+
+**Classic is untouched**: every new stage runs only where Modern weighs in (`e > 0`, `d.modern
+> 0`), every change to a shared expression is to Modern's end of a `mix()` (exact at 0) or
+behind such a gate. `Tests/legacy/DungeonSynthS17.*` is the stage exactly as at the end of
+Session 17 (verbatim, renamed `dc::s17`).
+
+### Tests (`--only dsmodern`, CI shard `16-dsmodern`)
+
+`Tests/DungeonSynthModernTests.inc`:
+- **Classic bit-exact**: the stage against Session 17's, sample for sample (`memcmp`), on four
+  signals (the FX's material, a sine, a pulsed saw chord, a bright saw), 5 s each, at 10 / 25 /
+  50 / 75 / 100 %, swept 0 -> 100 -> 0 % then held, in a long dark wet place with the chorus and
+  the send up, the hall alone, and at 44.1 and 96 kHz. Also checked here through the whole
+  processor: every `classic-50`, `classic-100` and `0-off` WAV of `--listen-dungeonsynth` is
+  byte-identical to the build before this session (the null test at 0 % still passes).
+- **Modern 100 % against 0 %** (five instruments in their places, three bright ones dry, the FX
+  in the Crypt and the Gates and on its dry path): **lower high-frequency harshness** (on a
+  bright 1531 Hz saw, the aliasing and noise above 8 kHz under -60 dB of the output at 25 /
+  50 / 100 %; far cleaner than Session 17's Modern, by 15 dB or more), the top above 8 kHz
+  lower (mean -4 dB or more, each -1.5 to -14 dB), **more low-mid warmth** (160-500 Hz against
+  1-5 kHz: mean +1.5 dB or more, each at least +0.25), **wider** (+1.5 dB of side or more),
+  **a longer tail** (+1.5 dB in its place, the pad's long place excepted as in Session 16; the
+  hall's T60 7 s or more), 25 / 50 % subtle and there (third-octave distance), level-matched
+  (within 1.5 dB at 25 / 50 / 100 %), the saturation gentle (6 dB or more under Session 17's).
+
+Existing checks changed (`dungeonsynth`, Session 16's figures for the old Modern): the
+saturation check now asks Modern for warm and gentle (-40 to -26 dB, was "rich, -25 or more,
+6 dB over Classic"); the mean spectral move at 100 % for Modern 2.0 dB (was 2.5: the heavy
+saturation moved the spectrum most, and thinned it). Every other Modern check of Session 16
+stands (each place's distance 1.2 dB, the width, the tails, the top above 12 kHz, the wow, the
+hiss, the wet level, Classic and Modern 3 dB apart, the harness figures, levels, clicks).
+
+`--ds-modern`: the numbers; `--listen-dsmodern dir` (CI step, test-logs `dsmodern/`): the dark
+fantasy melody on the Royal Strings, Dark Choir Pad, Chamber Organ, Wooden Flute and Lute in
+their places: `-ab-0-modern-before-modern-after.wav` (0 %, Modern 100 % before, after, back to
+back), `-modern-100-1-before`, `-modern-100-2-after`, `-modern-25-after`, `-modern-50-after`, and
+`dsmodern-report.txt`. "Before" runs Session 17's stage on the processor's 0 % render with the
+controls the processor gave the stage (chorus weight, hall send, place; its hiss, which is
+before the place and about -52 dBFS, is left out); "after" is the processor itself.
+
+The Linux job's timeout is 120 minutes (it ran 66 in Session 17; the shard and render add
+about 10).
+
+### Results and handoff (end of Session 18)
+
+Measured here (Linux, without the developer's recordings), Modern 25 / 50 / 100 % against 0 %:
+
+| | above 8 kHz | low-mid vs 1-5 kHz | width | loudness |
+|---|---|---|---|---|
+| Royal Strings in its place | -1.3 / -2.3 / -4.3 dB | +0.5 / +1.0 / +1.9 | +1.4 / +3.0 / +5.4 | +0.4 / +0.1 / -0.2 |
+| Dark Choir Pad in its place | -1.7 / -3.3 / -6.4 | +0.4 / +0.4 / +0.3 | +1.3 / +2.8 / +6.0 | +0.2 / +0.2 / 0.0 |
+| Chamber Organ in its place | -0.7 / -1.3 / -1.9 | +0.7 / +1.6 / +3.8 | +1.0 / +2.7 / +7.0 | +0.1 / +0.3 / +0.8 |
+| Wooden Flute in its place | -2.2 / -4.2 / -8.0 | +1.1 / +2.1 / +3.3 | +1.5 / +2.9 / +5.1 | +0.6 / +0.6 / +0.4 |
+| Lute in its place | -2.5 / -4.1 / -7.7 | +0.9 / +1.7 / +2.7 | +1.3 / +2.2 / +3.5 | +0.4 / +0.4 / +0.4 |
+
+Bright saw, aliasing and noise above 8 kHz: Modern -86 / -76 / -65 dB (the rest at 100 % is the
+intended faint hiss), Session 17's Modern -41 dB. Harmonics of a -10 dBFS sine: -33.5 dB
+(Session 17: -21). Hall T60 3.2 / 5.0 / 8.8 s. Before against after at 100 %, low-mid vs
+1-5 kHz: Dark Choir Pad -6.2 -> +1.5 dB, Wooden Flute -1.1 -> +2.9, Chamber Organ +0.9 -> +3.7.
+`dsmodern` 73 passed, 0 failed; `dungeonsynth`, `search`, `dungeonsynthui`, `smoke` passed
+(see CI below for the whole suite).
+
+**Listen to** (test-logs `dsmodern/`, MANUAL_TEST "Session 18"): each `-ab-0-modern-before-
+modern-after.wav` first, then `-modern-100-1-before` against `-modern-100-2-after`, then 25 / 50 %.
+
+**Known limits**: tuned by measurement, not by ear. The sampler's rate is fixed per host rate
+(32 kHz at 48, 29.4 at 44.1); the amount blends it in and lowers its bits rather than moving
+its rate (a moving rate cannot be resampled cleanly at this cost). Modern adds 1 ms of delay
+to its own output (the sampler's linear-phase filters; not reported as latency: the stage is
+the output's last step, and a host's delay compensation is not needed for a 1 ms colour on a
+whole mix). Peaks at 100 % sit 2-4 dB higher than Session 17's Modern at the same loudness
+(the gentler tape no longer squashes the transients). Nothing heard on a Mac yet.

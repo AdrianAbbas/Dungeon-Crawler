@@ -755,8 +755,10 @@ void testDungeonSynth(Suite& s) {
                 fmt(m.rate44, 0) + " / " + fmt(m.rate48, 0) + " Hz");
         s.check(m.alias[0] > -15.0 && m.alias[1] < -40.0, "aliasing: a 9 kHz tone folds to 4 kHz in Classic (heard), not in Modern",
                 "Classic " + fmt(m.alias[0]) + " dB, Modern " + fmt(m.alias[1]) + " dB of the output");
-        s.check(m.harmonics[1][2] > -25.0 && m.harmonics[1][1] > -33.0 && m.harmonics[1][2] > m.harmonics[0][2] + 6.0 && m.harmonics[1][0] < m.harmonics[1][2] - 8.0,
-                "saturation (a -10 dBFS sine, harmonics 2-5): Modern rich, far more than Classic, subtle at 25 %",
+        // Session 18: Modern's tape is warm and gentle (Session 16's rich, heavy saturation, -21 dB
+        // here, blurred every chord: the "low quality" Modern); Classic's unchanged.
+        s.check(m.harmonics[1][2] > -40.0 && m.harmonics[1][2] < -26.0 && m.harmonics[1][0] < m.harmonics[1][2] - 6.0 && m.harmonics[0][2] > -34.0,
+                "saturation (a -10 dBFS sine, harmonics 2-5): Modern warm and gentle (present, never heavy), subtle at 25 %; Classic's grit",
                 "Classic " + list3(m.harmonics[0]) + " | Modern " + list3(m.harmonics[1]) + " dB at 25 / 50 / 100 %");
         s.check(m.noise[0][2] > -50.0 && m.noise[0][2] < -40.0 && m.noise[0][1] < m.noise[0][2] - 6.0 && m.noise[0][0] < -60.0 && m.noise[1][2] < -60.0,
                 "tape hiss: about -45 dBFS at Classic 100 %, much less at 50 and 25 %, nearly none in Modern",
@@ -799,7 +801,8 @@ void testDungeonSynth(Suite& s) {
                     fmt(p.width[1][2]) + " dB (Classic " + fmt(wc[2]) + ")");
             s.check(p.cm >= 3.0, p.name + ": Classic and Modern at 100 % sound clearly different (third-octave distance)", fmt(p.cm, 2) + " dB");
         }
-        s.check(meanC >= 5.0 && meanM >= 2.5, "on average the spectrum moves strongly at 100 % (Classic, Modern)", fmt(meanC, 2) + " / " + fmt(meanM, 2) + " dB");
+        // (Session 18: Modern 2.0, was 2.5: its heavy saturation moved the spectrum most, and thinned it.)
+        s.check(meanC >= 5.0 && meanM >= 2.0, "on average the spectrum moves strongly at 100 % (Classic, Modern)", fmt(meanC, 2) + " / " + fmt(meanM, 2) + " dB");
         for (const auto& p : m.places) {
             if (p.name.rfind("FX", 0) == 0 || p.name.rfind(instName(dc::inst::designFor(dc::Necropolis, 0)), 0) == 0) continue;   // the pad's place rings longer than any hall
             s.check(p.tail[0] >= 2.5 && p.tail[1] >= 1.5, p.name + ": the hall's tail after the melody (Classic, Modern 100 %)", fmt(p.tail[0]) + " / " + fmt(p.tail[1]) + " dB");

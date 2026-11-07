@@ -23,6 +23,75 @@ inline void hadamard8(float* v) noexcept {
 constexpr float hissNorm = 1.0f / 0.24f;
 // Classic's sampler at 100 %: about 13 kHz (the low end of the cheap samplers), 8.5 bits.
 constexpr float classicRate = 13000.0f, classicBits = 8.5f;
+// Session 18, Modern's sampler at 100 %: 12 bits (a warm vintage sampler's; its rate is fixed,
+// two thirds of a 44.1 / 48 kHz host's: 29.4 / 32 kHz).
+constexpr float modernBits = 12.0f;
+// Modern's bloom: two long diffusers before the tank.
+constexpr float bloomMs[2] { 23.3f, 41.1f };
+}
+
+// Session 18: Modern's sampler (see the header).
+void DungeonSynth::Vintage::prepare(double sampleRate) {
+    const int m = std::max(1, static_cast<int>(std::lround(sampleRate / 48000.0)));
+    up = 2;
+    down = 3 * (m >= 3 ? 4 : m);   // 44.1 / 48 kHz: 3, 88.2 / 96: 6, 176.4 / 192 and above: 12
+    const double fast = sampleRate * up, rate = fast / down;
+    const double pass = 0.39 * rate, stop = 0.53 * rate, cutoff = 0.5 * (pass + stop) / fast;
+    // Kaiser: 70 dB (beta 6.76), its length from the transition.
+    const double beta = 6.76, transition = (stop - pass) / fast;
+    taps = static_cast<int>(std::ceil((70.0 - 7.95) / (14.36 * transition))) | 1;   // odd: the latency is whole host samples
+    taps = std::min(taps, 1023);
+    const auto i0 = [](double x) {
+        double sum = 1, term = 1;
+        for (int k = 1; k < 40; ++k) { term *= (x / (2.0 * k)) * (x / (2.0 * k)); sum += term; }
+        return sum;
+    };
+    h.assign(std::size_t(taps), 0.0f);
+    double total = 0;
+    std::vector<double> v(static_cast<std::size_t>(taps), 0.0);
+    for (int n = 0; n < taps; ++n) {
+        const double x = n - 0.5 * (taps - 1), w = i0(beta * std::sqrt(std::max(0.0, 1.0 - std::pow(2.0 * x / (taps - 1), 2.0)))) / i0(beta);
+        const double sinc = x == 0.0 ? 2.0 * cutoff : std::sin(2.0 * dsp::pi * cutoff * x) / (dsp::pi * x);
+        v[std::size_t(n)] = sinc * w;
+        total += v[std::size_t(n)];
+    }
+    // DC gain 1: each of its phases sums to about 1 / up (or 1 / down) of it, which the up-
+    // sampler's (x up) and the return's (x down) gains in process() make up: the path is unity.
+    for (int n = 0; n < taps; ++n) h[std::size_t(n)] = static_cast<float>(v[std::size_t(n)] / total);
+    lat = (taps - 1) / up;   // both filters' halves, on the up-sampled grid, in host samples
+    std::size_t size = 16;
+    while (size < std::size_t(taps / up + 4)) size <<= 1;
+    in.assign(size, 0.0f);
+    inMask = size - 1;
+    size = 16;
+    while (size < std::size_t(taps / down + 4)) size <<= 1;
+    low.assign(size, 0.0f);
+    lowMask = size - 1;
+    clear();
+}
+
+void DungeonSynth::Vintage::clear() noexcept {
+    std::fill(in.begin(), in.end(), 0.0f);
+    std::fill(low.begin(), low.end(), 0.0f);
+    count = lowCount = 0;
+}
+
+// Session 18: an eight-point windowed-sinc read (delay >= 5 samples; see the header).
+float DungeonSynth::readSinc(const dsp::DelayLine& line, float delay) const noexcept {
+    delay = std::clamp(delay, 5.0f, static_cast<float>(line.data.size() - 8));
+    const float position = static_cast<float>(line.write) - delay + static_cast<float>(line.data.size());
+    const auto index = static_cast<std::size_t>(position);
+    const float fraction = (position - static_cast<float>(index)) * static_cast<float>(sincPhases);
+    const auto row = std::min(static_cast<std::size_t>(fraction), static_cast<std::size_t>(sincPhases - 1));
+    const float t = fraction - static_cast<float>(row);
+    const float* k0 = &sincTable[row * sincTaps];
+    const float* k1 = k0 + sincTaps;
+    float y = 0;
+    for (int k = 0; k < sincTaps; ++k) {
+        const float c = k0[k] + t * (k1[k] - k0[k]);
+        y += c * line.data[(index + std::size_t(k) - 3) & line.mask];   // taps at index-3 .. index+4
+    }
+    return y;
 }
 
 void DungeonSynth::prepare(double sampleRate) {
@@ -44,6 +113,31 @@ void DungeonSynth::prepare(double sampleRate) {
         diffuser[std::size_t(k)].prepare(static_cast<std::size_t>(diffuserLength[std::size_t(k)]) + 8);
     }
     preDelay.prepare(static_cast<std::size_t>(0.06 * sr) + 8);
+    for (int k = 0; k < blooms; ++k) {
+        bloomLength[std::size_t(k)] = std::max(1.0f, std::round(static_cast<float>(bloomMs[k] * 0.001 * sr)));
+        bloomLine[std::size_t(k)].prepare(static_cast<std::size_t>(bloomLength[std::size_t(k)]) + 8);
+    }
+    modernRelease = dsp::timeCoefficient(0.25, sr);
+    for (auto& v : vintage) v.prepare(sr);
+    // The windowed-sinc kernels: for a fraction f the taps sit at -3 .. +4 around it (Kaiser,
+    // beta 6, cutoff 0.46 of the host's rate), each kernel's sum 1.
+    for (int p = 0; p <= sincPhases; ++p) {
+        const double f = double(p) / sincPhases;
+        double sum = 0, w[sincTaps];
+        for (int k = 0; k < sincTaps; ++k) {
+            const double x = double(k - 3) - f, u = x / 4.0;
+            const double sinc = std::abs(x) < 1.0e-9 ? 1.0 : std::sin(dsp::pi * 0.92 * x) / (dsp::pi * 0.92 * x);
+            double i0a = 1, ta = 1, i0b = 1, tb = 1;
+            const double arg = 6.0 * std::sqrt(std::max(0.0, 1.0 - u * u));
+            for (int m = 1; m < 30; ++m) { ta *= (arg / (2.0 * m)) * (arg / (2.0 * m)); i0a += ta; tb *= (6.0 / (2.0 * m)) * (6.0 / (2.0 * m)); i0b += tb; }
+            w[k] = sinc * i0a / i0b;
+            sum += w[k];
+        }
+        for (int k = 0; k < sincTaps; ++k) sincTable[std::size_t(p * sincTaps + k)] = static_cast<float>(w[k] / sum);
+    }
+    for (auto& f : satSplit) f.set(2500.0, sr, 1.414f);
+    for (auto& f : satDc) f.prepare(sr);
+    for (auto& al : alignLine) al.prepare(static_cast<std::size_t>(vintage[0].latency()) + 8);
     crushAttack = dsp::timeCoefficient(0.002, sr);
     crushRelease = dsp::timeCoefficient(1.5, sr);
     satCoefficient = dsp::timeCoefficient(0.5, sr);
@@ -82,6 +176,12 @@ void DungeonSynth::reset() noexcept {
     held = previous = lastIn = { 0, 0 };
     holdPhase = 0;
     crushEnv = 0;
+    for (auto& v : vintage) v.clear();
+    for (auto& al : alignLine) al.clear();
+    modernEnv = 0;
+    for (auto& f : satSplit) f.clear();
+    for (auto& f : satDc) f.clear();
+    for (auto& b : bloomLine) b.clear();
     chorusLine.clear();
     satEnv = 0;
     for (auto& w : wowLine) w.clear();
@@ -130,6 +230,7 @@ void DungeonSynth::setPlace(float decaySeconds, float cutoffHz, float wet) noexc
     const float decay = std::isfinite(decaySeconds) ? std::clamp(decaySeconds, 0.3f, 30.0f) : 3.0f;
     const float cutoff = std::isfinite(cutoffHz) ? std::clamp(cutoffHz, 40.0f, 20000.0f) : 12000.0f;
     const float w = std::isfinite(wet) ? std::clamp(wet, 0.0f, 1.0f) : 0.0f;
+    lastPlace = { decay, cutoff, w };
     placeLength.set(std::clamp(std::sqrt(decay / 3.0f), 0.6f, 1.6f));     // a long reverb: a longer hall; a small room: shorter
     placeTone.set(std::clamp(std::sqrt(cutoff / 8000.0f), 0.35f, 1.2f));   // a dark place: a darker hall (the Crypt: a third of the tone)
     placeSend.set(1.0f - 0.35f * w);                                       // an already wet place: a little less of it
@@ -151,30 +252,42 @@ DungeonSynth::Derived DungeonSynth::derive(float a, float e, float chorus) const
     d.aliasOpen = a * a;   // towards 100 % the anti-alias filter opens: the aliasing is heard
     const float bits = 24.0f - std::sqrt(a) * (24.0f - classicBits) * c;
     d.bitStep = bits < 23.5f ? std::exp2(1.0f - bits) : 0.0f;
+    // Session 18: Modern's sampler, the warm vintage one (its rate fixed: Vintage), blended in
+    // with the amount (a fifth at 25 %, half at 50 %, all of it from 78 %), its bits falling gently: 25 % 18 bits, 50 % 15.5,
+    // 100 % 12. Only where Modern weighs in (Classic exact).
+    if (e > 0.0f) {
+        d.modern = e;
+        d.align = e * std::min(1.0f, 20.0f * a);
+        d.lofiMix = mix(d.lofiMix, std::min(1.0f, a * (0.5f + a)), e);   // 25 % 0.19, 50 % 0.5, all of it from 78 %
+        const float b = 24.0f - std::sqrt(a) * (24.0f - modernBits);
+        d.modernBitStep = b < 23.5f ? std::exp2(1.0f - b) : 0.0f;
+    }
     // The keyboard's chorus (Classic, light) or the vintage ensemble (Modern, deep and wide).
     d.chorusMix = a * chorus * mix(0.3f, 1.0f, e);
-    d.chorusDepth = mix(0.0012f, 0.0034f, e);
-    // Tape saturation: Classic a cheap keyboard's mild grit, Modern heavy and warm.
+    d.chorusDepth = mix(0.0012f, 0.0042f, e);
+    // Tape saturation: Classic a cheap keyboard's mild grit, Modern warm and gentle (Session 18:
+    // 14 dB of drive made every chord a distorted blur).
     d.satMix = std::min(1.0f, 3.0f * a);
-    d.satDrive = dsp::dbToGain(a * mix(4.0f, 14.0f, e));
-    d.satAsym = a * mix(0.05f, 0.32f, e);
+    d.satDrive = dsp::dbToGain(a * mix(4.0f, 5.0f, e));
+    d.satAsym = a * mix(0.05f, 0.14f, e);
     // Wow (the delay's swing, in samples: 0.45 % pitch at 0.45 Hz Classic, 0.12 % Modern) and flutter.
     d.wowDepth = static_cast<float>(a * mix(1.6e-3f, 0.55e-3f, e) * sr);
-    d.flutterDepth = static_cast<float>(a * mix(30.0e-6f, 6.0e-6f, e) * sr);
+    d.flutterDepth = static_cast<float>(a * mix(30.0e-6f, 3.0e-6f, e) * sr);
     // Hiss (against the music's treble, above about 1 kHz): about 25 dB under it at 100 % Classic
     // as measured after the roll-off (-45 dBFS on a test chord with -23 dBFS of treble), 12 dB
     // less at 50 %, 24 dB less at 25 %; Modern nearly none.
-    d.hissGain = a * a * dsp::dbToGain(mix(-19.5f, -44.0f, e)) * hissNorm;   // before the place and the roll-off, which take some of it
+    d.hissGain = a * a * dsp::dbToGain(mix(-19.5f, -52.0f, e)) * hissNorm;   // before the place and the roll-off, which take some of it
     d.lowCutMix = std::min(1.0f, 4.0f * a);   // fully in by 25 %: its corner glides instead (a partial blend notches)
-    d.warmthDb = a * mix(1.0f, 4.5f, e);
+    d.warmthDb = a * mix(1.0f, 5.0f, e);
     d.honkDb = std::pow(a, 1.5f) * 10.0f * c;   // Classic: the cheap keyboard's boxy, honky middle
     d.topMix = std::min(1.0f, 4.0f * a);
-    d.shelfDb = -a * mix(1.0f, 4.5f, e);
+    d.shelfDb = -a * mix(1.0f, 3.5f, e);
     // Classic: nearly mono (the side -20 dB at 100 %); Modern wider (+3.5 dB of side, the power kept).
-    d.side = mix(1.0f - 0.9f * a, 1.0f + 0.5f * a, e);
+    d.side = mix(1.0f - 0.9f * a, 1.0f + 0.6f * a, e);
     d.hallIn = std::pow(a, 1.5f);
     d.hallWidth = mix(0.6f, 1.0f, e);
     d.grainMix = c;
+    if (e > 0.0f) d.bloom = e * std::sqrt(a);
     return d;
 }
 
@@ -189,13 +302,13 @@ void DungeonSynth::updateFilters(const Derived& d, float a, float e) noexcept {
     for (auto& f : lowCut2) f.set(mix(static_cast<float>(lowCorner), 10.0f, e), sr, 1.414f);
     // Front-loaded (a^0.6): 25 % about 11 kHz, 50 % about 8.5 kHz, 100 % the cassette's 5.5 kHz
     // (Classic) or Modern's softer 10 kHz.
-    const double fc = 20000.0 * std::pow(mix(5500.0f, 10000.0f, e) / 20000.0, std::pow(static_cast<double>(a), 0.6));
+    const double fc = 20000.0 * std::pow(mix(5500.0f, 14000.0f, e) / 20000.0, std::pow(static_cast<double>(a), 0.6));
     for (auto& f : top) f.set(fc, sr, 1.414f);
     for (auto& f : top2) f.set(std::min(0.45 * sr, fc * mix(1.2f, 1.4f, e)), sr, 1.3f);
     for (auto& f : top3) f.set(std::min(0.45 * sr, fc * mix(1.1f, 1.6f, e)), sr, 1.5f);   // sixth order: nothing of the tape's top survives
-    warmth[0].peaking(sr, mix(250.0f, 180.0f, e), 0.7, d.warmthDb);
+    warmth[0].peaking(sr, mix(250.0f, 200.0f, e), e > 0.0f ? static_cast<double>(mix(0.7f, 0.6f, e)) : 0.7, d.warmthDb);
     honk[0].peaking(sr, 1200.0, 0.8, d.honkDb);
-    shelf[0].highShelf(sr, 4000.0, d.shelfDb);
+    shelf[0].highShelf(sr, mix(4000.0f, 5500.0f, e), d.shelfDb);
     for (auto* bank : { &warmth, &honk, &shelf }) {
         auto& b = (*bank)[1];
         const auto& m = (*bank)[0];
@@ -203,17 +316,17 @@ void DungeonSynth::updateFilters(const Derived& d, float a, float e) noexcept {
     }
     // The hall: longer and darker towards the full amount; Classic static and grainy (old
     // digital), Modern slowly modulated and very long (lush).
-    const float t60 = mix(1.5f, mix(7.0f, 11.0f, e), a) * placeLength.value;   // measured broadband (an average place): about 4 s and 9.7 s
+    const float t60 = mix(1.5f, mix(7.0f, 10.0f, e), a) * placeLength.value;   // measured broadband (an average place): about 4 s and 9.7 s
     for (int i = 0; i < lines; ++i)
         hallGain[std::size_t(i)] = std::pow(10.0f, -3.0f * hallLength[std::size_t(i)] / (t60 * static_cast<float>(sr)));
-    hallDampCoefficient = dsp::poleForHz(mix(4500.0f, 6000.0f, e), sr);
+    hallDampCoefficient = dsp::poleForHz(mix(4500.0f, 5000.0f, e), sr);
     hallModDepth = static_cast<float>(mix(0.3f, 12.0f, e) * sr / 48000.0);
-    hallLow.set(mix(3200.0f, 4200.0f, e) * placeTone.value, sr, 1.0f);
-    hallHigh.set(mix(220.0f, 120.0f, e), sr, 1.414f);
-    hallPreDelay = static_cast<float>(mix(0.025f, 0.045f, e) * sr);
-    for (auto& f : hallDark) f.set(mix(3000.0f, 4000.0f, e) * placeTone.value, sr, 1.414f);
+    hallLow.set(mix(3200.0f, 3000.0f, e) * placeTone.value, sr, 1.0f);
+    hallHigh.set(mix(220.0f, 100.0f, e), sr, 1.414f);
+    hallPreDelay = static_cast<float>(mix(0.025f, 0.03f, e) * sr);
+    for (auto& f : hallDark) f.set(mix(3000.0f, 3200.0f, e) * placeTone.value, sr, 1.414f);
     hallOut = mix(1.23f, 0.32f, e);   // at 100 %: about -1 dB (Classic) and 0 dB (Modern) against the dry while it plays
-    diffusion = mix(0.5f, 0.7f, e);
+    diffusion = mix(0.5f, 0.72f, e);
 }
 
 // Linear quantisation of x / scale to `step` (no dither: the grain of the old converters),
@@ -233,6 +346,18 @@ float DungeonSynth::runHallMono(float in, float& outR, const Derived& d) noexcep
         const float v = x + diffusion * z;
         x = z - diffusion * v;
         line.push(v);
+    }
+    // Session 18: Modern's bloom (two long diffusers: the hall builds up instead of starting at once).
+    if (d.bloom > 0.0f) {
+        float y = x;
+        for (int k = 0; k < blooms; ++k) {
+            auto& line = bloomLine[std::size_t(k)];
+            const float z = line.readInteger(static_cast<std::size_t>(bloomLength[std::size_t(k)]));
+            const float v = y + 0.62f * z;
+            y = z - 0.62f * v;
+            line.push(v);
+        }
+        x += d.bloom * (y - x);
     }
     float o[lines];
     for (int i = 0; i < lines; ++i) {
@@ -317,6 +442,11 @@ void DungeonSynth::process(float* l, float* r, int n) noexcept {
             if (justStopped) {
                 for (auto& f : antiAlias) f.clear();
                 for (auto& f : reconstruct) f.clear();
+                for (auto& v : vintage) v.clear();
+                for (auto& al : alignLine) al.clear();
+                modernEnv = 0;
+                for (auto& f : satSplit) f.clear();
+                for (auto& f : satDc) f.clear();
                 held = previous = lastIn = { 0, 0 };
                 crushEnv = 0;
                 chorusLine.clear();
@@ -370,6 +500,10 @@ void DungeonSynth::process(float* l, float* r, int n) noexcept {
             d.hallIn = mix(now.hallIn, next.hallIn, t);
             d.hallWidth = mix(now.hallWidth, next.hallWidth, t);
             d.grainMix = mix(now.grainMix, next.grainMix, t);
+            d.modern = mix(now.modern, next.modern, t);
+            d.bloom = mix(now.bloom, next.bloom, t);
+            d.align = mix(now.align, next.align, t);
+            d.modernBitStep = mix(now.modernBitStep, next.modernBitStep, t);
             const float xl = l[i], xr = r[i];
             const float level = std::max(std::abs(xl), std::abs(xr));
             float yl = xl, yr = xr;
@@ -377,6 +511,15 @@ void DungeonSynth::process(float* l, float* r, int n) noexcept {
             // the sampling instant interpolated between two host samples, held, fewer bits
             // (scaled to the music's envelope, as a sample is normalised: the grain stays
             // whatever the level, and silence stays silent), the output filter.
+            // Session 18, Modern: its sampler runs a fixed latency behind (its filters are linear
+            // phase); the direct path is delayed to match, so a partial blend never comb-filters.
+            if (d.modern > 0.0f) {
+                alignLine[0].push(xl);
+                alignLine[1].push(xr);
+                const auto back = static_cast<std::size_t>(vintage[0].latency() + 1);
+                yl += d.align * (alignLine[0].readInteger(back) - yl);
+                yr += d.align * (alignLine[1].readInteger(back) - yr);
+            }
             if (d.lofiMix > 0.0f) {
                 crushEnv += (level > crushEnv ? crushAttack : crushRelease) * (level - crushEnv);
                 const float al = antiAlias[2].low(antiAlias[0].low(xl)), ar = antiAlias[3].low(antiAlias[1].low(xr));
@@ -399,8 +542,19 @@ void DungeonSynth::process(float* l, float* r, int n) noexcept {
                 // rate the host's is no whole multiple of would fold its images back down as
                 // a hiss of its own); its output filter then takes what is above its band.
                 const float hl0 = previous[0] + (held[0] - previous[0]) * holdPhase, hr0 = previous[1] + (held[1] - previous[1]) * holdPhase;
-                const float ql = reconstruct[2].low(reconstruct[0].low(hl0));
-                const float qr = reconstruct[3].low(reconstruct[1].low(hr0));
+                float ql = reconstruct[2].low(reconstruct[0].low(hl0));
+                float qr = reconstruct[3].low(reconstruct[1].low(hr0));
+                // Session 18, Modern: the warm vintage sampler (a whole-number ratio of the
+                // host's rate, linear-phase polyphase filters: nothing folds back or images up
+                // but a whisper at the top of its band), its bits following the music's
+                // envelope closely (released over 0.25 s: a decay keeps its bits, no grain).
+                if (d.modern > 0.0f) {
+                    modernEnv += (level > modernEnv ? crushAttack : modernRelease) * (level - modernEnv);
+                    const float scale = std::max(modernEnv, 1.0e-3f), bitStep = d.modernBitStep;
+                    const auto crush = [scale, bitStep](float v) { return bitStep > 0.0f ? quantise(v, bitStep, scale) : v; };
+                    ql += d.modern * (vintage[0].process(xl, crush) - ql);
+                    qr += d.modern * (vintage[1].process(xr, crush) - qr);
+                }
                 yl += d.lofiMix * (ql - yl);
                 yr += d.lofiMix * (qr - yr);
             }
@@ -411,13 +565,16 @@ void DungeonSynth::process(float* l, float* r, int n) noexcept {
                 if (vibratoPhase >= 1.0) vibratoPhase -= 1.0;
                 float v[3];
                 static constexpr float base[3] { 0.008f, 0.0115f, 0.015f }, rate[3] { 0.53f, 0.71f, 0.89f };
+                // Session 18: Modern's ensemble sweeps slower (0.55x: deep and slow).
+                const float rateScale = d.modern > 0.0f ? mix(1.0f, 0.55f, d.modern) : 1.0f;
                 for (int k = 0; k < 3; ++k) {
                     auto& ph = chorusPhase[std::size_t(k)];
-                    ph += rate[k] / sr;
+                    ph += (d.modern > 0.0f ? rate[k] * rateScale : rate[k]) / sr;
                     if (ph >= 1.0) ph -= 1.0;
                     const float delay = base[k] + d.chorusDepth * std::sin(dsp::twoPi * static_cast<float>(ph))
                                       + 0.00015f * std::sin(dsp::twoPi * static_cast<float>(vibratoPhase) + 2.1f * static_cast<float>(k));
                     v[k] = chorusLine.read(1.0f + delay * static_cast<float>(sr));
+                    if (d.modern > 0.0f) v[k] += d.modern * (readSinc(chorusLine, 1.0f + delay * static_cast<float>(sr)) - v[k]);   // Session 18: clean sweeps
                 }
                 const float c = d.chorusMix;
                 yl = yl * (1.0f - 0.35f * c) + c * (0.8f * v[0] - 0.35f * v[2] + 0.4f * v[1]);
@@ -450,8 +607,19 @@ void DungeonSynth::process(float* l, float* r, int n) noexcept {
                 const float norm = std::clamp(0.31f / std::sqrt(std::max(satEnv, 1.0e-10f)), 0.5f, 4.0f);
                 const float g = d.satDrive, inv = 1.0f / (g * norm);
                 const float ul = yl * norm, ur = yr * norm;
-                const float sl = dc[0].process(std::tanh(g * (ul + d.satAsym * ul * ul)) * inv);
-                const float sr2 = dc[1].process(std::tanh(g * (ur + d.satAsym * ur * ur)) * inv);
+                float sl = dc[0].process(std::tanh(g * (ul + d.satAsym * ul * ul)) * inv);
+                float sr2 = dc[1].process(std::tanh(g * (ur + d.satAsym * ur * ur)) * inv);
+                // Session 18, Modern: the tape warms the body (below about 2.5 kHz) and leaves the
+                // top clean: saturating the treble made harmonics above the host's Nyquist,
+                // folded back between the notes (a fizz). The bands sum back to the input exactly.
+                if (d.modern > 0.0f) {
+                    const float bl = satSplit[0].low(yl), br = satSplit[1].low(yr);
+                    const float vl = bl * norm, vr = br * norm;
+                    const float ml = satDc[0].process(std::tanh(g * (vl + d.satAsym * vl * vl)) * inv) + (yl - bl);
+                    const float mr = satDc[1].process(std::tanh(g * (vr + d.satAsym * vr * vr)) * inv) + (yr - br);
+                    sl += d.modern * (ml - sl);
+                    sr2 += d.modern * (mr - sr2);
+                }
                 yl += d.satMix * (sl - yl);
                 yr += d.satMix * (sr2 - yr);
             }
@@ -473,8 +641,16 @@ void DungeonSynth::process(float* l, float* r, int n) noexcept {
                                                      + 0.3f * std::sin(dsp::twoPi * static_cast<float>(flutter2Phase)));
                 wowLine[0].push(yl);
                 wowLine[1].push(yr);
-                yl = wowLine[0].read(1.0f + std::max(0.0f, delay));
-                yr = wowLine[1].read(1.0f + std::max(0.0f, delay));
+                if (d.modern > 0.0f) {
+                    // Session 18, Modern: the moving read through eight samples (a linear one
+                    // swept the treble's level with its fraction: a fizz around every high note).
+                    const float ll = wowLine[0].read(1.0f + std::max(0.0f, delay)), lr = wowLine[1].read(1.0f + std::max(0.0f, delay));
+                    yl = ll + d.modern * (readSinc(wowLine[0], 5.0f + std::max(0.0f, delay)) - ll);
+                    yr = lr + d.modern * (readSinc(wowLine[1], 5.0f + std::max(0.0f, delay)) - lr);
+                } else {
+                    yl = wowLine[0].read(1.0f + std::max(0.0f, delay));
+                    yr = wowLine[1].read(1.0f + std::max(0.0f, delay));
+                }
             }
             // Low cut, low-mid warmth, the low-pass and the softer shelf.
             yl += d.lowCutMix * (lowCut2[0].highPass(lowCut[0].highPass(yl)) - yl);
@@ -539,6 +715,7 @@ void DungeonSynth::process(float* l, float* r, int n) noexcept {
             for (auto& h : hall) h.clear();
             for (auto& dl : diffuser) dl.clear();
             preDelay.clear();
+            for (auto& b : bloomLine) b.clear();
             hallHigh.clear();
             hallLow.clear();
             for (auto& f : hallDark) f.clear();
