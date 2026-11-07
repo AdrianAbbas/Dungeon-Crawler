@@ -4106,3 +4106,7 @@ to its own output (the sampler's linear-phase filters; not reported as latency: 
 the output's last step, and a host's delay compensation is not needed for a 1 ms colour on a
 whole mix). Peaks at 100 % sit 2-4 dB higher than Session 17's Modern at the same loudness
 (the gentler tape no longer squashes the transients). Nothing heard on a Mac yet.
+
+**CI, Session 18 first run: green** (`990cd07`, run 42353538393, macOS and Linux): Linux 3301
+passed, 0 failed (the whole suite with the developer's recordings, `16-dsmodern` included); the
+job took 50 minutes. The renders are in the test-logs artifact, `dsmodern/`.
