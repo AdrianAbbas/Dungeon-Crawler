@@ -4153,8 +4153,9 @@ and every parameter ID stay, so projects and presets saved before still load.
   (a place, the controls, a route, the window) saved by the build before the rename (commit
   fb988b1, `--write-old-session`), with what that build saves after loading it
   (`.expected.xml`). The `rename` group (Linux suite and both macOS smoke runs) loads each and
-  compares the state saved again with that, character for character (without the diagnostic
-  `samples` count); checks every parameter ID exists with its saved value; and that the same
+  compares the state saved again with that: the same text, numbers in
+  attribute values within 1e-5 (the parameters' float maths differ in the last digits between
+  Linux and macOS, arm64 and x86_64), without the diagnostic `samples` count; checks every parameter ID exists with its saved value; and that the same
   session made now saves the same state.
 - **Both AU harnesses** (`--expect-name`, `--old-session`): the registry's name must be
   "Windward Audio: DUNGEON CRAWLER" / "... FX", and the old session of each, set through
