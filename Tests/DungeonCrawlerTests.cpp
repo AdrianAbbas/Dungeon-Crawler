@@ -2654,6 +2654,8 @@ int qaDebug(int la, int ka, int lb, int kb) {
 #include "DungeonSynthTests.inc"
 #include "DungeonSynthModernTests.inc"   // Session 18
 #include "RealWindTests.inc"
+#include "UserData.h"
+#include "OldSession.inc"
 
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -2666,6 +2668,7 @@ int main(int argc, char** argv) {
         const juce::String arg(argv[i]);
         if (arg == "--no-samples") continue;
         if (arg == "--snapshot" && i + 1 < argc) snapshot = argv[++i];
+        else if (arg == "--write-old-session" && i + 1 < argc) return oldSession::write(argv[i + 1]);
         else if (arg == "--only" && i + 1 < argc) only = juce::StringArray::fromTokens(argv[++i], ",", "");
         else if (arg == "--calibrate" && i + 1 < argc) return calibrate(argv[i + 1]);
         else if (arg == "--listen" && i + 1 < argc) return listen(argv[i + 1]);
@@ -2715,6 +2718,7 @@ int main(int argc, char** argv) {
     if (run("parameters")) testParameters(s);
     if (run("smoke")) testSmoke(s);
     if (run("state")) testState(s);
+    if (run("rename")) oldSession::test(s);
     if (run("layouts")) testLayouts(s);
     if (run("transparency")) testTransparency(s);
     if (run("locations")) testLocations(s);

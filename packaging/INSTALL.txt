@@ -9,9 +9,9 @@ INSTALL
      Terminal window, and press Return.
   4. Wait for "DUNGEON CRAWLER and DUNGEON CRAWLER FX are installed and validated."
   This folder holds both plug-ins; the script installs both:
-    DungeonCrawler.component / .vst3     the instrument (Audio Unit aumu Dgci Veil)
-    DungeonCrawlerFX.component / .vst3   the effect (aufx Dgcr Veil; projects that used
-                                         "DUNGEON CRAWLER" the effect find it again)
+    DungeonCrawler.component / .vst3     the instrument
+    DungeonCrawlerFX.component / .vst3   the effect (projects that used "DUNGEON
+                                         CRAWLER" the effect find it again)
 
   Why a script? This build is not signed with an Apple Developer ID. When a browser
   downloads it, macOS marks every file as quarantined and then refuses to load the
@@ -22,10 +22,10 @@ INSTALL
 GARAGEBAND
   Settings > Audio/MIDI: tick "Audio Units". Restart GarageBand.
   The instrument: a Software Instrument track, its instrument slot (Smart Controls (B)
-  > Plug-ins) > Audio Units > Veil Audio > DUNGEON CRAWLER. Play a keyboard or the
+  > Plug-ins) > Audio Units > Windward Audio > DUNGEON CRAWLER. Play a keyboard or the
   piano roll; click Instrument in the controls for its panel and keyboard.
   The effect: select a track (software instrument or audio). Smart Controls (B) >
-  Plug-ins > an empty Audio Effect slot > Audio Units > Veil Audio > DUNGEON CRAWLER FX.
+  Plug-ins > an empty Audio Effect slot > Audio Units > Windward Audio > DUNGEON CRAWLER FX.
   Play the track: the plug-in window opens on the painted map. Click a landmark to
   travel there; inside, click the rings or the list to visit its places.
   If you see sliders instead of the DUNGEON CRAWLER interface, switch the plug-in
@@ -36,15 +36,23 @@ MIDI TRAVEL
   button) or automate Location / Sub-location instead. See README for other hosts.
 
 LOGIC PRO
-  Settings > Plug-in Manager > Veil Audio > DUNGEON CRAWLER and DUNGEON CRAWLER FX. If one
+  Settings > Plug-in Manager > Windward Audio > DUNGEON CRAWLER and DUNGEON CRAWLER FX. If one
   is marked failed, select it and click "Reset & Rescan Selection". The instrument: a
-  Software Instrument track's Instrument slot > AU Instruments > Veil Audio > DUNGEON
-  CRAWLER. The effect: an Audio FX slot of any track: Audio Units > Veil Audio >
+  Software Instrument track's Instrument slot > AU Instruments > Windward Audio > DUNGEON
+  CRAWLER. The effect: an Audio FX slot of any track: Audio Units > Windward Audio >
   DUNGEON CRAWLER FX.
+
+UPDATING FROM AN EARLIER VERSION
+  The company name is now Windward Audio. The script removes the copies installed under
+  the earlier name, so GarageBand and Logic list each plug-in once, under Windward Audio.
+  Projects and presets made with the earlier version still load. On its first launch each
+  plug-in copies your presets and drop-in scenes to ~/Library/Windward Audio/DUNGEON CRAWLER
+  (the instrument) or ~/Library/Windward Audio/DUNGEON CRAWLER FX (the effect); the
+  originals are kept.
 
 UNINSTALL
   bash uninstall-mac.sh            (add --purge to also delete your presets and
-                                    drop-in scenes in ~/Library/Application Support/DungeonCrawler)
+                                    drop-in scenes in ~/Library/Windward Audio)
 
 MANUAL INSTALL (if you prefer not to run the script)
   for p in DungeonCrawler DungeonCrawlerFX; do

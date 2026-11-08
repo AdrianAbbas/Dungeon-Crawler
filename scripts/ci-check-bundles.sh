@@ -9,8 +9,10 @@ set -euo pipefail
 build="$1"
 config="${2:-Release}"
 status=0
-for entry in "DungeonCrawler aumu Dgci DungeonCrawlerInstAUFactory" "DungeonCrawlerFX aufx Dgcr DungeonCrawlerAUFactory"; do
-    read -r name type subtype factory <<< "$entry"
+# name, AU type, subtype, factory, bundle ID (since the company rename), what hosts list
+for entry in "DungeonCrawler aumu Dgci DungeonCrawlerInstAUFactory com.windwardaudio.dungeoncrawler DUNGEON CRAWLER" \
+             "DungeonCrawlerFX aufx Dgcr DungeonCrawlerAUFactory com.windwardaudio.dungeoncrawlerfx DUNGEON CRAWLER FX"; do
+    read -r name type subtype factory bundle_id shown <<< "$entry"
     artefacts="$build/${name}_artefacts/$config"
     for bundle in "$artefacts/AU/$name.component" "$artefacts/VST3/$name.vst3" "$artefacts/Standalone/$name.app"; do
         binary="$bundle/Contents/MacOS/$name"
@@ -73,5 +75,30 @@ for entry in "DungeonCrawler aumu Dgci DungeonCrawlerInstAUFactory" "DungeonCraw
     check manufacturer Veil
     check factoryFunction "$factory"
     check sandboxSafe true
+    # The company rename: hosts show "Windward Audio: <name>" (AU) and the vendor
+    # Windward Audio (VST3); the bundle IDs are new; the codes above stay.
+    check name "Windward Audio: $shown"
+    for bundle in "$artefacts/AU/$name.component" "$artefacts/VST3/$name.vst3" "$artefacts/Standalone/$name.app"; do
+        id=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$bundle/Contents/Info.plist" 2>/dev/null || echo "(absent)")
+        if [[ "$id" == "$bundle_id" ]]; then
+            printf '%-70s CFBundleIdentifier %s\n' "$bundle" "$id"
+        else
+            echo "::error::$bundle CFBundleIdentifier expected '$bundle_id', got '$id'"; status=1
+        fi
+        if /usr/bin/grep -qi 'veil audio\|elsewhere audio' "$bundle/Contents/Info.plist"; then
+            echo "::error::$bundle/Contents/Info.plist still names the old company"; status=1
+        fi
+    done
+    moduleinfo="$artefacts/VST3/$name.vst3/Contents/Resources/moduleinfo.json"
+    if [[ -f "$moduleinfo" ]]; then
+        vendors=$(/usr/bin/grep -E '"Vendor"' "$moduleinfo" || true)
+        if [[ -n "$vendors" ]] && ! printf '%s\n' "$vendors" | /usr/bin/grep -vq 'Windward Audio' && ! /usr/bin/grep -qi 'veil audio' "$moduleinfo"; then
+            echo "$name VST3 moduleinfo.json vendor: Windward Audio"
+        else
+            echo "::error::$name VST3 moduleinfo.json does not name the vendor Windward Audio"; /usr/bin/grep -i vendor "$moduleinfo" || true; status=1
+        fi
+    else
+        echo "$name VST3 moduleinfo.json: not generated (the vendor comes from the plug-in's factory, checked by the tests)"
+    fi
 done
 exit $status

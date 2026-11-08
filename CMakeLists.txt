@@ -28,7 +28,10 @@ endif()
 # both; the processor reads JucePlugin_IsSynth to know which it is.
 #   DungeonCrawler    DUNGEON CRAWLER, the instrument: aumu / Dgci / Veil, VST3 instrument
 #   DungeonCrawlerFX  DUNGEON CRAWLER FX, the effect as before: aufx / Dgcr / Veil (its AU
-#                     codes, bundle ID and parameter IDs unchanged, so projects keep working)
+#                     codes and parameter IDs unchanged, so projects keep working)
+# The company rename: hosts list both under Windward Audio (COMPANY_NAME) with new bundle
+# IDs; the AU manufacturer code stays Veil and every code above is unchanged, so projects
+# and presets saved before still load.
 # File and bundle names have no spaces (simpler scripts); hosts show PLUGIN_NAME.
 set(DC_SOURCES
     Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/Engine.cpp
@@ -73,7 +76,7 @@ endif()
 function(dc_add_plugin target)
     cmake_parse_arguments(P "" "NAME;CODE;BUNDLE;PREFIX;DESCRIPTION;SYNTH;AUTYPE;VST3CAT" "" ${ARGN})
     juce_add_plugin(${target}
-        COMPANY_NAME "Veil Audio"
+        COMPANY_NAME "Windward Audio"
         BUNDLE_ID "${P_BUNDLE}"
         PLUGIN_MANUFACTURER_CODE Veil
         PLUGIN_CODE ${P_CODE}
@@ -144,11 +147,11 @@ function(dc_add_plugin target)
 endfunction()
 
 dc_add_plugin(DungeonCrawler
-    NAME "DUNGEON CRAWLER" CODE Dgci BUNDLE "audio.veil.dungeoncrawler.instrument"
+    NAME "DUNGEON CRAWLER" CODE Dgci BUNDLE "com.windwardaudio.dungeoncrawler"
     PREFIX DungeonCrawlerInstAU DESCRIPTION "Dark-fantasy instruments, each played in its place"
     SYNTH TRUE AUTYPE kAudioUnitType_MusicDevice VST3CAT "Instrument;Synth")
 dc_add_plugin(DungeonCrawlerFX
-    NAME "DUNGEON CRAWLER FX" CODE Dgcr BUNDLE "audio.veil.dungeoncrawler"
+    NAME "DUNGEON CRAWLER FX" CODE Dgcr BUNDLE "com.windwardaudio.dungeoncrawlerfx"
     PREFIX DungeonCrawlerAU DESCRIPTION "Dark-fantasy location effect"
     SYNTH FALSE AUTYPE kAudioUnitType_Effect VST3CAT "Fx;Reverb")
 

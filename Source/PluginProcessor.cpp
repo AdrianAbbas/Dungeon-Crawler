@@ -4,6 +4,7 @@
 #include "World/Presets.h"
 #include "Instrument/Presets.h"
 #include "Instrument/DungeonSynthFit.h"
+#include "UserData.h"
 #include <cmath>
 #include <optional>
 
@@ -75,6 +76,9 @@ DungeonCrawlerProcessor::DungeonCrawlerProcessor(PluginKind k)
     wb::samples::Bank::get().load();
     // Session 10: the search index, built once (per plug-in kind and process) at load.
     dc::search::index(isInstrument());
+    // The user's files move to ~/Library/Windward Audio/<plug-in>: copied once from the
+    // folders older versions used (Source/UserData.h).
+    dc::userdata::migrateOnce(isInstrument());
     markPresetBaseline();   // a new instance is "Init", unmodified
 }
 
@@ -366,11 +370,8 @@ void DungeonCrawlerProcessor::applyFactoryPreset(int index) {
 }
 
 juce::File DungeonCrawlerProcessor::userPresetFolder() const {
-    auto base = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
-   #if JUCE_MAC
-    base = base.getChildFile("Application Support");
-   #endif
-    return base.getChildFile("DungeonCrawler").getChildFile("Presets");
+    // ~/Library/Windward Audio/DUNGEON CRAWLER (FX)/Presets (Source/UserData.h).
+    return dc::userdata::presets(isInstrument());
 }
 
 bool DungeonCrawlerProcessor::saveUserPreset(const juce::String& name) {

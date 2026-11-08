@@ -4110,3 +4110,80 @@ whole mix). Peaks at 100 % sit 2-4 dB higher than Session 17's Modern at the sam
 **CI, Session 18 first run: green** (`990cd07`, run 42353538393, macOS and Linux): Linux 3301
 passed, 0 failed (the whole suite with the developer's recordings, `16-dsmodern` included); the
 job took 50 minutes. The renders are in the test-logs artifact, `dsmodern/`.
+
+## The company rename: Windward Audio (2026-11-08)
+
+The company brand is now **Windward Audio**. Hosts listed both plug-ins under the earlier
+company name (bundle IDs `audio.veil.dungeoncrawler.instrument` and `audio.veil.dungeoncrawler`).
+Only what users see changes; the AU codes (`aumu` / `Dgci` / `Veil`, `aufx` / `Dgcr` / `Veil`)
+and every parameter ID stay, so projects and presets saved before still load.
+
+### What changed
+
+- **Identity** (`CMakeLists.txt`): `COMPANY_NAME "Windward Audio"` for both (the AUs' names are
+  "Windward Audio: DUNGEON CRAWLER" and "Windward Audio: DUNGEON CRAWLER FX", the VST3 vendor
+  Windward Audio), bundle IDs `com.windwardaudio.dungeoncrawler` (the instrument) and
+  `com.windwardaudio.dungeoncrawlerfx` (the effect). Codes unchanged.
+- **The user's files** (`Source/UserData.h`): each plug-in now has its own folder,
+  `~/Library/Windward Audio/DUNGEON CRAWLER/` and `~/Library/Windward Audio/DUNGEON CRAWLER FX/`
+  (`Presets`, the drop-in `scenes`, `Host Presets`). The first instance of each plug-in in a
+  process copies (never moves) what the earlier versions left: the user presets and drop-in
+  scenes both plug-ins shared in `~/Library/Application Support/DungeonCrawler` go to both
+  (so each lists what it listed before), and the host's presets under the earlier company name
+  (the folders `DUNGEON CRAWLER`, `DUNGEON CRAWLER FX`, and `DungeonCrawler` / `DungeonCrawlerFX`
+  from the effect's earlier names) go to the plug-in their `.aupreset`'s Audio Unit type names
+  (aumu: the instrument, aufx: the effect; unreadable: by folder), also into
+  `~/Library/Audio/Presets/Windward Audio/<plug-in>`, where GarageBand and Logic look for the
+  new name. Files already there are kept; a `.migrated` marker makes it once only.
+- **Install / uninstall**: `install-mac.sh` first removes any bundle in the user's Components
+  and VST3 folders whose bundle ID is an earlier one (whatever its file name; a system-wide one
+  is reported with the `sudo rm` command), clears the hosts' Audio Unit cache and then requires
+  the registry to list each plug-in once, as "Windward Audio: ...". `uninstall-mac.sh` removes
+  any of the four bundle IDs; `--purge` removes the new folders and the earlier ones.
+- **Text**: README (the company, install, the update note, Logic's path, the Layout table's
+  module origin), MANUAL_TEST, `ART_SOURCES.md` (the drop-in folders), `INSTALL.txt`, the
+  installer's next steps; no user-facing text names the earlier company. The package and CI
+  artifacts are `WindwardAudio-DungeonCrawler-macOS-Universal(.zip)`,
+  `WindwardAudio-DungeonCrawler-macOS-diagnostics` and `WindwardAudio-DungeonCrawler-linux-test-logs`.
+  The plug-ins have no About screen; the README names the company.
+
+### Tests
+
+- **Old sessions** (`Tests/fixtures/old-session-{instrument,fx}.dcstate`): a session of each
+  (a place, the controls, a route, the window) saved by the build before the rename (commit
+  fb988b1, `--write-old-session`), with what that build saves after loading it
+  (`.expected.xml`). The `rename` group (Linux suite and both macOS smoke runs) loads each and
+  compares the state saved again with that, character for character (without the diagnostic
+  `samples` count); checks every parameter ID exists with its saved value; and that the same
+  session made now saves the same state.
+- **Both AU harnesses** (`--expect-name`, `--old-session`): the registry's name must be
+  "Windward Audio: DUNGEON CRAWLER" / "... FX", and the old session of each, set through
+  `kAudioUnitProperty_ClassInfo` with its codes on a fresh instance (in-process and
+  out-of-process, arm64 and x86_64), must read back as the expected state.
+- **The user's install** (`ci-user-install-test.sh`): before installing, copies of both as the
+  earlier versions installed them (their bundle IDs and AU names, under other file names) and
+  the user's files in the earlier folders. After `install-mac.sh`: the earlier copies are gone,
+  `auval -a` lists each once, as "Windward Audio: ..."; after auval and the harnesses (the first
+  launches): the files are in each plug-in's new folder and the host presets with the right
+  plug-in, the originals kept.
+- **The bundles** (`ci-check-bundles.sh`): the AUs' names, the bundle IDs of every bundle, the
+  VST3 vendor in `moduleinfo.json`, no earlier company name in the Info.plists.
+- The migration itself (`rename` group, a temporary folder): both plug-ins, the host presets
+  sorted by type, copied once, nothing overwritten, originals kept.
+
+### Rename handoff
+
+**Done**: the names hosts list, the bundle IDs, each plug-in's own folder and the one-time
+copy, the installer removing the earlier copies, the text, the artifact names; the tests above.
+
+**The GarageBand check** (needs the developer, on a Mac that has the earlier versions
+installed; `docs/MANUAL_TEST.md`, "Company rename check"): install over them; GarageBand lists
+Windward Audio → DUNGEON CRAWLER (instrument slot) and Windward Audio → DUNGEON CRAWLER FX
+(effect slot), each once, nothing under the earlier name; an older project opens with both
+loaded and sounding as before; the user presets and GarageBand's own presets are listed; the
+earlier files are still in place.
+
+**Known limits**: GarageBand and Logic rescan their Audio Units once after the install. A copy
+installed system-wide under an earlier name cannot be removed without `sudo`: the installer
+prints the command. A drop-in scene now goes in the plug-in's own folder (the earlier ones were
+copied to both). Nothing here has been seen on a Mac yet.

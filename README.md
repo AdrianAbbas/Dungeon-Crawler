@@ -1,7 +1,7 @@
 # DUNGEON CRAWLER
 
-Two dark-fantasy plug-ins for macOS (AU and VST3; GarageBand and Logic Pro), built from
-this one repository. A painted map of a dark realm under a red moon is their interface.
+Two dark-fantasy plug-ins for macOS (AU and VST3; GarageBand and Logic Pro) by Windward
+Audio, built from this one repository. A painted map of a dark realm under a red moon is their interface.
 
 - **DUNGEON CRAWLER** (the instrument, `aumu`/`Dgci`): a software instrument played from
   MIDI (a keyboard or the piano roll). **Every place has its own instrument**, played
@@ -44,7 +44,7 @@ Status: the brief ([docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md)) and Direction
 
 ## Install (macOS 10.15+, Apple Silicon and Intel)
 
-1. Download `DungeonCrawler-macOS-Universal` from the latest green
+1. Download `WindwardAudio-DungeonCrawler-macOS-Universal` from the latest green
    [CI run](../../actions/workflows/build.yml) (Artifacts) and unzip it.
 2. Quit GarageBand and Logic. In Terminal type `bash ` (with a space), drag
    `install-mac.sh` from the unzipped folder into the window and press Return.
@@ -61,6 +61,16 @@ list and runs Apple's validator. Details and a manual alternative:
 [packaging/INSTALL.txt](packaging/INSTALL.txt). Uninstall: `bash uninstall-mac.sh`
 (`--purge` also removes your presets).
 
+Updating from a version made before the company name changed to Windward Audio: the
+installer removes the earlier copies, so hosts list each plug-in once, under Windward
+Audio. Your projects and presets keep working (the plug-ins' identity codes and parameters
+are unchanged). On its first launch each plug-in copies your user presets, drop-in scenes
+and host presets from the folders earlier versions used to its own folder,
+`~/Library/Windward Audio/DUNGEON CRAWLER/` (the instrument) or
+`~/Library/Windward Audio/DUNGEON CRAWLER FX/` (the effect), and the host presets also to
+`~/Library/Audio/Presets/Windward Audio/<plug-in>/`, where the host's preset menu finds
+them. The originals are kept.
+
 ## The sound (Direction Update 2)
 
 Every place now transforms the instrument obviously at the defaults (Intensity 100 %,
@@ -73,8 +83,8 @@ noted ([docs/DEVLOG.md](docs/DEVLOG.md), Session 6).
 ## The instrument (DUNGEON CRAWLER)
 
 **GarageBand:** make a Software Instrument track; in its instrument slot (Smart Controls
-(B) → Plug-ins, or the Library) choose Audio Units → Veil Audio → DUNGEON CRAWLER.
-**Logic Pro:** a Software Instrument track's Instrument slot → AU Instruments → Veil
+(B) → Plug-ins, or the Library) choose Audio Units → Windward Audio → DUNGEON CRAWLER.
+**Logic Pro:** a Software Instrument track's Instrument slot → AU Instruments → Windward
 Audio → DUNGEON CRAWLER. Play your MIDI keyboard or the piano roll.
 
 - The map and the places work as in the effect: **choosing a place chooses its
@@ -136,9 +146,9 @@ recorded instrument has a synthesised stand-in for builds without the recordings
 ## The effect (DUNGEON CRAWLER FX)
 
 **GarageBand:** select a track → Smart Controls (B) → Plug-ins → an empty Audio Effect
-slot → Audio Units → Veil Audio → DUNGEON CRAWLER FX. Double-click the slot to open the
+slot → Audio Units → Windward Audio → DUNGEON CRAWLER FX. Double-click the slot to open the
 window (if you see plain sliders, switch the window's view menu from "Controls" to
-"Editor"). **Logic Pro:** an Audio FX slot → Audio Units → Veil Audio → DUNGEON CRAWLER FX.
+"Editor"). **Logic Pro:** an Audio FX slot → Audio Units → Windward Audio → DUNGEON CRAWLER FX.
 
 1. The window opens on the **map**. Hover a landmark to see its name; click it: a red
    path shows the journey and the view zooms into the place.
@@ -453,7 +463,7 @@ renders the listening WAVs.
 
 | Path | What |
 |---|---|
-| `Source/DSP/` | The modules: from VEIL (Abyss, Ancient Blood, Choir, Wraith, Echoes, Crypt) and new (Relics, Signature, Atmosphere, Vault + Convolver, Ensemble) |
+| `Source/DSP/` | The modules: from the developer's earlier plug-in (Abyss, Ancient Blood, Choir, Wraith, Echoes, Crypt) and new (Relics, Signature, Atmosphere, Vault + Convolver, Ensemble) |
 | `Source/World/` | Locations, sub-locations, macros, signatures (`Locations.*`), level trims, journeys (`Journey.h`), factory presets (`Presets.h`) |
 | `Source/Engine.*` | The chain, travel, crossfades, the reverb rooms and signature pools, level matching |
 | `Source/UI/` | The painted scenes (layers, manifest), the engraving renderer for the rest, the background scene cache, the look |

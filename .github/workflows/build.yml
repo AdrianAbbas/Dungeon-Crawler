@@ -77,9 +77,9 @@ jobs:
       # each slice of the universal binary, and the cpu group reports (never fails on)
       # the cost of every location on this runner.
       - name: Smoke test and CPU report (arm64)
-        run: /usr/bin/arch -arm64 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --only smoke,instrument,cpu
+        run: /usr/bin/arch -arm64 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --only smoke,instrument,cpu,rename
       - name: Smoke test and CPU report (x86_64 under Rosetta)
-        run: /usr/bin/arch -x86_64 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --only smoke,instrument,cpu
+        run: /usr/bin/arch -x86_64 build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --only smoke,instrument,cpu,rename
       - name: Universal binary and Info.plist gate (instrument and effect)
         run: bash scripts/ci-check-bundles.sh build
       - name: Developer ID signing and notarisation (optional, untested)
@@ -97,7 +97,7 @@ jobs:
       - name: Build AU host harnesses (effect and instrument)
         run: bash scripts/build-au-harness.sh build/DungeonCrawlerAUHarness
       - name: Install a quarantined download with install-mac.sh, then auval and harnesses for both plug-ins (arm64 + x86_64)
-        run: bash scripts/ci-user-install-test.sh dist/DungeonCrawler-macOS-Universal.zip build/DungeonCrawlerAUHarness build/ci-logs
+        run: bash scripts/ci-user-install-test.sh dist/WindwardAudio-DungeonCrawler-macOS-Universal.zip build/DungeonCrawlerAUHarness build/ci-logs
       # Annotations are readable through the REST API; GitHub keeps at most 10 per step.
       - name: Publish install and arm64 harness logs as annotations
         if: always()
@@ -112,14 +112,14 @@ jobs:
       - name: Upload installable package (only when every check passed)
         uses: actions/upload-artifact@v4
         with:
-          name: DungeonCrawler-macOS-Universal
-          path: dist/DungeonCrawler-macOS-Universal.zip
+          name: WindwardAudio-DungeonCrawler-macOS-Universal
+          path: dist/WindwardAudio-DungeonCrawler-macOS-Universal.zip
           if-no-files-found: error
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: DungeonCrawler-macOS-diagnostics
+          name: WindwardAudio-DungeonCrawler-macOS-diagnostics
           path: |
             build/ci-logs/
           if-no-files-found: warn
@@ -267,7 +267,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: DungeonCrawler-linux-test-logs
+          name: WindwardAudio-DungeonCrawler-linux-test-logs
           path: build/test-logs/
           if-no-files-found: warn
   release:
@@ -280,8 +280,8 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: DungeonCrawler-macOS-Universal
+          name: WindwardAudio-DungeonCrawler-macOS-Universal
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" DungeonCrawler-macOS-Universal.zip --repo "$GITHUB_REPOSITORY" --title "DUNGEON CRAWLER $GITHUB_REF_NAME" --generate-notes
+        run: gh release create "$GITHUB_REF_NAME" WindwardAudio-DungeonCrawler-macOS-Universal.zip --repo "$GITHUB_REPOSITORY" --title "DUNGEON CRAWLER $GITHUB_REF_NAME" --generate-notes
