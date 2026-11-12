@@ -34,7 +34,7 @@ bool hasIllustration(SceneId);
 // Draws and renders a scene at a pixel size.
 juce::Image renderScene(SceneId, int widthPixels, int heightPixels, const std::atomic<bool>* abort = nullptr,
                         std::vector<LightSource>* lights = nullptr);
-// The drop-in override: <user application data>/DungeonCrawler/scenes/<location>/<sub>.png
+// The drop-in override: <user application data>/Windward Audio/DUNGEON CRAWLER[ FX]/scenes/<location>/<sub>.png (UserData.h)
 // (and map.png), e.g. scenes/dungeon/treasure-room.png. Returns a non-existent file
 // when there is none.
 juce::File overrideFile(SceneId);

@@ -2,7 +2,8 @@
 # Remove DUNGEON CRAWLER (the instrument) and DUNGEON CRAWLER FX for the current user.
 #   bash uninstall-mac.sh           remove the plug-ins, keep your saved presets
 #   bash uninstall-mac.sh --purge   also remove your presets and drop-in scenes
-#                                   (~/Library/Application Support/DungeonCrawler)
+#                                   (~/Library/Windward Audio/DUNGEON CRAWLER and
+#                                   DUNGEON CRAWLER FX, and the copies from before 1.0)
 set -euo pipefail
 purge=0
 [[ "${1:-}" == --purge ]] && purge=1
@@ -18,7 +19,9 @@ for bundle in "$HOME/Library/Audio/Plug-Ins/Components/DungeonCrawler.component"
 done
 [[ $removed == 1 ]] || echo "No DUNGEON CRAWLER plug-ins found in ~/Library/Audio/Plug-Ins."
 
-for data in "$HOME/Library/Application Support/DungeonCrawler" "$HOME/Library/Audio/Presets/Veil Audio/DungeonCrawler"; do
+for data in "$HOME/Library/Windward Audio/DUNGEON CRAWLER" "$HOME/Library/Windward Audio/DUNGEON CRAWLER FX" \
+            "$HOME/Library/Audio/Presets/Windward Audio/DUNGEON CRAWLER" "$HOME/Library/Audio/Presets/Windward Audio/DUNGEON CRAWLER FX" \
+            "$HOME/Library/Application Support/DungeonCrawler"; do
     if [[ $purge == 1 && -d "$data" ]]; then
         rm -rf "$data"
         echo "Removed $data"

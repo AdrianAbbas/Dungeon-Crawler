@@ -32,14 +32,17 @@ later, list it here with its source URL, author, date and licence.
 ## Replacing a scene with your own art (drop-in folder)
 
 Your own or commissioned art replaces any scene, painted or engraved, without
-rebuilding. Either a single picture:
+rebuilding. Each plug-in has its own folder since 1.0 (the instrument's
+`~/Library/Windward Audio/DUNGEON CRAWLER/scenes`, the effect's
+`~/Library/Windward Audio/DUNGEON CRAWLER FX/scenes`; art in the folder used before 1.0 is
+copied to both on first launch). Either a single picture:
 
-    ~/Library/Application Support/DungeonCrawler/scenes/<location>/<place>.png
-    ~/Library/Application Support/DungeonCrawler/scenes/map.png
+    ~/Library/Windward Audio/DUNGEON CRAWLER/scenes/<location>/<place>.png
+    ~/Library/Windward Audio/DUNGEON CRAWLER/scenes/map.png
 
 or, for parallax and drifting fog, a folder of layers named like the picture:
 
-    ~/Library/Application Support/DungeonCrawler/scenes/dungeon/treasure-room/
+    ~/Library/Windward Audio/DUNGEON CRAWLER/scenes/dungeon/treasure-room/
         back.png (or sky.png / .jpg)   the background, opaque
         far.png  mid.png  fog.png  near.png   optional, PNG with transparency
 

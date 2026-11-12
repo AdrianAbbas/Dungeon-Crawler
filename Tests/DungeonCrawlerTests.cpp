@@ -2654,6 +2654,7 @@ int qaDebug(int la, int ka, int lb, int kb) {
 #include "DungeonSynthTests.inc"
 #include "DungeonSynthModernTests.inc"   // Session 18
 #include "RealWindTests.inc"
+#include "ReleaseTests.inc"           // 1.0.0
 
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
@@ -2749,6 +2750,7 @@ int main(int argc, char** argv) {
     if (run("dungeonsynthui")) testDungeonSynthUi(s);
     if (run("dsmodern")) testDungeonSynthModern(s);   // Session 18
     if (run("realwinds")) testRealWinds(s);     // Session 17
+    if (run("release")) testRelease(s);         // 1.0.0
     if (only.contains("qa")) testQa(s);   // long (130 journeys): run explicitly
     if (only.contains("cpu")) { testCpu(s); testInstrumentCpu(s); testDungeonSynthCpu(s); }   // report only: run explicitly
     std::cout << "\n" << s.passed << " passed, " << s.failed << " failed" << std::endl;

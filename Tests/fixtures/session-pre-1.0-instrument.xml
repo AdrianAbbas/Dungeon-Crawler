@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<DUNGEON_CRAWLER version="4" editorScale="1.0" presetName="Tavern Guitar in the Boss Lair" presetModified="1" sound="15" route=""><PARAM id="location" value="4.0"/><PARAM id="subLocation" value="2.0"/><PARAM id="intensity" value="0.75"/><PARAM id="mix" value="0.5"/><PARAM id="output" value="-6.0"/><PARAM id="macro1" value="0.25"/><PARAM id="instrument" value="3.0"/><PARAM id="instLock" value="1.0"/><PARAM id="instMacro1" value="0.25"/><EditorView place="1" location="4" sub="2" controls="1" advanced="0" journey="0" mix="0" advancedScroll="0" journeyScroll="0"/></DUNGEON_CRAWLER>

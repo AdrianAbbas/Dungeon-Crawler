@@ -1,5 +1,9 @@
 # DUNGEON CRAWLER development log
 
+**1.0.0 is released and frozen (2026-11-12): bug fixes only.** New ideas go to
+[ROADMAP.md](ROADMAP.md) under "1.1 ideas", not into the code; see [CHANGELOG.md](../CHANGELOG.md)
+and [RELEASING.md](RELEASING.md).
+
 Decisions, problems and fixes, newest milestone last. The brief is in
 [PROJECT_BRIEF.md](PROJECT_BRIEF.md). The build, install and validation pipeline comes
 from WORLDBUILDER (https://github.com/AdrianAbbas/Worldbuilder), which took it from VEIL
@@ -242,6 +246,17 @@ at the end of this file.
 - [x] W5. Tests (`window`, `effects`; instrument editor updated), snapshots `docs/snapshots/session9/`, full suite
 - [x] W6a. README, MANUAL_TEST, DEVLOG handoff; full Linux suite 2435 passed, 0 failed; final push without `[skip ci]`
 - [x] W6b. CI green (macOS + Linux): run 41531598330
+
+**1.0.0 release prep** (2026-11-12, unattended). No change to sound or interface. Details in
+"1.0.0 release prep" at the end of this file.
+
+- [x] R1. Company rename: hosts show Windward Audio (AU and VST3), bundle IDs com.windwardaudio.*; AU codes and parameter IDs unchanged
+- [x] R2. User data in ~/Library/Windward Audio/DUNGEON CRAWLER[ FX], copied once from the folders used before 1.0 (kept)
+- [x] R3. Version 1.0.0 everywhere; CHANGELOG, ROADMAP ("1.1 ideas"), frozen notes
+- [x] R4. Developer ID signing, notarisation, signed DUNGEON CRAWLER.pkg as in LIMINAL (VACANCY); docs/RELEASING.md
+- [x] R5. Customer download (pkg + Read Me PDF) separate from the developer zip; tagged releases attach it
+- [x] R6. Tests: `release` group (Linux), harness old-session and registry-name checks, the package install test
+- [ ] R7. Signed run on main green, then tag v1.0.0 (see the end of this file)
 
 ---
 
@@ -4110,3 +4125,59 @@ whole mix). Peaks at 100 % sit 2-4 dB higher than Session 17's Modern at the sam
 **CI, Session 18 first run: green** (`990cd07`, run 42353538393, macOS and Linux): Linux 3301
 passed, 0 failed (the whole suite with the developer's recordings, `16-dsmodern` included); the
 job took 50 minutes. The renders are in the test-logs artifact, `dsmodern/`.
+
+## 1.0.0 release prep (2026-11-12, unattended)
+
+No change to the sound or the interface. 1.0.0 is frozen from here: bug fixes only.
+
+**Company rename.** `COMPANY_NAME` is "Windward Audio" for both plug-ins, so the AU registry
+and Logic/GarageBand list "Windward Audio: DUNGEON CRAWLER" and "Windward Audio: DUNGEON
+CRAWLER FX", and VST3 hosts show the vendor Windward Audio. Bundle IDs moved to
+`com.windwardaudio.dungeoncrawler` (instrument; was `audio.veil.dungeoncrawler.instrument`) and
+`com.windwardaudio.dungeoncrawlerfx` (effect; was `audio.veil.dungeoncrawler`). Kept on purpose:
+the AU type/subtype/manufacturer **codes** (`aumu Dgci Veil`, `aufx Dgcr Veil`; hosts find a
+project's plug-in by them and never show them), the VST3 class IDs (JUCE derives them from the
+same codes) and every parameter ID, so projects and presets saved before 1.0 load. The old
+company name is gone from everything a user reads: hosts, installer, Read Me, README, manual,
+scripts' messages. (It stays in the four-character code, and as a path the migration reads.)
+There is no About or credits screen in the plug-ins (none was ever built, and 1.0 adds no UI):
+what a user sees of the company and version is what hosts show from the bundles.
+
+**Users' files** (`Source/UserData.*`). Presets and drop-in scenes were in
+`~/Library/Application Support/DungeonCrawler` (shared by both plug-ins). Now each plug-in has
+`~/Library/Windward Audio/DUNGEON CRAWLER[ FX]/{Presets,scenes}`. On first load each copies the
+old folder into its own (so both still list the presets they listed before), and copies host
+presets from the old company's `~/Library/Audio/Presets/...` folders to
+`~/Library/Audio/Presets/Windward Audio/<plug-in>/` (where hosts look now that the name
+changed), sorted by the AU subtype in each file (before the instrument existed, "DUNGEON
+CRAWLER" was the effect). Copies only, never overwrites, a marker makes it once.
+
+**Version 1.0.0** from `project(VERSION)`: CFBundleShortVersionString / CFBundleVersion, the AU
+version (0x10000), the VST3 version, the installer. `CHANGELOG.md`, `docs/ROADMAP.md`.
+
+**Signing, notarisation, installer**, copied from LIMINAL (VACANCY), read only: the same seven
+secrets, team YYZP4W7G7D, temporary keychain with the Developer ID G2 intermediate, inside-out
+Developer ID signing with hardened runtime and secure timestamp, notarytool with the App Store
+Connect key, stapling, `codesign`/`spctl` gates, a productbuild `DUNGEON CRAWLER.pkg` signed with
+Developer ID Installer and notarised, installed on the runner and validated (auval and both
+harnesses on the installed copies, arm64 and x86_64). Signing only for pushes to `main` and
+manual runs; otherwise ad hoc, with the package unsigned and only the developer artifact. The
+old untested `ci-developer-id.sh` is gone. Packaging as LIMINAL's latest fix: customer artifact
+`DUNGEON-CRAWLER-1.0-macOS` (only the pkg and `DUNGEON CRAWLER - Read Me.pdf`), developer artifact
+`DUNGEON-CRAWLER-dev-macOS` (bundles and scripts), both kept 14 days; logs 5 days. One difference
+from LIMINAL: the `release` job runs only for manual runs on a tag, so a tag push stays green
+instead of failing for want of a signed package.
+
+**Tests.** Linux group `release` (in shard `1-basics`, and in the macOS smoke run): company and
+version, the folders, the migration in a scratch Library (copied, kept, not overwritten, once,
+host presets sorted by subtype), and the two pre-1.0 session fixtures
+(`Tests/fixtures/session-pre-1.0-*.xml`) restoring every parameter and round-tripping (173 checks
+locally with `parameters`, `state`). Both AU harnesses: the registry name "Windward Audio:
+DUNGEON CRAWLER..." and version 1.0.0, and `--old-session`: a host ClassInfo with the old codes
+and the fixture's state, restored out-of-process and in-process, every parameter unchanged.
+`ci-check-bundles.sh`: bundle IDs, versions, AU name and version, VST3 vendor, no old name in
+any Info.plist or moduleinfo.json. `ci-pkg-install-test.sh`: plants pre-1.0 copies (old IDs,
+own and other names, system and user) and an unrelated plug-in, installs, checks they are gone
+(the unrelated one kept), each plug-in listed once as "Windward Audio: ...", and the presets
+planted in the old folders copied by the plug-ins on load.
+

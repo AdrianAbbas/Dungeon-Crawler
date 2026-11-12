@@ -1,0 +1,5 @@
+#!/bin/bash
+# DUNGEON CRAWLER.pkg (Audio Units): make every user's Audio Unit registry list the new copies.
+/usr/bin/killall -9 AudioComponentRegistrar 2>/dev/null || true
+echo "DUNGEON CRAWLER installer: Audio Unit registry reset"
+exit 0

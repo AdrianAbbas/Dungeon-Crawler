@@ -1,5 +1,9 @@
 # DUNGEON CRAWLER
 
+**Version 1.0.0, by Windward Audio. 1.0 is frozen:** only bug fixes go into it; new ideas
+go to [docs/ROADMAP.md](docs/ROADMAP.md) ("1.1 ideas"). Changes: [CHANGELOG.md](CHANGELOG.md).
+Releasing (signing, notarisation, the installer): [docs/RELEASING.md](docs/RELEASING.md).
+
 Two dark-fantasy plug-ins for macOS (AU and VST3; GarageBand and Logic Pro), built from
 this one repository. A painted map of a dark realm under a red moon is their interface.
 
@@ -44,22 +48,30 @@ Status: the brief ([docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md)) and Direction
 
 ## Install (macOS 10.15+, Apple Silicon and Intel)
 
-1. Download `DungeonCrawler-macOS-Universal` from the latest green
-   [CI run](../../actions/workflows/build.yml) (Artifacts) and unzip it.
-2. Quit GarageBand and Logic. In Terminal type `bash ` (with a space), drag
-   `install-mac.sh` from the unzipped folder into the window and press Return.
-3. Wait for "DUNGEON CRAWLER and DUNGEON CRAWLER FX are installed and validated."
+Customers get **DUNGEON-CRAWLER-1.0-macOS**: the signed, notarised installer
+`DUNGEON CRAWLER.pkg` and `DUNGEON CRAWLER - Read Me.pdf`, nothing else. It is the
+`DUNGEON-CRAWLER-1.0-macOS` artifact of a signed CI run (pushes to `main`, manual runs)
+and the asset of the GitHub Release of each `v*` tag.
 
-The package holds both plug-ins (`DungeonCrawler.component` / `.vst3`, the instrument;
-`DungeonCrawlerFX.component` / `.vst3`, the effect); the script installs and validates
-both. An older install's `DungeonCrawler.component` was the effect: it is replaced by the
-instrument, and the effect comes back as `DungeonCrawlerFX.component` with the same codes.
+1. Quit GarageBand, Logic Pro and any other music apps.
+2. Double-click `DUNGEON CRAWLER.pkg` and follow the steps.
+3. Open your music app: both plug-ins are listed under **Windward Audio**.
 
-The script is needed because the build is not signed with an Apple Developer ID: it
-removes the browser's quarantine flag, re-signs for your Mac, refreshes the Audio Unit
-list and runs Apple's validator. Details and a manual alternative:
-[packaging/INSTALL.txt](packaging/INSTALL.txt). Uninstall: `bash uninstall-mac.sh`
-(`--purge` also removes your presets).
+The package installs both plug-ins for all users as Audio Units
+(`/Library/Audio/Plug-Ins/Components/DungeonCrawler.component`, `DungeonCrawlerFX.component`)
+and VST3s (`/Library/Audio/Plug-Ins/VST3/DungeonCrawler.vst3`, `DungeonCrawlerFX.vst3`), and
+silently removes copies installed before 1.0. Your presets live in
+`~/Library/Windward Audio/DUNGEON CRAWLER/` and `~/Library/Windward Audio/DUNGEON CRAWLER FX/`;
+on first launch 1.0 copies them there from the folders used before (the originals are kept).
+Uninstalling is described in the Read Me ([source](tools/readme/build_readme_pdf.py)).
+
+For testing, every green run also has **DUNGEON-CRAWLER-dev-macOS**: the bare bundles with
+`install-mac.sh` / `uninstall-mac.sh` / `diagnose-mac.sh` for a per-user install
+([packaging/INSTALL.txt](packaging/INSTALL.txt)). It is not for customers.
+
+Projects saved before 1.0 load unchanged: the Audio Unit type, subtype and manufacturer
+codes (four-character codes no host shows), the VST3 class IDs and every parameter ID are
+the same as before; only the name hosts show changed.
 
 ## The sound (Direction Update 2)
 
@@ -73,8 +85,8 @@ noted ([docs/DEVLOG.md](docs/DEVLOG.md), Session 6).
 ## The instrument (DUNGEON CRAWLER)
 
 **GarageBand:** make a Software Instrument track; in its instrument slot (Smart Controls
-(B) → Plug-ins, or the Library) choose Audio Units → Veil Audio → DUNGEON CRAWLER.
-**Logic Pro:** a Software Instrument track's Instrument slot → AU Instruments → Veil
+(B) → Plug-ins, or the Library) choose Audio Units → Windward Audio → DUNGEON CRAWLER.
+**Logic Pro:** a Software Instrument track's Instrument slot → AU Instruments → Windward
 Audio → DUNGEON CRAWLER. Play your MIDI keyboard or the piano roll.
 
 - The map and the places work as in the effect: **choosing a place chooses its
@@ -136,9 +148,9 @@ recorded instrument has a synthesised stand-in for builds without the recordings
 ## The effect (DUNGEON CRAWLER FX)
 
 **GarageBand:** select a track → Smart Controls (B) → Plug-ins → an empty Audio Effect
-slot → Audio Units → Veil Audio → DUNGEON CRAWLER FX. Double-click the slot to open the
+slot → Audio Units → Windward Audio → DUNGEON CRAWLER FX. Double-click the slot to open the
 window (if you see plain sliders, switch the window's view menu from "Controls" to
-"Editor"). **Logic Pro:** an Audio FX slot → Audio Units → Veil Audio → DUNGEON CRAWLER FX.
+"Editor"). **Logic Pro:** an Audio FX slot → Audio Units → Windward Audio → DUNGEON CRAWLER FX.
 
 1. The window opens on the **map**. Hover a landmark to see its name; click it: a red
    path shows the journey and the view zooms into the place.
@@ -400,12 +412,12 @@ effects (e.g. Reaper, Cubase, Bitwig) work.
 
 | Problem | Fix |
 |---|---|
-| Silent slot with plain sliders in GarageBand | The quarantine flag: run `install-mac.sh` again (from the unzipped folder), restart GarageBand. |
+| Silent slot with plain sliders in GarageBand | Install with `DUNGEON CRAWLER.pkg` (signed and notarised); with the developer zip run `install-mac.sh` again, then restart GarageBand. |
 | Plug-in missing from the list | GarageBand: Settings → Audio/MIDI → tick "Audio Units", restart. Logic: Plug-in Manager → Reset & Rescan. |
 | Plain sliders instead of the map | The window's view menu: "Editor", not "Controls". |
 | "travelling…" for a moment | A scene is prepared the first time it is shown (a fraction of a second; engraved scenes about a second at Retina size); after that it is cached. |
 | CPU too high on a laptop | ⚙ → Quality → Eco. |
-| Something else | Run `bash diagnose-mac.sh` (in the unzipped folder) and send the report it writes to the Desktop. |
+| Something else | Write to support@windwardaudio.com. Testers: run `bash diagnose-mac.sh` (developer zip) and send the report it writes to the Desktop. |
 
 Your own art can replace any scene: see [docs/ART_SOURCES.md](docs/ART_SOURCES.md).
 Manual test checklist: [docs/MANUAL_TEST.md](docs/MANUAL_TEST.md).
@@ -446,14 +458,16 @@ its places use.
 On macOS this builds a universal (arm64 + x86_64) AU, VST3 and Standalone of each
 plug-in. CI (`.github/workflows/build.yml`) builds both, runs the full test suite,
 validates both with `auval` and an AU host harness each (the effect's and the
-instrument's; in- and out-of-process, arm64 and x86_64), packages both together, and
-renders the listening WAVs.
+instrument's; in- and out-of-process, arm64 and x86_64, a session saved before 1.0 restored),
+signs and notarises them on `main` and manual runs, builds `DUNGEON CRAWLER.pkg`, installs it
+on the runner and validates the installed copies again, and renders the listening WAVs
+([docs/RELEASING.md](docs/RELEASING.md)).
 
 ## Layout
 
 | Path | What |
 |---|---|
-| `Source/DSP/` | The modules: from VEIL (Abyss, Ancient Blood, Choir, Wraith, Echoes, Crypt) and new (Relics, Signature, Atmosphere, Vault + Convolver, Ensemble) |
+| `Source/DSP/` | The modules: from the developer's earlier plug-in (Abyss, Ancient Blood, Choir, Wraith, Echoes, Crypt) and new (Relics, Signature, Atmosphere, Vault + Convolver, Ensemble) |
 | `Source/World/` | Locations, sub-locations, macros, signatures (`Locations.*`), level trims, journeys (`Journey.h`), factory presets (`Presets.h`) |
 | `Source/Engine.*` | The chain, travel, crossfades, the reverb rooms and signature pools, level matching |
 | `Source/UI/` | The painted scenes (layers, manifest), the engraving renderer for the rest, the background scene cache, the look |
@@ -463,4 +477,6 @@ renders the listening WAVs.
 | `Source/PluginProcessor.*`, `Source/PluginEditor.*` | One processor for both plug-ins (effect or instrument; journeys, MIDI, presets, A/B, undo) and window; `Source/UI/InstrumentPanel.*` the instrument's panel |
 | `tools/sample-prep/` | Prepares the developer's recordings for the sampler (from WORLDBUILDER) |
 | `Tests/` | Offline tests through `processBlock` and the editor |
-| `tools/au-harness/`, `scripts/`, `packaging/` | CI host harnesses (effect, instrument), install/uninstall/diagnostics, install notes |
+| `tools/au-harness/`, `scripts/`, `packaging/` | CI host harnesses (effect, instrument), signing / notarisation / installer package, install/uninstall/diagnostics, install notes |
+| `packaging/pkg/`, `packaging/DUNGEON CRAWLER - Read Me.pdf`, `tools/readme/` | The installer's text, distribution and scripts; the customer Read Me and its source |
+| `Source/UserData.*` | Where the user's presets and scenes live (Windward Audio folders) and the one-time copy from before 1.0 |

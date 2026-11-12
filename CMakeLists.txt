@@ -5,7 +5,8 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
     set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Target architectures")
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.15" CACHE STRING "Minimum macOS version")
 endif()
-project(DUNGEON_CRAWLER VERSION 0.1.0 LANGUAGES C CXX)
+# 1.0.0 is frozen (docs/ROADMAP.md): bug fixes only. Hosts, bundles and the installer read it from here.
+project(DUNGEON_CRAWLER VERSION 1.0.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -27,11 +28,15 @@ endif()
 # Two plug-ins from one source (Direction Update 3). Every source file is compiled into
 # both; the processor reads JucePlugin_IsSynth to know which it is.
 #   DungeonCrawler    DUNGEON CRAWLER, the instrument: aumu / Dgci / Veil, VST3 instrument
-#   DungeonCrawlerFX  DUNGEON CRAWLER FX, the effect as before: aufx / Dgcr / Veil (its AU
-#                     codes, bundle ID and parameter IDs unchanged, so projects keep working)
+#   DungeonCrawlerFX  DUNGEON CRAWLER FX, the effect as before: aufx / Dgcr / Veil
+# 1.0 (company rename): hosts show "Windward Audio: DUNGEON CRAWLER" and "Windward Audio:
+# DUNGEON CRAWLER FX" (COMPANY_NAME). The AU type, subtype and manufacturer CODES (Veil is
+# only a four-character code, never shown) and every parameter ID are unchanged, so existing
+# projects and presets load; the VST3 class IDs are derived from the same codes. The bundle
+# IDs moved to com.windwardaudio.* (the installer removes copies with the old IDs).
 # File and bundle names have no spaces (simpler scripts); hosts show PLUGIN_NAME.
 set(DC_SOURCES
-    Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/Engine.cpp
+    Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/Engine.cpp Source/UserData.cpp
     Source/DSP/Abyss.cpp Source/DSP/AncientBlood.cpp Source/DSP/Choir.cpp
     Source/DSP/Wraith.cpp Source/DSP/Echoes.cpp Source/DSP/Crypt.cpp
     Source/DSP/Relics.cpp Source/DSP/Signature.cpp Source/DSP/Vault.cpp Source/DSP/Convolver.cpp Source/DSP/Ensemble.cpp Source/DSP/Atmosphere.cpp Source/DSP/DungeonSynth.cpp Source/World/Locations.cpp Source/World/Search.cpp
@@ -73,8 +78,12 @@ endif()
 function(dc_add_plugin target)
     cmake_parse_arguments(P "" "NAME;CODE;BUNDLE;PREFIX;DESCRIPTION;SYNTH;AUTYPE;VST3CAT" "" ${ARGN})
     juce_add_plugin(${target}
-        COMPANY_NAME "Veil Audio"
+        COMPANY_NAME "Windward Audio"
+        COMPANY_WEBSITE "https://windwardaudio.com"
+        COMPANY_EMAIL "support@windwardaudio.com"
+        COMPANY_COPYRIGHT "Windward Audio"
         BUNDLE_ID "${P_BUNDLE}"
+        VERSION "${PROJECT_VERSION}"
         PLUGIN_MANUFACTURER_CODE Veil
         PLUGIN_CODE ${P_CODE}
         PRODUCT_NAME "${target}"
@@ -144,11 +153,11 @@ function(dc_add_plugin target)
 endfunction()
 
 dc_add_plugin(DungeonCrawler
-    NAME "DUNGEON CRAWLER" CODE Dgci BUNDLE "audio.veil.dungeoncrawler.instrument"
+    NAME "DUNGEON CRAWLER" CODE Dgci BUNDLE "com.windwardaudio.dungeoncrawler"
     PREFIX DungeonCrawlerInstAU DESCRIPTION "Dark-fantasy instruments, each played in its place"
     SYNTH TRUE AUTYPE kAudioUnitType_MusicDevice VST3CAT "Instrument;Synth")
 dc_add_plugin(DungeonCrawlerFX
-    NAME "DUNGEON CRAWLER FX" CODE Dgcr BUNDLE "audio.veil.dungeoncrawler"
+    NAME "DUNGEON CRAWLER FX" CODE Dgcr BUNDLE "com.windwardaudio.dungeoncrawlerfx"
     PREFIX DungeonCrawlerAU DESCRIPTION "Dark-fantasy location effect"
     SYNTH FALSE AUTYPE kAudioUnitType_Effect VST3CAT "Fx;Reverb")
 

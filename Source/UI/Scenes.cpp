@@ -1,6 +1,7 @@
 #include "Scenes.h"
 #include "Motifs.h"
 #include "Painted.h"
+#include "UserData.h"
 
 namespace dc::art {
 using namespace motif;
@@ -365,12 +366,7 @@ juce::String sceneSlug(SceneId id) {
 }
 
 juce::File overrideFile(SceneId id) {
-    // macOS: ~/Library/Application Support/DungeonCrawler/scenes (JUCE's user data
-    // folder there is ~/Library itself).
-    auto base = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
-   #if JUCE_MAC
-    base = base.getChildFile("Application Support");
-   #endif
-    return base.getChildFile("DungeonCrawler").getChildFile("scenes").getChildFile(sceneSlug(id) + ".png");
+    // 1.0: ~/Library/Windward Audio/DUNGEON CRAWLER[ FX]/scenes (Source/UserData.h).
+    return dc::userdata::scenesFolder(dc::userdata::buildIsInstrument()).getChildFile(sceneSlug(id) + ".png");
 }
 }

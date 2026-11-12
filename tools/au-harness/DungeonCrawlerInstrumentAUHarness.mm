@@ -14,7 +14,7 @@
 //      AUHostingServiceXPC)
 //
 // Usage:
-//   DungeonCrawlerInstrumentAUHarness [--strict] [--no-window] [--component aumu:Dgci:Veil]
+//   DungeonCrawlerInstrumentAUHarness [--strict] [--no-window] [--component aumu:Dgci:Veil] [--old-session file]
 //                 [--only v2-oop|v2-inproc|auaudiounit]
 //
 // Without --strict the harness reports and exits 0. With --strict any FAIL gives exit
@@ -936,13 +936,14 @@ void describeComponent(Report& r, AudioComponent component) {
     if (name != nullptr) CFRelease(name);
 }
 
+#include "Release.inc"   // 1.0.0: company and version in the registry, sessions saved before 1.0
 } // namespace
 
 //==============================================================================
 int main(int argc, const char* argv[]) {
     @autoreleasepool {
         bool strict = false, useWindow = true;
-        std::string only, componentText = "aumu:Dgci:Veil";
+        std::string only, oldSession, componentText = "aumu:Dgci:Veil";
         for (int i = 1; i < argc; ++i) {
             const std::string a = argv[i];
             if (a == "--strict") strict = true;
@@ -950,6 +951,7 @@ int main(int argc, const char* argv[]) {
             else if (a == "--require-samples") requireSamples = true;
             else if (a == "--only" && i + 1 < argc) only = argv[++i];
             else if (a == "--component" && i + 1 < argc) componentText = argv[++i];
+            else if (a == "--old-session" && i + 1 < argc) oldSession = argv[++i];   // 1.0.0 (Release.inc)
             else { std::fprintf(stderr, "unknown argument %s\n", a.c_str()); return 64; }
         }
         if (componentText.size() != 14 || componentText[4] != ':' || componentText[9] != ':') {
@@ -985,11 +987,12 @@ int main(int argc, const char* argv[]) {
         for (AudioComponent c = nullptr; (c = AudioComponentFindNext(c, &description)) != nullptr;) ++matches;
         r.check(matches == 1, "exactly one registered component matches", strf("%d", matches));
         describeComponent(r, component);
+        releaseIdentity(r, component);
 
         // Out-of-process first, before the in-process load maps the plug-in into this process.
-        if (only.empty() || only == "v2-oop") v2Suite(r, component, true, useWindow);
+        if (only.empty() || only == "v2-oop") { v2Suite(r, component, true, useWindow); oldSessionSuite(r, component, true, oldSession); }
         if (only.empty() || only == "auaudiounit") auAudioUnitSuite(r, description, useWindow);
-        if (only.empty() || only == "v2-inproc") v2Suite(r, component, false, useWindow);
+        if (only.empty() || only == "v2-inproc") { v2Suite(r, component, false, useWindow); oldSessionSuite(r, component, false, oldSession); }
 
         r.scope = "summary";
         std::printf("SUMMARY passed=%d failed=%d skipped=%d\n", r.passed, r.failed, r.skipped);

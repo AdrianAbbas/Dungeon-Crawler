@@ -15,7 +15,7 @@ In GarageBand:
 1. Open a project with a track that plays something (a software instrument with a
    recorded region, or an audio loop).
 2. Select the track, open Smart Controls (B) → Plug-ins → an empty Audio Effect slot →
-   Audio Units → Veil Audio → DUNGEON CRAWLER.
+   Audio Units → Windward Audio → DUNGEON CRAWLER.
 3. Play. Check, and note anything that differs:
    - [ ] The plug-in window shows the DUNGEON CRAWLER interface (title, ten places,
          four faders). If it shows plain sliders, switch the window's view menu from
@@ -217,7 +217,7 @@ menu must say "Editor", not "Controls").
       whole picture; ▴ brings it back.
 - [ ] Automating Location/Sub-location while the window is open: on the map the ring
       and path follow; inside a location the picture follows.
-- [ ] Optional: put your own PNG in `~/Library/Application Support/DungeonCrawler/scenes/`
+- [ ] Optional: put your own PNG in `~/Library/Windward Audio/DUNGEON CRAWLER FX/scenes/`
       (see [ART_SOURCES.md](ART_SOURCES.md)), reopen the window: it replaces that scene.
 
 ## M9: journeys, roaming, MIDI travel
@@ -297,10 +297,10 @@ validated.
 **The effect still works**
 - [ ] An old project that used DUNGEON CRAWLER as an effect opens with the effect in
       place (now named DUNGEON CRAWLER FX) and sounds as before.
-- [ ] A new Audio Effect slot lists Veil Audio > DUNGEON CRAWLER FX; it behaves as before.
+- [ ] A new Audio Effect slot lists Windward Audio > DUNGEON CRAWLER FX; it behaves as before.
 
 **The instrument**
-- [ ] A Software Instrument track: Veil Audio > DUNGEON CRAWLER loads; the painted map
+- [ ] A Software Instrument track: Windward Audio > DUNGEON CRAWLER loads; the painted map
       opens; without notes it is silent.
 - [ ] Play a few notes: the Dungeon's Corridors play the contrabass pizzicato.
 - [ ] Visit every location and a few of its places: each place plays its own instrument
@@ -554,3 +554,21 @@ The developer heard almost no difference in Session 15 (the place covered the st
 - [ ] Listen: test-logs `realwinds/` (each `-dry-1-before` / `-dry-2-after`, then
       `-in-its-place-`, then `-expression-swell`), `realwinds-report.txt` for the numbers
       (the cents of every set and instrument).
+
+## 1.0.0 release (the installer, Windward Audio)
+
+Install from the customer download **DUNGEON-CRAWLER-1.0-macOS** (a signed CI run or the
+GitHub Release), on a Mac that had an earlier build installed and a project saved with it:
+
+- [ ] The download holds only `DUNGEON CRAWLER.pkg` and `DUNGEON CRAWLER - Read Me.pdf`.
+- [ ] Double-clicking the package opens without a Gatekeeper warning; the welcome and
+      conclusion pages read as specified (Windward Audio, support@windwardaudio.com).
+- [ ] GarageBand and Logic list **Windward Audio → DUNGEON CRAWLER** and **Windward Audio →
+      DUNGEON CRAWLER FX**, each once; nothing is listed under the old company name.
+- [ ] Logic → Plug-in Manager shows version 1.0.0 for both.
+- [ ] The project saved with the earlier build opens with the same places, faders and sound.
+- [ ] Presets saved earlier appear under "Your presets" in both plug-ins; "Show presets
+      folder" opens `~/Library/Windward Audio/DUNGEON CRAWLER[ FX]/Presets`; the old folder
+      `~/Library/Application Support/DungeonCrawler` is still there.
+- [ ] Logic's own presets saved earlier appear in its preset menu for each plug-in.
+- [ ] Uninstall as the Read Me says: both plug-ins disappear from the hosts after a restart.

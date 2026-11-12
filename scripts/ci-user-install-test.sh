@@ -79,10 +79,12 @@ rosetta=0
 [[ $rosetta == 1 ]] || { echo "::error::Rosetta unavailable: the x86_64 slices were not validated"; status=1; }
 samples_flag=""
 [[ "${DC_REQUIRE_SAMPLES:-0}" == 1 ]] && samples_flag="--require-samples"
-for entry in "fx aufx Dgcr $harness" "instrument aumu Dgci $instrument_harness"; do
-    read -r tag type subtype binary <<< "$entry"
-    extra=""
-    [[ $tag == instrument ]] && extra="$samples_flag"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+for entry in "fx aufx Dgcr $harness session-pre-1.0-fx.xml" "instrument aumu Dgci $instrument_harness session-pre-1.0-instrument.xml"; do
+    read -r tag type subtype binary fixture <<< "$entry"
+    # 1.0.0: every harness run also restores a host session saved before 1.0 (Tests/fixtures).
+    extra="--old-session $here/Tests/fixtures/$fixture"
+    [[ $tag == instrument ]] && extra="$extra $samples_flag"
     # shellcheck disable=SC2086  # $strict is empty or one flag
     run_check "auval-$tag-arm64" /usr/bin/arch -arm64 /usr/bin/auval $strict -v "$type" "$subtype" Veil
     # shellcheck disable=SC2086  # $extra is empty or one flag

@@ -4,6 +4,7 @@
 #include "World/Presets.h"
 #include "Instrument/Presets.h"
 #include "Instrument/DungeonSynthFit.h"
+#include "UserData.h"
 #include <cmath>
 #include <optional>
 
@@ -27,6 +28,8 @@ DungeonCrawlerProcessor::DungeonCrawlerProcessor(PluginKind k)
       pluginKind(k),
       parameters(*this, nullptr, "DUNGEON_CRAWLER", dc::createParameterLayout([this] { return locationIndex(); }, instrumentNames(k),
                                                                          { [this](float v) { return punchShownDb(v); }, [this](float db) { return punchFromDb(db); } })) {
+    // 1.0: copy the presets and scenes from the folders used before 1.0, once (UserData.h).
+    dc::userdata::migrateOnce(isInstrument());
     location = parameters.getRawParameterValue(dc::ids::location);
     subLocation = parameters.getRawParameterValue(dc::ids::subLocation);
     intensity = parameters.getRawParameterValue(dc::ids::intensity);
@@ -366,11 +369,8 @@ void DungeonCrawlerProcessor::applyFactoryPreset(int index) {
 }
 
 juce::File DungeonCrawlerProcessor::userPresetFolder() const {
-    auto base = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
-   #if JUCE_MAC
-    base = base.getChildFile("Application Support");
-   #endif
-    return base.getChildFile("DungeonCrawler").getChildFile("Presets");
+    // 1.0: ~/Library/Windward Audio/DUNGEON CRAWLER[ FX]/Presets (Source/UserData.h).
+    return dc::userdata::presetsFolder(isInstrument());
 }
 
 bool DungeonCrawlerProcessor::saveUserPreset(const juce::String& name) {

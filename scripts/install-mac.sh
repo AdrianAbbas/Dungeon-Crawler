@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Install DUNGEON CRAWLER (the instrument) and DUNGEON CRAWLER FX (the effect) for the
-# current user and make sure macOS will load them.
+# current user and make sure macOS will load them. Developer package only (CI artifact
+# DUNGEON-CRAWLER-dev-macOS): customers install "DUNGEON CRAWLER.pkg" instead.
 #
 # Run it from the unzipped DungeonCrawler-macOS-Universal folder:
 #     bash install-mac.sh
@@ -33,7 +34,7 @@ for arg in "$@"; do
     case "$arg" in
         --ci) ci=1 ;;
         --out-of-process) out_of_process=1 ;;
-        -h|--help) /usr/bin/sed -n '2,23p' "${BASH_SOURCE[0]}"; exit 0 ;;
+        -h|--help) /usr/bin/sed -n '2,26p' "${BASH_SOURCE[0]}"; exit 0 ;;
         *) echo "Unknown option: $arg" >&2; exit 64 ;;
     esac
 done
@@ -137,7 +138,7 @@ for entry in "${plugins[@]}"; do
         fi
         sleep 1
     done
-    if [[ $registered == 1 ]]; then ok "macOS lists $type $subtype Veil ($name)"; else fail "$name ($type $subtype Veil) is not listed by the Audio Unit registry after 30 s"; fi
+    if [[ $registered == 1 ]]; then ok "macOS lists $name ($type $subtype)"; else fail "$name ($type $subtype) is not listed by the Audio Unit registry after 30 s"; fi
 done
 
 bold "5. Validating with Apple's auval"
@@ -172,18 +173,18 @@ cat <<'NEXT'
     2. Quit and reopen GarageBand.
     3. The instrument: make a Software Instrument track, open the Library (Y) or the
        track's instrument slot in Smart Controls (B) > Plug-ins > Instrument:
-       Audio Units > Veil Audio > DUNGEON CRAWLER. Play your keyboard or the piano roll.
+       Audio Units > Windward Audio > DUNGEON CRAWLER. Play your keyboard or the piano roll.
     4. The effect: on any track, Smart Controls (B) > Plug-ins > an empty Audio Effect
-       slot: Audio Units > Veil Audio > DUNGEON CRAWLER FX.
+       slot: Audio Units > Windward Audio > DUNGEON CRAWLER FX.
     5. If the window shows sliders instead of the painted interface, use the view menu
        at the top of the plug-in window to switch from "Controls" to "Editor".
   Logic Pro
-    1. Logic Pro > Settings > Plug-in Manager, find Veil Audio > DUNGEON CRAWLER and
+    1. Logic Pro > Settings > Plug-in Manager, find Windward Audio > DUNGEON CRAWLER and
        DUNGEON CRAWLER FX. If one shows as failed, select it and click
        "Reset & Rescan Selection".
     2. The instrument: a Software Instrument track's Instrument slot:
-       AU Instruments > Veil Audio > DUNGEON CRAWLER.
-    3. The effect: any track's Audio FX slot: Audio Units > Veil Audio > DUNGEON CRAWLER FX.
+       AU Instruments > Windward Audio > DUNGEON CRAWLER.
+    3. The effect: any track's Audio FX slot: Audio Units > Windward Audio > DUNGEON CRAWLER FX.
 NEXT
 if [[ $result == 0 ]]; then
     bold "DUNGEON CRAWLER and DUNGEON CRAWLER FX are installed and validated."
