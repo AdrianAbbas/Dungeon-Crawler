@@ -437,6 +437,17 @@ float DungeonSynthModern::runHall(float in, float& outR, const Derived& d) noexc
 
 void DungeonSynthModern::process(float* l, float* r, int n) noexcept {
     float hallPeak = 0;
+    // In silence, with no hall ringing, the controls jump to their targets (nothing can click): a
+    // stage switched on before the music starts is at its amount for the first note.
+    if (!hallRinging && amount.value != targetAmount) {
+        float peak = 0;
+        for (int i = 0; i < n; ++i) peak = std::max({ peak, std::abs(l[i]), std::abs(r[i]) });
+        if (peak < 1.0e-6f) {
+            amount.snap(targetAmount);
+            chorusAmount.snap(targetChorus);
+            send.snap(targetSend);
+        }
+    }
     int at = 0;
     while (at < n) {
         const int m = std::min(controlBlock, n - at);
@@ -570,7 +581,7 @@ void DungeonSynthModern::process(float* l, float* r, int n) noexcept {
                 hallCtl += (wanted < hallCtl ? ctlDown : ctlUp) * (wanted - hallCtl);
                 const float g = hallOnly ? sendNow : sendNow * hallCtl;
                 if (hallOnly) yl = yr = 0.0f;
-                // The fast ceiling hears the chain and 3/4 of the hall: at a new note the last
+                // The fast ceiling hears the chain and half of the hall: at a new note the last
                 // one's tail is not taken for an overshoot (hearing all of it, it ducked every onset
                 // by 4 dB on a low reed; hearing none, the hall built up 2 dB within a phrase).
                 const float dl = weightShelf[4].process(weightHigh2[4].highPass(weightHigh[4].highPass(yl)));
@@ -634,7 +645,7 @@ void DungeonSynthModern::process(float* l, float* r, int n) noexcept {
                 // Its loud moments against the input's (both held, 1.5 s): loudness is what the loud
                 // moments are, and the hall and the tape even the level out between them.
                 if (playing && outHold > 1.0e-12f) gainTarget = std::clamp(std::sqrt(refHold / outHold), 0.25f, 2.0f);
-                const float heard = 0.25f * directFast + 0.75f * outFast;   // the chain, and three quarters of the hall
+                const float heard = 0.5f * (directFast + outFast);   // the chain, and half of the hall
                 if (playing && heard > 1.0e-12f) ceilingTarget = std::clamp(std::sqrt(1.122f * refFast / heard), 0.25f, 2.0f);
             }
             gain += glideCoefficient * (gainTarget - gain);
