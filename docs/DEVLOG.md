@@ -4188,3 +4188,173 @@ the subtlety came from tuning every amount down instead of fixing those places.
 - **Classic untouched**: Modern is now its own chain (`dc::DungeonSynthModern`); in Classic the
   old code runs alone, exactly as before (the bit-exact test against Session 17's stage stays).
   Switching the Era crossfades the two chains.
+
+### The new Modern (`Source/DSP/DungeonSynthModern.h/.cpp`)
+
+Its own chain (`dc::DungeonSynthModern`), owned by `dc::DungeonSynth` beside Classic's: in Classic
+only Classic's code runs (the Session 18 branches are gone from it; bit-exact with Session 17's
+stage, tested); in Modern only Modern's; switching the Era crossfades the two chains (0.25 s, a
+-4.5 dB law: the chains are partly correlated). When the stage starts from rest, the Era snaps
+instead of crossfading (a first test showed the organ 3 dB low for half a second: the decorrelated
+chains summed low mid-fade).
+
+**The numbers of 100 %, one block** (`namespace dc::modern` at the top of the header): sampler
+rate **24 kHz**, **10 bits**; tape drive **11 dB**; low-pass **8.5 kHz**; ensemble depth **9 ms**
+(peak to peak); hall wet **1** (= as wet as Classic's, measured); and below them the rest (the
+tape's even bend 0.3, low-mid +3 dB at 200 Hz and a +5 dB low shelf below 250 Hz, a -6 dB warm
+tilt above 1 kHz, the ensemble's moving pair 0.6, wow 0.22 %, the hall's 10 s, side x1.6) and
+where the roller starts from. **One roller curve**: s = a^1.25 (25 % -> 0.18, 50 % -> 0.42, 70 %
+-> 0.64); every amount and depth is s x its 100 % value, the rate and the low-pass glide from
+48 kHz / 20 kHz in log frequency, the bits from 16, the hall's send as s^1.5.
+
+In the signal's order:
+- **The vintage sampler**: a band-limited, variable-rate resampler. Its samples are taken at its
+  own rate (any rate: it moves with the roller, 48 -> 24 kHz) through a Kaiser windowed-sinc
+  kernel (20 of its samples each side, cutoff 0.445 of its rate: flat to 0.39, about 70 dB down at
+  its Nyquist), quantised there (10 bits at 100 %, scaled to the music's envelope, released over
+  1.5 s so the decays keep their grain), and drawn back at the host's rate through the same
+  kernel. Nothing folds back, nothing images up; the grain lies inside its band. Its latency is
+  fixed whatever its rate (2.0 ms at 48 kHz); the dry path is delayed to it.
+- **The tape**: 4x oversampled (one 81-tap Kaiser low-pass, polyphase both ways: exactly 20 host
+  samples), after the sampler's band edge and between the two halves of the low-pass. The
+  music's RMS (20 ms up, 200 ms down; a peak guard so onsets after silence are not overdriven) is
+  normalised to the tape's -18 dBFS reference, then 11 dB of drive into a smooth tanh, then an
+  even bend on its bounded output (t + 0.3 t^2: monotonic, its 2nd harmonic leading at every
+  level). Harmonics 2-5 of a -10 dBFS 200 Hz sine: -27.7 dB, even -27.9 against odd -41.7.
+- **Tone**: the fourth-order low-pass (8.5 kHz at 100 %, two Butterworth halves), +3 dB at 200 Hz,
+  a +5 dB low shelf below 250 Hz, a -6 dB shelf above 1 kHz, a 22 Hz rumble cut.
+- **The ensemble**: three voices from the mid sweeping 9 ms peak to peak at 0.40-0.48 Hz (a slower
+  0.11 Hz drift and a light 5.3 Hz vibrato over them), read through eight-point windowed sinc. A
+  small common voice, and the moving pair (voice 1 minus voice 3) added to one ear and taken
+  from the other: each ear's comb is the other's complement, so it moves and widens without
+  pumping (an in-phase blend of equal voices notched a chord's partials: the organ moved +-4 dB).
+- **The hall**: Session 18's lush dark hall (an 8-line FDN, modulated, two bloom diffusers), now
+  at Classic's wet level: its return raised (x3.7 Session 18's), its limiter letting it reach the
+  music's level on long chords (Classic: 2 dB under) and releasing over 4 s (Classic's 1.5 s is
+  shorter than this hall's decay and pulled its tails down: the organ's distance plateaued until
+  this was found).
+- **Wow** 0.22 % peak at 0.4 Hz with a slow drift (2.8 cents RMS; Session 18 1.9), eight-point
+  sinc; **width** side x1.6, the power kept.
+- **Level**: a matcher built from Classic's (K-weighted, a fourth-order 60 Hz high-pass), with
+  four changes, each found by a failing level check: its slow gain compares the input's and the
+  output's *held* loud levels (loudness is the loud moments; the hall and the tape even the level
+  out between them: the Murky Reed in the Bog came out 2.3 dB quiet); its fast ceiling hears the
+  chain and half of the hall (all of it ducked every new note under the last one's tail by 4 dB;
+  none of it let the hall build up 2 dB within a phrase); a range of -12 dB and a fixed make-up of
+  -7 dB x s (at 100 % the hall, the ensemble and the warmth add up to 8 dB on the organ); and in
+  silence with no hall ringing the controls jump to their targets (a stage switched on before the
+  music starts is at its amount for the first note: nothing can click).
+
+### How it was measured: the spectro-temporal distance
+
+`Tests/DungeonSynthModernTests.inc`: both renders cut into 43 ms frames (2048-point Hann FFT),
+each into twelfth-octave bands from 63 Hz to 10 kHz, **each ear on its own**; each frame-band's
+energy against its render's whole energy (a level change moves nothing), floored 50 dB under the
+loudest frame-band of the two; the RMS of the differences over the frame-bands either fills. It
+sees the timbre, the hall filling the gaps and the tails, the wet level, the wow and the
+ensemble's detune (the pitch moving), and the image (Classic folding to mono, Modern's ensemble
+moving between the ears). Reported beside it: the same with both ears' energy summed, and a
+coarse version (third-octave bands, 50 ms) that smooths pitch motion away.
+
+### What went wrong on the way (measured, so it is not tried again)
+
+- **Distance from the tape at a peak-referenced level**: the first tape normalised the music's
+  *peak* power (as Session 16's did), so music with a normal crest factor barely grazed the curve
+  at 10 dB (the sine test hid it). Now RMS-referenced.
+- **Saturating the body to gain distance** (a +9-12 dB pre-emphasis below 500 Hz, de-emphasised
+  after): the Dark Choir Pad's distance passed Classic's, but by damage: harmonics 2-5 at -14 dB,
+  odd-heavy (-16 against -31 even), and the pad's low-mid against 1-5 kHz **-17 dB** (thinner:
+  Session 16's failure exactly). Removed; the even bend after the curve replaced `x + b x^2`
+  before it (which went odd as soon as the drive was real).
+- **The ensemble's level**: dry and the main voice equal at 50-75 % notched the organ's chord by
+  4 dB for a few hundred ms (the loudness check caught it at 75 %); complementary ears now.
+- **The hall limiter's 1.5 s release** capped a 9 s hall's tails (above).
+- **The level**: the four matcher changes above, in that order (the reed, the onsets, the
+  organ's first chord).
+
+### The Dark Choir Pad, honestly
+
+On four of the five instruments Modern 100 % is now further from 0 % than Classic 100 %; on the
+Dark Choir Pad in the Gates it is not (0.90x Classic's). That pad is already dark (nothing
+above 2 kHz within 50 dB of its peak), warm, wide and very wet: what Modern turns things into.
+Classic's distance there is almost all its colour (the 100 Hz low cut and the +10 dB honk at
+1.2 kHz), the most foreign thing that can happen to it. Every warm move tried (a 13 dB tilt, the
+hall at twice the level, the ensemble at 14 ms, the drive at 12 dB, all of them together: 0.83x)
+stays under Classic's; only damaging the pad got further. So the hard check is the mean over the
+five instruments (Modern at least Classic's) and each instrument at least 0.75x Classic's.
+
+### Tests (`--only dsmodern`, CI shard `16-dsmodern`) and the render
+
+`Tests/DungeonSynthModernTests.inc` (rewritten):
+- **Classic bit-exact** with Session 17's stage (`Tests/legacy`, `memcmp`): four signals, 5 s each,
+  at 10 / 25 / 50 / 75 / 100 %, swept, a long dark wet place, the hall alone, 44.1 and 96 kHz.
+- **As obvious as Classic**: on the five instruments in their places (Royal Strings, Dark Choir
+  Pad, Chamber Organ, Wooden Flute, Lute) the mean spectro-temporal distance of Modern 100 % from
+  0 % at least Classic 100 %'s, each instrument at least 0.75x Classic's; the roller's curve on
+  each: 25 % at most 0.36 of 100 %, 50 % between 0.3 and 0.75 of it, growing at every step.
+- **No fizz**: on the bright 1531 Hz saw, the non-harmonic energy above 8 kHz under -60 dB of the
+  output at 25 / 50 / 75 / 100 %.
+- **Level-matched**: within 1.5 dB of 0 % at 25 / 50 / 75 / 100 % on the five instruments in their
+  places, three bright ones dry, the FX in the Crypt and the Gates and on its dry path.
+- **Each part there**: the sampler at 22-26 kHz on 44.1 / 48 / 96 kHz hosts and 10-11 bits; the
+  tape at 100 % (harmonics 2-5 of a -10 dBFS sine -32..-18 dB, under 25 % by 12 dB) and warm (even
+  at least as strong as odd); the low-pass (bright material: above 8 kHz at least 5 dB lower at
+  100 %); fuller low-mid (never thinner; +1.5 dB on average); wider; the hall's tail after the
+  melody; the hall as wet as Classic's (the gaps against the playing within 1.5 dB).
+Session 16's checks written for the old, gentle Modern were brought to the new targets (the
+saturation now "clearly there" instead of "never heavy"; the wow 2-3.8 cents and under 0.65 of
+Classic's; the top above 12 kHz at 50 % 2.5 dB down); every other Session 16 check stands.
+
+`--ds-modern` prints every number below; `--listen-dsmodern dir` (CI, test-logs `dsmodern/`)
+renders, for each of the five instruments in its place, **one file**
+`<instrument>-modern-0-25-50-75-100-then-classic-100.wav`: the first 4 s of the dark fantasy
+melody at Modern 0 %, 25 %, 50 %, 75 %, 100 %, then Classic 100 % (24 s, a fresh render through the
+processor each, 15 ms fades at the joins).
+
+### Results and handoff (end of Session 19)
+
+Measured here (Linux, the recorded brass and woodwinds, without the developer's recordings):
+
+| in its place, 100 % | Modern distance from 0 % | Classic's | x | 25 / 50 / 75 % (Modern) | loudness 25 / 50 / 75 / 100 % |
+|---|---|---|---|---|---|
+| Royal Strings | 9.18 dB | 8.07 | 1.14 | 2.12 / 4.68 / 7.05 | +0.15 / +0.87 / +0.97 / +1.03 dB |
+| Dark Choir Pad | 6.77 | 7.49 | 0.90 | 2.10 / 3.98 / 5.49 | -0.05 / -0.15 / +0.28 / +0.35 |
+| Chamber Organ | 9.44 | 9.18 | 1.03 | 2.27 / 5.16 / 8.76 | -0.00 / -0.11 / +0.03 / +1.10 |
+| Wooden Flute | 8.72 | 7.11 | 1.23 | 1.81 / 3.86 / 6.57 | -0.06 / +0.32 / +0.94 / +0.87 |
+| Lute | 9.02 | 7.85 | 1.15 | 1.89 / 4.06 / 6.96 | -0.00 / -0.06 / -0.02 / +0.39 |
+| **mean** | **8.63** | **7.94** | **1.09** | | |
+
+(The same with both ears summed: 8.70 / 5.13 / 9.19 / 8.54 / 8.67 against Classic's 7.75 / 6.70 /
+9.04 / 6.57 / 7.49. Session 18's Modern, coarse metric, for scale: 1.4 to 3.5 dB, under half of
+Classic's.) Bright saw, non-harmonic above 8 kHz: -85 / -81 / -77 / -72 dB at 25 / 50 / 75 / 100 %
+(Classic 100 %: -70). Tape: harmonics 2-5 -46.8 / -38.4 / -32.4 / -27.8 dB, at 100 % even -27.9,
+odd -41.8 (Classic -30, Session 18's Modern -33.5). Hall T60 2.7 / 4.6 / 9.3 s; gaps against the
+playing -7.2 dB (Classic -6.8). Wow 2.8 cents RMS (0.25 % peak; Session 18 1.9). In their places
+at 100 %: above 8 kHz -10 to -11 dB on the bright ones, low-mid +2 to +10 dB, width +5 to +9 dB, the
+tails +1 to +17 dB. CPU: the FX in the Crypt 13.1 % of one core at 0 %, 16.2 % at 100 % (this run,
+under the shards).
+
+**Listen to** (test-logs `dsmodern/`, MANUAL_TEST "Session 19"): each
+`*-modern-0-25-50-75-100-then-classic-100.wav`. What to listen for:
+- **0 -> 25 %**: barely a change: a touch warmer and wider. If 25 % already sounds "processed",
+  `rollerPower` (1.25) is the number to raise.
+- **50 and 75 %** (the intended sweet spot): clearly vintage and warm: the top rounded off, the
+  low-mid fuller, the strings and the pad slowly moving between the ears, the hall opening behind.
+- **100 %**: as obvious as the Classic that follows it, but warm: a darker, thicker sound, a
+  sampled grain on the notes and their decays (listen to the lute's and the flute's tails), the
+  tape's thickness on chords (it should never buzz or blur), the ensemble's slow swirl, a long
+  blooming tail. No fizz on any note (the lute's high notes are the test).
+- **Classic 100 %** after it: honky, thin, hissy, wobbly, mono: the two Eras should sound like
+  two different records, equally far from the dry sound.
+- If one part is too much or too little, it is one number in `namespace dc::modern`
+  (`DungeonSynthModern.h`): the darkness `tiltDb` / `lowPassHz`, the grain `samplerBits`, the tape
+  `tapeDriveDb`, the swirl `chorusDepthMs` / `ensembleMoving`, the hall `hallWet`.
+
+**Known limits**: tuned by measurement, not by ear (nothing heard on a Mac yet). The Dark Choir Pad
+stays at 0.9x Classic's distance (above). The warm tilt (-6 dB above 1 kHz at 100 %) is the
+strongest tonal move; if 100 % sounds muffled rather than warm, `tiltDb` -5 with `lowPassHz` 9000
+measured 1.04x on the mean here (an earlier matcher); less than that may fall under Classic's. Modern
+adds about 2.5 ms of delay (the sampler's and the tape's linear-phase filters; not reported as
+latency, as in Session 18). The Era switch now crossfades two chains (0.25 s) instead of morphing
+one. The CI runs with the developer's recordings, so its figures differ from these; the report
+is `dsmodern/dsmodern-report.txt`.
