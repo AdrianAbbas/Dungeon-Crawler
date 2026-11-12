@@ -37,6 +37,7 @@ wait
 # Session 15: DUNGEON SYNTH (the null test at 0 %, what each Era does, levels, clicks; alone too).
 "$tests" --only dungeonsynth > "$logs/14-dungeonsynth.txt" 2>&1
 # Session 18: DUNGEON SYNTH's Modern rebuilt (Classic bit-exact with Session 17; alone too).
+# Session 19: Modern rebuilt again, as obvious as Classic (the same shard).
 "$tests" --only dsmodern > "$logs/16-dsmodern.txt" 2>&1
 # Session 17: the recorded woodwinds (VSCO 2 CE, CC0; alone too, like the recorded brass).
 "$tests" --only realwinds > "$logs/15-realwinds.txt" 2>&1

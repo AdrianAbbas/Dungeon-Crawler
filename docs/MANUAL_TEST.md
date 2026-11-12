@@ -520,7 +520,19 @@ The developer heard almost no difference in Session 15 (the place covered the st
 - [ ] Listen: test-logs `dungeonsynth/`: each instrument's `-ab-0-classic100-modern100.wav`
       first (0 %, Classic 100 %, Modern 100 % back to back), then `-classic-50`, `-modern-50`.
 
-## Session 18: DUNGEON SYNTH Modern, a lush warm vintage sampler
+## Session 19: DUNGEON SYNTH Modern, as obvious as Classic, warm instead of grimy
+
+- [ ] Listen: test-logs `dsmodern/`: each `*-modern-0-25-50-75-100-then-classic-100.wav` (4 s
+      each: Modern 0 %, 25 %, 50 %, 75 %, 100 %, then Classic 100 %). At 100 % Modern should be
+      as obvious as the Classic 100 % that follows it, but warm and lush: the sampled grain on the
+      notes and their decays (never fizz), the tape's warmth and thickness, a darker, smooth top,
+      the ensemble moving across the stereo field, the hall blooming behind it. 25 %: subtle;
+      50-70 %: the sweet spot; 100 %: more than most music wants.
+- [ ] In a host: the Royal Strings, the Dark Choir Pad and the Lute, Modern 0 -> 100 % and back:
+      no jump in loudness, no click; flip the Era while it plays: a smooth crossfade.
+- [ ] Classic: exactly as before (bit for bit in the tests).
+
+## Session 18: DUNGEON SYNTH Modern, a lush warm vintage sampler (superseded by Session 19)
 
 - [ ] Listen: test-logs `dsmodern/`: each instrument's `-ab-0-modern-before-modern-after.wav`
       (0 %, Modern 100 % as in Session 17, Modern 100 % now, back to back), then

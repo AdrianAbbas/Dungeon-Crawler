@@ -245,10 +245,10 @@ jobs:
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-report > build/test-logs/dungeonsynth/dungeonsynth-report.txt || true
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-strength > build/test-logs/dungeonsynth/dungeonsynth-strength.txt || true
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-audit > build/test-logs/dungeonsynth/dungeonsynth-audit.txt || true
-      # Session 18: DUNGEON SYNTH Modern rebuilt as a lush, warm vintage sampler. The dark fantasy
-      # melody on five instruments in their places, Modern 100 % before (Session 17) and after, an
-      # A/B file each (0 %, before, after), after at 25 and 50 %, and the numbers.
-      - name: Listening renders (dungeon synth Modern before and after, WAV)
+      # Session 19: DUNGEON SYNTH Modern rebuilt, as obvious as Classic, warm instead of grimy. The
+      # dark fantasy melody on five instruments in their places, one file each: 4 s each of Modern
+      # 0, 25, 50, 75 and 100 %, then Classic 100 % to compare; and the numbers.
+      - name: Listening renders (dungeon synth Modern stepped 0 to 100 percent, then Classic 100 percent, WAV)
         if: always()
         run: |
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-dsmodern build/test-logs/dsmodern

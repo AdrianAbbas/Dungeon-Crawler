@@ -460,7 +460,7 @@ Index::Index(bool instrumentPlugin) : forInstrument(instrumentPlugin) {
             const bool modern = get("dungeonSynthEra", 0.0f) >= 0.5f;
             addUnique(e.tags, { "dungeon synth", "lo-fi", "lofi", "retro" });
             addUnique(e.tags, modern ? std::vector<std::string> { "tape", "warm", "chorus", "wide" } : std::vector<std::string> { "cassette", "tape", "90s", "bitcrush", "mono" });
-            e.description += std::string(" Dungeon synth, ") + (modern ? "Modern (a lush, warm vintage sampler, warm tape, a wide ensemble chorus, a long dark hall that blooms)"
+            e.description += std::string(" Dungeon synth, ") + (modern ? "Modern (a lush, warm vintage sampler, warm tape, a deep ensemble chorus, wide, a long dark hall that blooms)"
                                                                          : "Classic (the 90s cassette demo: a crushed sampler, wow, hiss, nearly mono, a big grainy hall)")
                              + ", " + std::to_string(int(std::lround(ds * 100))) + " %.";
         }

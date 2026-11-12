@@ -14,7 +14,7 @@
 //   DungeonCrawlerTests --listen-dungeonsynth dir  Session 15: the dark fantasy melody on five instruments at 0 / 50 / 100 %, Classic and Modern
 //   DungeonCrawlerTests --ds-report | --ds-hashes | --ds-snapshots dir   Session 15: the numbers, the null-test hashes, the control's snapshots
 //   DungeonCrawlerTests --ds-audit | --ds-strength | --ds-places   Session 16: what of DUNGEON SYNTH reaches the output; the numbers behind the strength checks
-//   DungeonCrawlerTests --ds-modern | --listen-dsmodern dir   Session 18: Modern's numbers; Modern before / after on five instruments
+//   DungeonCrawlerTests --ds-modern | --listen-dsmodern dir   Session 19: Modern's numbers; Modern 0 -> 100 % then Classic, five instruments
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 #include "UI/Scenes.h"

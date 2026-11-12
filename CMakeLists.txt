@@ -34,7 +34,7 @@ set(DC_SOURCES
     Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/Engine.cpp
     Source/DSP/Abyss.cpp Source/DSP/AncientBlood.cpp Source/DSP/Choir.cpp
     Source/DSP/Wraith.cpp Source/DSP/Echoes.cpp Source/DSP/Crypt.cpp
-    Source/DSP/Relics.cpp Source/DSP/Signature.cpp Source/DSP/Vault.cpp Source/DSP/Convolver.cpp Source/DSP/Ensemble.cpp Source/DSP/Atmosphere.cpp Source/DSP/DungeonSynth.cpp Source/World/Locations.cpp Source/World/Search.cpp
+    Source/DSP/Relics.cpp Source/DSP/Signature.cpp Source/DSP/Vault.cpp Source/DSP/Convolver.cpp Source/DSP/Ensemble.cpp Source/DSP/Atmosphere.cpp Source/DSP/DungeonSynth.cpp Source/DSP/DungeonSynthModern.cpp Source/World/Locations.cpp Source/World/Search.cpp
     Source/Instrument/SampleBank.cpp Source/Instrument/Synth.cpp Source/Instrument/Designs.cpp Source/Instrument/Captures.cpp Source/UI/InstrumentPanel.cpp
     Source/UI/EngravedLookAndFeel.cpp Source/UI/Engraving.cpp Source/UI/Scenes.cpp Source/UI/ScenePlaces.cpp Source/UI/SceneCache.cpp
     Source/UI/Painted.cpp Source/UI/SearchPanel.cpp Source/UI/MixPanel.cpp)

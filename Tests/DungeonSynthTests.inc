@@ -755,10 +755,11 @@ void testDungeonSynth(Suite& s) {
                 fmt(m.rate44, 0) + " / " + fmt(m.rate48, 0) + " Hz");
         s.check(m.alias[0] > -15.0 && m.alias[1] < -40.0, "aliasing: a 9 kHz tone folds to 4 kHz in Classic (heard), not in Modern",
                 "Classic " + fmt(m.alias[0]) + " dB, Modern " + fmt(m.alias[1]) + " dB of the output");
-        // Session 18: Modern's tape is warm and gentle (Session 16's rich, heavy saturation, -21 dB
-        // here, blurred every chord: the "low quality" Modern); Classic's unchanged.
-        s.check(m.harmonics[1][2] > -40.0 && m.harmonics[1][2] < -26.0 && m.harmonics[1][0] < m.harmonics[1][2] - 6.0 && m.harmonics[0][2] > -34.0,
-                "saturation (a -10 dBFS sine, harmonics 2-5): Modern warm and gentle (present, never heavy), subtle at 25 %; Classic's grit",
+        // Session 19: Modern's tape clearly heard at 100 % (10-12 dB of drive, even harmonics: the
+        // dsmodern group checks their balance), subtle at 25 %. (Session 16's -21 dB came from
+        // odd-heavy saturation at the host's rate, with fizz; Session 18's -33.5 was nearly inaudible.)
+        s.check(m.harmonics[1][2] > -32.0 && m.harmonics[1][2] < -18.0 && m.harmonics[1][0] < m.harmonics[1][2] - 10.0 && m.harmonics[0][2] > -34.0,
+                "saturation (a -10 dBFS sine, harmonics 2-5): Modern's warm tape clearly there at 100 %, subtle at 25 %; Classic's grit",
                 "Classic " + list3(m.harmonics[0]) + " | Modern " + list3(m.harmonics[1]) + " dB at 25 / 50 / 100 %");
         s.check(m.noise[0][2] > -50.0 && m.noise[0][2] < -40.0 && m.noise[0][1] < m.noise[0][2] - 6.0 && m.noise[0][0] < -60.0 && m.noise[1][2] < -60.0,
                 "tape hiss: about -45 dBFS at Classic 100 %, much less at 50 and 25 %, nearly none in Modern",
@@ -768,8 +769,9 @@ void testDungeonSynth(Suite& s) {
         s.check(cw.wowPeakPercent >= 0.3 && cw.wowPeakPercent <= 0.8 && cw.wow >= 4.0 && cw.flutter >= 0.8,
                 "Classic 100 %: cassette wow (0.3-0.8 % deep, slow) and flutter on a held 1 kHz tone",
                 "wow " + fmt(cw.wow, 2) + " cents RMS (" + fmt(cw.wowPeakPercent, 3) + " % peak), flutter " + fmt(cw.flutter, 2) + " cents RMS");
-        s.check(mw.wow >= 0.8 && mw.wow <= 3.0 && mw.wow < 0.5 * cw.wow && mw.flutter < 0.5 * cw.flutter && m.wow[0][0].wow < 0.35 * cw.wow,
-                "Modern 100 %: a slight slow wow (far less than Classic); Classic 25 % only a hint",
+        // (Session 19: Modern's wow a little more than Session 18's 1.9 cents RMS.)
+        s.check(mw.wow >= 2.0 && mw.wow <= 3.8 && mw.wow < 0.65 * cw.wow && mw.flutter < 0.5 * cw.flutter && m.wow[0][0].wow < 0.35 * cw.wow,
+                "Modern 100 %: a slow wow (less than Classic's); Classic 25 % only a hint",
                 "Modern wow " + fmt(mw.wow, 2) + ", flutter " + fmt(mw.flutter, 2) + "; Classic 25 % wow " + fmt(m.wow[0][0].wow, 2) + " cents RMS");
         s.check(m.t60[0][2] >= 3.0 && m.t60[1][2] >= 7.0 && m.t60[1][2] >= m.t60[0][2] + 3.0 && m.t60[0][1] < m.t60[0][2] && m.t60[1][1] < m.t60[1][2],
                 "the hall: big in Classic, very long in Modern (T60), shorter towards 0 %",
@@ -812,7 +814,7 @@ void testDungeonSynth(Suite& s) {
             s.check(b.top12[0][2] <= -10.0 && b.top12[0][1] <= -7.0 && b.top8[0][2] <= -12.0 && b.top8[0][1] <= -6.0,
                     b.name + ": Classic rolls off the top (the cassette's 5.5 kHz)",
                     "above 8 kHz " + list3(b.top8[0]) + ", above 12 kHz " + list3(b.top12[0]) + " dB at 25 / 50 / 100 %");
-            s.check(b.top12[1][2] <= -5.5 && b.top12[1][1] <= -3.5, b.name + ": Modern softens the top (10 kHz)", "above 12 kHz " + list3(b.top12[1]) + " dB at 25 / 50 / 100 %");
+            s.check(b.top12[1][2] <= -8.0 && b.top12[1][1] <= -2.5, b.name + ": Modern softens the top (its 9 kHz low-pass)", "above 12 kHz " + list3(b.top12[1]) + " dB at 25 / 50 / 100 %");
         }
     }
     {

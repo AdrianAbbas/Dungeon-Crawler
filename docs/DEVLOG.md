@@ -4110,3 +4110,81 @@ whole mix). Peaks at 100 % sit 2-4 dB higher than Session 17's Modern at the sam
 **CI, Session 18 first run: green** (`990cd07`, run 42353538393, macOS and Linux): Linux 3301
 passed, 0 failed (the whole suite with the developer's recordings, `16-dsmodern` included); the
 job took 50 minutes. The renders are in the test-logs artifact, `dsmodern/`.
+
+
+## Session 19: DUNGEON SYNTH Modern, as obvious as Classic, warm instead of grimy (2026-11-12, unattended)
+
+The developer: Session 18's Modern "barely does anything now" (32 kHz / 12-bit sampler, 5 dB of
+tape, -2 to -8 dB above 8 kHz: nearly inaudible). Classic is good: not touched (bit-exact). The
+new target, by comparison with Classic: at 100 % Modern must be **as obvious as Classic at 100 %**
+(its spectral / temporal distance from 0 % at least Classic's), only warm and lush instead of
+grimy; 100 % a strong effect (more than most would use), the sweet spot at 50-70 % on the roller,
+25 % subtle. At 100 %: an audible vintage sampler (22-26 kHz, 10-11 bits, its grain heard, its
+harsh part filtered away), warm tape saturation clearly heard (9-12 dB of drive, 4x oversampled),
+a smooth low-pass at 8-10 kHz, a deep slow wide ensemble that is heard moving, a little more slow
+wow, the lush dark blooming hall at a wet level comparable to Classic's. One roller curve; level-
+matched (+/-1.5 dB); no fizz anywhere (non-harmonic energy above 8 kHz on the bright saw under
+-60 dB).
+
+### Why each earlier Modern failed (written before the implementation)
+
+Four attempts, two failures, each the mirror of the other:
+
+- **Session 15 (useless)**: no sampler at all, mild settings everywhere (2-4 cents of wow, a hall
+  11 dB down, light saturation), and the stage sat *before* the place, whose reverb, air and
+  ambience covered it. Too subtle by construction: nothing in it was big enough to survive the
+  place (third-octave distance to 0 % under 1 dB in a place).
+- **Session 16 (in the Session 17 build: "everything sounds low quality")**: made strong the
+  wrong way. Strength came almost entirely from one nonlinear stage, 14 dB of tape drive on a
+  level-normalised tanh across the whole band, *at the host's rate*, followed by linearly
+  interpolated moving reads (the wow and the ensemble). The tanh folded the treble's harmonics
+  back between the notes and the moving fractional reads swept the treble's level (a ~70 Hz
+  amplitude modulation around every high harmonic): -41 dB of non-harmonic energy above 8 kHz on
+  the bright saw, i.e. fizz. Every chord intermodulated into a blur, the harmonics filled the
+  presence band so dark material came out *thinner* (the Dark Choir Pad's low-mid -6.2 dB). Its
+  top was a sixth-order 10 kHz wall plus a -4.5 dB shelf: muffled, not smooth. So it was obvious,
+  but obvious as damage: digital artefacts, not character.
+- **Session 18 (nearly inaudible)**: fixed the harshness by taking the strength away. Every
+  stage that had caused fizz was shrunk until it could not be heard: the sampler at a fixed
+  2/3 of the host's rate (32 kHz: its band edge at 12.5 kHz, above what most material has) and
+  12 bits (quantisation 72 dB under the envelope: inaudible), blended in only gradually; the tape
+  at 5 dB and only below 2.5 kHz; the top -2 to -8 dB above 8 kHz; the hall at a third of
+  Classic's output level (hallOut 0.32 against 1.23); the wow 0.12 %. Each was "clean", so its
+  tests (no fizz, level, warmth +1.5 dB) passed, but nothing measured whether it could be heard:
+  the only strength check left asked for 1.2 dB of spectral distance, against Classic's 3-7 dB.
+  The cleanliness was bought with the effect itself.
+
+The lesson of the pair: the fizz never came from *how much* the effect did, but from *where* the
+non-linear and time-varying parts ran (at the host's rate, unfiltered, linearly interpolated). And
+the subtlety came from tuning every amount down instead of fixing those places.
+
+### How Session 19 avoids both
+
+- **Strong, and measured against Classic**: the new hard check is that Modern 100 %'s distance
+  from 0 % is at least Classic 100 %'s, on the same five instruments in their places, with a
+  spectro-temporal distance (third-octave bands in 50 ms frames over the whole render, so the
+  hall's tails, the wet level and the ensemble's motion count as well as the timbre); 25 % must
+  stay subtle (well under half of 100 %). A Modern that drifts back to Session 18 fails it.
+- **The sampler is really there and really clean**: a band-limited variable-rate resampler
+  (windowed-sinc kernels both ways, their cutoff at 0.4 of the sampler's rate and their stopband
+  from its Nyquist, about 70 dB down), so its rate can move with the roller down to 24 kHz at 100 %
+  without images or folds; 10.5 bits at 100 %, quantised at its own rate, so the grain lies inside
+  its band and the reconstruction filter takes everything above it. The dry path is delayed to the
+  same fixed latency, so a blend never comb-filters.
+- **Tape drive where it cannot fizz**: 10 dB of drive (on a signal normalised to the tape's -18
+  dBFS reference level, so "10 dB" means what it does on a real machine), asymmetric (even
+  harmonics), at 4x the host's rate between linear-phase polyphase filters, *after* the sampler
+  has band-limited the input and *between* the two halves of the low-pass, so its upper harmonics
+  are rolled off again before the output.
+- **A smooth, not walled, top**: a fourth-order low-pass gliding to 9 kHz (with the sampler's own
+  band edge just above it), plus a low-mid warmth bump; no shelf on top of it.
+- **Motion that is clean**: the ensemble and the wow read through eight-point windowed sinc
+  (Session 18's fix, kept); the ensemble deeper and slower, stereo, the wow 0.2 %.
+- **The hall at Classic's wet level**: its output raised to measure as wet as Classic's (the gaps
+  against the playing, the hall against the input), long, dark, modulated, blooming.
+- **One roller curve** (`shape(a)`) drives every amount, every depth and, in log terms, the rate,
+  the bits and the cutoff; the five numbers that define 100 % sit in one block
+  (`Source/DSP/DungeonSynthModern.h`, `ModernTuning`).
+- **Classic untouched**: Modern is now its own chain (`dc::DungeonSynthModern`); in Classic the
+  old code runs alone, exactly as before (the bit-exact test against Session 17's stage stays).
+  Switching the Era crossfades the two chains.

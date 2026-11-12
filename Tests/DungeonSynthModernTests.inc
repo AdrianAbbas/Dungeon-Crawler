@@ -1,17 +1,17 @@
-// Session 18: DUNGEON SYNTH's Modern rebuilt as a lush, warm vintage sampler (included by
-// DungeonCrawlerTests.cpp after DungeonSynthTests.inc; group "dsmodern", CI shard 16-dsmodern;
-// `--ds-modern` the numbers, `--listen-dsmodern dir` the before / after render).
+// DUNGEON SYNTH Modern (Session 19: as obvious as Classic, warm instead of grimy; Session 18's
+// file rewritten). Included by DungeonCrawlerTests.cpp after DungeonSynthTests.inc; group
+// "dsmodern", CI shard 16-dsmodern; `--ds-modern` the numbers, `--listen-dsmodern dir` the render.
 //
 // Classic is unchanged, bit for bit: the stage is compared sample for sample with the stage as
-// it was at the end of Session 17 (Tests/legacy, verbatim), which also renders Modern "before".
+// it was at the end of Session 17 (Tests/legacy, verbatim; Sessions 18 and 19 left Classic alone).
 #include "legacy/DungeonSynthS17.cpp.inc"
 
 namespace dsmodern {
 using namespace dstests;
 
 // One copy of the stage (now or Session 17's) on a signal, 64-sample blocks at `rate`, the
-// controls (and optionally a sweep of the amount, an Era switch, the place) set every block as
-// the processor does, the hiss before (as the processor adds it, before its place).
+// controls (and optionally a sweep of the amount, the place) set every block as the processor
+// does, the hiss before (as the processor adds it, before its place).
 struct Plan {
     float amount = 1;
     int era = 0;
@@ -50,9 +50,8 @@ bool identical(const effectstests::Take& a, const effectstests::Take& b) {
 }
 
 // A bright, band-limited saw (1531 Hz, every harmonic up to 23 kHz, 1/k): the harshest thing
-// a sampler meets. Its harmonics lie on a 1531 Hz grid that no sampling rate shares (a round
-// 1500 Hz would put a 30 or 36 kHz sampler's folds back on its own harmonics), so whatever the
-// stage folds back or images up (and its noise) lands between them.
+// a sampler meets. Its harmonics lie on a 1531 Hz grid that no sampling rate shares, so whatever
+// the stage folds back or images up (and its noise) lands between them.
 constexpr double f0 = 1531.0;
 Signal brightSaw(float amplitude = 0.25f) {
     return [amplitude](int, long long n, double sr) {
@@ -61,8 +60,8 @@ Signal brightSaw(float amplitude = 0.25f) {
         return float(amplitude * 0.55 * v);
     };
 }
-// Above `from` (8 kHz), what is not the saw's harmonics (+/-0.6 %: Modern's slow wow moves them
-// a little) against the whole output (dB): the aliasing, the images, the noise, the fizz.
+// Above `from` (8 kHz), what is not the saw's harmonics (+/-0.6 %: the slow wow moves them a
+// little) against the whole output (dB): the aliasing, the images, the noise, the fizz.
 double harshnessDb(const std::vector<float>& x, double from = 8000.0) {
     const auto p = spectrumOf(x, std::size_t(2 * 48000));
     const double all = bandPower(p, 20.0, 24000.0);
@@ -72,8 +71,7 @@ double harshnessDb(const std::vector<float>& x, double from = 8000.0) {
     const double above = bandPower(p, from, 24000.0) - harmonic;
     return 10.0 * std::log10(std::max(above, 1.0e-30) / std::max(all, 1.0e-30));
 }
-// The low-mid's warmth: the 160-500 Hz bands against the 1-5 kHz bands (dB, third-octave
-// bands): fuller below, as much as the level matcher and the music allow.
+// The low-mid's warmth: the 160-500 Hz bands against the 1-5 kHz bands (dB, third-octave bands).
 double lowMidDb(const std::vector<double>& bands) {
     double low = 0, upper = 0;
     for (std::size_t b = 0; b < bands.size(); ++b) {
@@ -84,24 +82,124 @@ double lowMidDb(const std::vector<double>& bands) {
     return 10.0 * std::log10(std::max(low, 1.0e-30) / std::max(upper, 1.0e-30));
 }
 
-// Everything the Session 18 checks and `--ds-modern` measure.
+// Session 19: how far two renders are apart, in spectrum AND in time (dB). Both are cut into short
+// frames, each frame into bands from 63 Hz to 10 kHz; every frame-band's energy is taken against
+// its render's whole energy (so a plain level change moves nothing), floored 50 dB under the
+// loudest frame-band of the two. The distance is the RMS of the differences over the frame-bands
+// either render fills. A different timbre counts (every frame's bands move), and so does what
+// happens in time: a hall filling the gaps and lengthening the tails, the wet level, an ensemble or
+// a wow moving the energy from frame to frame. `spectrogram(t, true)` (the check): 43 ms frames,
+// twelfth-octave bands, each ear on its own (what each ear hears: Classic's image folding to mono
+// counts, and so does Modern's ensemble, whose moving voices go into one ear and out of the other
+// so that the level does not pump); fine enough to see pitch moving, the wow and the ensemble's
+// detune, half of what each Era does. Reported beside it: the same with both ears' energy summed
+// (`spectrogram(t)`), and `frameBands` (50 ms, third-octave bands, summed: smooths pitch away).
+std::vector<std::vector<double>> frameBands(const effectstests::Take& t) {
+    constexpr int bands = 23;
+    const auto frame = std::size_t(0.05 * 48000);
+    const std::size_t frames = t.l.size() / frame;
+    std::vector<std::vector<double>> e(frames, std::vector<double>(bands, 0.0));
+    double total = 0;
+    for (int b = 0; b < bands; ++b) {
+        const double fc = 63.0 * std::pow(2.0, b / 3.0);
+        juce::IIRFilter f[4];
+        for (auto& x : f) x.setCoefficients(juce::IIRCoefficients::makeBandPass(48000.0, fc, 4.32));
+        for (std::size_t i = 0; i < frames * frame; ++i) {
+            const double a = f[1].processSingleSampleRaw(f[0].processSingleSampleRaw(t.l[i]));
+            const double c = f[3].processSingleSampleRaw(f[2].processSingleSampleRaw(t.r[i]));
+            e[i / frame][std::size_t(b)] += a * a + c * c;
+            total += a * a + c * c;
+        }
+    }
+    for (auto& row : e)
+        for (auto& v : row) v = 10.0 * std::log10(std::max(v, 1.0e-30) / std::max(total, 1.0e-30));
+    return e;
+}
+// The same at a finer grain: a spectrogram (2048-point Hann FFT, 2048-sample hops, about 43 ms),
+// its bins grouped into twelfth-octave bands from 63 Hz to 10 kHz (88 bands, L + R).
+std::vector<std::vector<double>> spectrogram(const effectstests::Take& t, bool perEar = false) {
+    constexpr int order = 11, size = 1 << order, bands = 88;
+    juce::dsp::FFT fft(order);
+    std::vector<float> buf(2 * size);
+    std::vector<std::vector<double>> e;
+    double total = 0;
+    for (std::size_t at = 0; at + size <= t.l.size(); at += size) {
+        std::vector<double> row(perEar ? 2 * bands : bands, 0.0);
+        int ear = 0;
+        for (const auto* x : { &t.l, &t.r }) {
+            const std::size_t offset = perEar && ear++ == 1 ? std::size_t(bands) : 0;
+            std::fill(buf.begin(), buf.end(), 0.0f);
+            for (int i = 0; i < size; ++i) buf[std::size_t(i)] = (*x)[at + std::size_t(i)] * float(0.5 - 0.5 * std::cos(2.0 * juce::MathConstants<double>::pi * i / size));
+            fft.performFrequencyOnlyForwardTransform(buf.data());
+            for (int k = 1; k < size / 2; ++k) {
+                const double hz = k * 48000.0 / size;
+                const int b = int(std::floor(12.0 * std::log2(hz / 63.0)));
+                if (b < 0 || b >= bands) continue;
+                const double p = double(buf[std::size_t(k)]) * buf[std::size_t(k)];
+                row[offset + std::size_t(b)] += p;
+                total += p;
+            }
+        }
+        e.push_back(row);
+    }
+    for (auto& row : e)
+        for (auto& v : row) v = 10.0 * std::log10(std::max(v, 1.0e-30) / std::max(total, 1.0e-30));
+    return e;
+}
+double stDistance(const std::vector<std::vector<double>>& a, const std::vector<std::vector<double>>& b) {
+    const std::size_t frames = std::min(a.size(), b.size());
+    double top = -300;
+    for (std::size_t f = 0; f < frames; ++f)
+        for (std::size_t k = 0; k < a[f].size(); ++k) top = std::max({ top, a[f][k], b[f][k] });
+    const double floor = top - 50.0;
+    double sum = 0;
+    std::size_t n = 0;
+    for (std::size_t f = 0; f < frames; ++f)
+        for (std::size_t k = 0; k < a[f].size(); ++k) {
+            if (std::max(a[f][k], b[f][k]) < floor) continue;
+            const double d = std::max(a[f][k], floor) - std::max(b[f][k], floor);
+            sum += d * d;
+            ++n;
+        }
+    return n > 0 ? std::sqrt(sum / double(n)) : 0.0;
+}
+
+// Everything the Session 19 checks and `--ds-modern` measure.
+constexpr int steps = 4;   // 25 / 50 / 75 / 100 %
+constexpr float amounts[steps] { 0.25f, 0.5f, 0.75f, 1.0f };
 struct Modern {
-    double harsh[4] {}, harshClassic = 0;   // 0 / 25 / 50 / 100 % Modern; Classic 100 %
-    struct Take { std::string name; double top8[4] {}, lowMid[4] {}, width[4] {}, tail[4] {}, distance[4] {}, loud[4] {}; bool tails = true; };
+    double harsh[steps] {}, harshClassic = 0;          // the bright saw, Modern; Classic 100 %
+    double harmonics[steps] {}, harmonicsClassic = 0;  // harmonics 2-5 of a -10 dBFS 200 Hz sine
+    double even = 0, odd = 0;                          // Modern 100 %: harmonics 2 + 4 and 3 + 5 (dB against the fundamental)
+    double rate44 = 0, rate48 = 0, rate96 = 0;
+    struct Take {
+        std::string name;
+        double ears[steps] {}, earsClassic = 0;        // spectro-temporal distance to 0 % (spectrogram, each ear: the check)
+        double fine[steps] {}, fineClassic = 0;        // the same, both ears summed
+        double st[steps] {}, stClassic = 0;            // the same with third-octave bands
+        double spec[steps] {}, specClassic = 0;        // the third-octave (whole-render) distance
+        double top8[steps] {}, lowMid[steps] {}, width[steps] {}, tail[steps] {}, loud[steps] {}, loudClassic = 0;
+        bool inPlace = true;
+    };
     std::vector<Take> takes;
-    double t60[4] {};
 };
-Modern measure() {
+Modern measure(bool quick = false) {
     Modern m;
-    const float amounts[4] { 0.0f, 0.25f, 0.5f, 1.0f };
-    for (int k = 0; k < 4; ++k) {
+    for (int k = 0; k < steps; ++k) {
         Plan p;
         p.amount = amounts[k];
         p.era = 1;
         p.chorus = 0.0f;
         p.send = 0.0f;
         m.harsh[k] = harshnessDb(runStage<dc::DungeonSynth>(p, brightSaw(), 4.0).l);
-        m.t60[k] = k == 0 ? 0.0 : hallT60(amounts[k], 1);
+        const auto tone = runStage<dc::DungeonSynth>(p, sine(200.0, 0.316f), 4.0);
+        m.harmonics[k] = harmonicsFft(tone.l, 200.0, 48000);
+        if (k == steps - 1) {
+            const auto sp = spectrumOf(tone.l, 48000);
+            const double f1 = std::max(bandPower(sp, 194.0, 206.0), 1.0e-30);
+            m.even = 10.0 * std::log10(std::max(bandPower(sp, 388.0, 412.0) + bandPower(sp, 776.0, 824.0), 1.0e-30) / f1);
+            m.odd = 10.0 * std::log10(std::max(bandPower(sp, 582.0, 618.0) + bandPower(sp, 970.0, 1030.0), 1.0e-30) / f1);
+        }
     }
     {
         Plan p;
@@ -110,29 +208,48 @@ Modern measure() {
         p.chorus = 0.0f;
         p.send = 0.0f;
         m.harshClassic = harshnessDb(runStage<dc::DungeonSynth>(p, brightSaw(), 4.0).l);
+        m.harmonicsClassic = harmonicsFft(runStage<dc::DungeonSynth>(p, sine(200.0, 0.316f), 4.0).l, 200.0, 48000);
     }
-    const auto take = [&](const std::string& name, const std::function<effectstests::Take(Ds)>& render, bool tails) {
+    for (double rate : { 44100.0, 48000.0, 96000.0 }) {
+        dc::DungeonSynth ds;
+        ds.setControls(1.0f, 1, 0.0f, 0.0f);
+        ds.prepare(rate);
+        (rate < 46000.0 ? m.rate44 : rate < 50000.0 ? m.rate48 : m.rate96) = ds.samplerRate();
+    }
+    const auto take = [&](const std::string& name, const std::function<effectstests::Take(Ds)>& render, bool inPlace) {
         Modern::Take t;
         t.name = name;
-        t.tails = tails;
+        t.inPlace = inPlace;
         const auto base = render({ 0, 1 });
         const auto b0 = bandsDb(base.l, base.r);
+        const auto frames0 = frameBands(base);
+        const auto gram0 = spectrogram(base), ears0 = spectrogram(base, true);
         const double l0 = loudness(base.l, base.r, 48000);
-        for (int k = 0; k < 4; ++k) {
-            const auto r = k == 0 ? base : render({ amounts[k], 1 });
+        for (int k = 0; k < steps; ++k) {
+            const auto r = render({ amounts[k], 1 });
             const auto b = bandsDb(r.l, r.r);
+            t.st[k] = stDistance(frames0, frameBands(r));
+            t.fine[k] = stDistance(gram0, spectrogram(r));
+            t.ears[k] = stDistance(ears0, spectrogram(r, true));
+            t.spec[k] = spectralDistance(b0, b);
             t.top8[k] = topDb(b, 8000) - topDb(b0, 8000);
             t.lowMid[k] = lowMidDb(b) - lowMidDb(b0);
             t.width[k] = widthDb(r) - widthDb(base);
-            t.tail[k] = tails ? tailDb(r) - tailDb(base) : 0.0;
-            t.distance[k] = spectralDistance(b0, b);
+            t.tail[k] = inPlace ? tailDb(r) - tailDb(base) : 0.0;
             t.loud[k] = loudness(r.l, r.r, 48000) - l0;
         }
+        const auto c = render({ 1, 0 });
+        t.stClassic = stDistance(frames0, frameBands(c));
+        t.fineClassic = stDistance(gram0, spectrogram(c));
+        t.earsClassic = stDistance(ears0, spectrogram(c, true));
+        t.specClassic = spectralDistance(b0, bandsDb(c.l, c.r));
+        t.loudClassic = loudness(c.l, c.r, 48000) - l0;
         m.takes.push_back(t);
     };
     for (int instrument : dsInstruments()) take(instName(instrument) + " in its place", [instrument](Ds d) { return instMelody(instrument, d); }, true);
-    // Bright material dry (the Wooden Flute's synthesis, as the Session 16 checks: the recorded
-    // flute is dark by design), and the FX in two places and on its dry path.
+    if (quick) return m;
+    // Bright material dry (the Wooden Flute's synthesis, as the Session 16 checks), the FX in two
+    // places and on its dry path.
     for (int instrument : brightInstruments())
         take(instName(instrument) + " dry", [instrument](Ds d) {
             return instMelody(instrument, d, 3.0, false, instrument == dc::inst::designFor(dc::HauntedForest, 0) ? int(dc::inst::SoundSeated) : int(dc::inst::SoundLatest));
@@ -142,95 +259,44 @@ Modern measure() {
     take("FX dry path", [](Ds d) { return fxDry(d); }, false);
     return m;
 }
-
-// Modern before (Session 17's stage) and after (now), of the dark fantasy phrase in its place:
-// the processor renders it at 0 % (the stage passes, the place as always), then each stage runs
-// on that output with the controls the processor gave it (the instrument's chorus weight, the
-// hall's send, the place). The "after" is also rendered through the processor itself.
-struct BeforeAfter { effectstests::Take off, before, after, afterOffline, quarter, half; };
-BeforeAfter beforeAfter(int instrument, double tail = 3.5) {
-    BeforeAfter out;
-    Plan plan;
-    plan.era = 1;
-    const auto phrase = [&](Ds d, bool capture) {
-        InstHost h;
-        h.play(instrument);
-        setDs(h, d);
-        h.render(0.05);
-        darkFantasyPhrase(h, 0.1);
-        h.render(0.05 + phraseSeconds + tail);
-        if (capture) {
-            const auto& st = h.p->dungeonSynthStage();
-            plan.chorus = st.chorusForTest();
-            plan.send = st.sendForTest();
-            const auto place = st.placeForTest();
-            plan.decay = place[0];
-            plan.cutoff = place[1];
-            plan.wet = place[2];
-        }
-        return effectstests::Take { h.outL, h.outR };
-    };
-    out.off = phrase({ 0, 1 }, true);
-    const auto offline = [&](auto stage) {
-        using Stage = decltype(stage);
-        effectstests::Take t = out.off;
-        Stage ds;
-        ds.setControls(1.0f, 1, plan.chorus, plan.send);
-        ds.setPlace(plan.decay, plan.cutoff, plan.wet);
-        ds.prepare(48000);
-        for (std::size_t i = 0; i < t.l.size(); i += 64) {
-            const int m = int(std::min<std::size_t>(64, t.l.size() - i));
-            ds.setControls(1.0f, 1, plan.chorus, plan.send);
-            ds.setPlace(plan.decay, plan.cutoff, plan.wet);
-            ds.process(t.l.data() + i, t.r.data() + i, m);
-        }
-        return t;
-    };
-    out.before = offline(dc::s17::DungeonSynth {});
-    out.afterOffline = offline(dc::DungeonSynth {});
-    out.after = phrase({ 1, 1 }, false);
-    out.quarter = phrase({ 0.25f, 1 }, false);
-    out.half = phrase({ 0.5f, 1 }, false);
-    return out;
+std::string list4(const double (&v)[steps], int decimals = 1) {
+    return fmt(v[0], decimals) + " / " + fmt(v[1], decimals) + " / " + fmt(v[2], decimals) + " / " + fmt(v[3], decimals);
 }
 } // namespace dsmodern
 
-// `--ds-modern`: the numbers behind the Session 18 checks, and Modern before / after.
+// `--ds-modern`: the numbers behind the Session 19 checks.
 int dsModern() {
     using namespace dsmodern;
-    if (std::getenv("DS_HARSH")) { for (float a : {0.25f, 0.5f, 1.0f}) { Plan p; p.amount = a; p.era = 1; p.chorus = 0; p.send = 0; std::cout << a << ": " << harshnessDb(runStage<dc::DungeonSynth>(p, brightSaw(), 4.0).l) << " / all " << harshnessDb(runStage<dc::DungeonSynth>(p, brightSaw(), 4.0).l, 20.0) << "\n"; } return 0; }
     const auto m = measure();
-    const auto list4 = [](const double (&v)[4], int decimals = 1) { return fmt(v[1], decimals) + " / " + fmt(v[2], decimals) + " / " + fmt(v[3], decimals); };
-    std::cout << "bright saw, non-harmonic energy above 8 kHz (dB of the output): Modern 0 % " << fmt(m.harsh[0]) << ", 25 / 50 / 100 % " << list4(m.harsh)
-              << "; Classic 100 % " << fmt(m.harshClassic) << "\n";
-    std::cout << "Modern hall T60 25 / 50 / 100 %: " << list4(m.t60, 2) << " s\n";
+    std::cout << "Modern 100 %: the sampler at " << fmt(m.rate44, 0) << " / " << fmt(m.rate48, 0) << " / " << fmt(m.rate96, 0) << " Hz (44.1 / 48 / 96 kHz hosts), "
+              << fmt(dc::modern::samplerBits, 1) << " bits; tape " << fmt(dc::modern::tapeDriveDb, 1) << " dB; low-pass " << fmt(dc::modern::lowPassHz, 0) << " Hz\n";
+    std::cout << "bright saw, non-harmonic energy above 8 kHz (dB of the output): Modern 25 / 50 / 75 / 100 % " << list4(m.harsh) << "; Classic 100 % " << fmt(m.harshClassic) << "\n";
+    std::cout << "harmonics 2-5 of a -10 dBFS 200 Hz sine: Modern " << list4(m.harmonics) << " dB (100 %: even " << fmt(m.even) << ", odd " << fmt(m.odd) << " dB); Classic 100 % " << fmt(m.harmonicsClassic) << " dB\n";
+    std::cout << "Modern hall T60 25 / 50 / 100 %: " << fmt(hallT60(0.25f, 1), 2) << " / " << fmt(hallT60(0.5f, 1), 2) << " / " << fmt(hallT60(1.0f, 1), 2) << " s (Classic 100 %: "
+              << fmt(hallT60(1.0f, 0), 2) << " s)\n";
+    for (int e : { 0, 1 }) {
+        const auto w = wetOf(1.0f, e), w50 = wetOf(0.5f, e), w25 = wetOf(0.25f, e);
+        std::cout << (e == 0 ? "Classic" : "Modern") << " wet level (a chord 1 s on / 1 s off): gaps against the playing " << fmt(w25.gaps) << " / " << fmt(w50.gaps) << " / "
+                  << fmt(w.gaps) << " dB at 25 / 50 / 100 %, the hall against the input " << fmt(w.hall) << " dB at 100 %\n";
+    }
+    for (int e : { 0, 1 }) {
+        const auto held = stageRun(1.0f, e, 0.0f, 0.0f, sine(1000.0, 0.25f), 12.0);
+        const auto w = wowFlutterOf(held.l, 48000, held.l.size());
+        std::cout << (e == 0 ? "Classic" : "Modern") << " 100 % wow " << fmt(w.wow, 2) << " cents RMS (peak " << fmt(w.wowPeakPercent, 3) << " %), flutter " << fmt(w.flutter, 2) << "\n";
+    }
+    std::cout << "(25 / 50 / 75 / 100 % Modern against 0 %; Classic 100 % against 0 % in brackets)\n";
     for (const auto& t : m.takes)
-        std::cout << t.name << " (Modern 25 / 50 / 100 % against 0 %): above 8 kHz " << list4(t.top8) << " dB, low-mid " << list4(t.lowMid) << " dB, width "
-                  << list4(t.width) << " dB, tail " << list4(t.tail) << " dB, distance " << list4(t.distance, 2) << " dB, loudness " << list4(t.loud, 2) << " dB\n";
-    for (int instrument : dsInstruments()) {
-        const auto r = beforeAfter(instrument);
-        const auto b0 = bandsDb(r.off.l, r.off.r), bb = bandsDb(r.before.l, r.before.r), ba = bandsDb(r.after.l, r.after.r);
-        std::cout << instName(instrument) << " Modern 100 % before / after: above 8 kHz " << fmt(topDb(bb, 8000) - topDb(b0, 8000)) << " / " << fmt(topDb(ba, 8000) - topDb(b0, 8000))
-                  << " dB, low-mid " << fmt(lowMidDb(bb) - lowMidDb(b0)) << " / " << fmt(lowMidDb(ba) - lowMidDb(b0)) << " dB, width " << fmt(widthDb(r.before) - widthDb(r.off))
-                  << " / " << fmt(widthDb(r.after) - widthDb(r.off)) << " dB, loudness " << fmt(loudness(r.before.l, r.before.r, 48000) - loudness(r.off.l, r.off.r, 48000), 2)
-                  << " / " << fmt(loudness(r.after.l, r.after.r, 48000) - loudness(r.off.l, r.off.r, 48000), 2) << " dB\n";
-    }
-    for (int k = 0; k < 2; ++k) {
-        Plan p;
-        p.amount = 1;
-        p.era = 1;
-        p.chorus = 0;
-        p.send = 0;
-        const auto t = k == 0 ? runStage<dc::s17::DungeonSynth>(p, sine(200.0, 0.316f), 4.0) : runStage<dc::DungeonSynth>(p, sine(200.0, 0.316f), 4.0);
-        std::cout << "Modern 100 % " << (k == 0 ? "before" : "after") << ": harmonics of a -10 dBFS 200 Hz sine " << fmt(harmonicsFft(t.l, 200.0, 48000)) << " dB, bright saw harshness "
-                  << fmt(harshnessDb((k == 0 ? runStage<dc::s17::DungeonSynth>(p, brightSaw(), 4.0) : runStage<dc::DungeonSynth>(p, brightSaw(), 4.0)).l)) << " dB\n";
-    }
+        std::cout << t.name << ": spectro-temporal distance " << list4(t.ears, 2) << " dB [" << fmt(t.earsClassic, 2) << "], ears summed " << list4(t.fine, 2) << " dB ["
+                  << fmt(t.fineClassic, 2) << "], third-octave " << list4(t.st, 2) << " dB [" << fmt(t.stClassic, 2) << "], spectral " << list4(t.spec, 2) << " dB ["
+                  << fmt(t.specClassic, 2) << "], above 8 kHz " << list4(t.top8) << " dB, low-mid " << list4(t.lowMid) << " dB, width " << list4(t.width)
+                  << " dB, tail " << list4(t.tail) << " dB, loudness " << list4(t.loud, 2) << " dB [" << fmt(t.loudClassic, 2) << "]\n";
     return 0;
 }
 
-// `--listen-dsmodern dir`: the dark fantasy melody on five instruments in their places, Modern
-// 100 % before (Session 17) and after (Session 18): one A/B file each (0 %, before, after, back
-// to back), each alone, and after at 25 and 50 %.
+// `--listen-dsmodern dir`: the dark fantasy melody on five instruments in their places, ONE file
+// each: 4 s at Modern 0 %, 25 %, 50 %, 75 %, 100 %, then 4 s of Classic 100 % to compare (the same
+// first 4 s of the phrase every time, each a fresh render through the processor; 15 ms fades at
+// the joins, no gaps).
 int listenDsModern(const juce::String& directory) {
     using namespace dsmodern;
     juce::File dir(directory);
@@ -239,27 +305,31 @@ int listenDsModern(const juce::String& directory) {
         for (auto& c : name) c = c == ' ' || c == '\'' ? '-' : char(std::tolower(static_cast<unsigned char>(c)));
         return name;
     };
-    const auto append = [](std::vector<float>& all, const std::vector<float>& part) {
-        all.insert(all.end(), part.begin(), part.end());
-        all.insert(all.end(), std::size_t(0.6 * 48000), 0.0f);
-    };
+    const std::vector<Ds> settings { { 0, 1 }, { 0.25f, 1 }, { 0.5f, 1 }, { 0.75f, 1 }, { 1, 1 }, { 1, 0 } };
+    const auto segment = std::size_t(4.0 * 48000), fade = std::size_t(0.015 * 48000);
     for (int instrument : dsInstruments()) {
-        const auto r = beforeAfter(instrument);
-        const auto name = slug(instName(instrument));
         std::vector<float> al, ar;
-        for (const auto* t : { &r.off, &r.before, &r.after }) { append(al, t->l); append(ar, t->r); }
-        brasstests::writeWav(dir.getChildFile(name + "-ab-0-modern-before-modern-after.wav"), al, ar);
-        brasstests::writeWav(dir.getChildFile(name + "-modern-100-1-before.wav"), r.before.l, r.before.r);
-        brasstests::writeWav(dir.getChildFile(name + "-modern-100-2-after.wav"), r.after.l, r.after.r);
-        brasstests::writeWav(dir.getChildFile(name + "-modern-25-after.wav"), r.quarter.l, r.quarter.r);
-        brasstests::writeWav(dir.getChildFile(name + "-modern-50-after.wav"), r.half.l, r.half.r);
+        for (const auto& d : settings) {
+            InstHost h;
+            h.play(instrument);
+            setDs(h, d);
+            h.render(0.05);
+            darkFantasyPhrase(h, 0.1);
+            h.render(0.05 + 4.0);
+            for (std::size_t i = 0; i < segment; ++i) {
+                const float g = float(std::min({ 1.0, double(i) / double(fade), double(segment - 1 - i) / double(fade) }));
+                al.push_back(i < h.outL.size() ? h.outL[i] * g : 0.0f);
+                ar.push_back(i < h.outR.size() ? h.outR[i] * g : 0.0f);
+            }
+        }
+        brasstests::writeWav(dir.getChildFile(slug(instName(instrument)) + "-modern-0-25-50-75-100-then-classic-100.wav"), al, ar);
     }
     return 0;
 }
 
 void testDungeonSynthModern(Suite& s) {
     using namespace dsmodern;
-    s.section("dungeon synth: Classic bit-exact with Session 17 (Session 18)");
+    s.section("dungeon synth: Classic bit-exact with Session 17 (Sessions 18, 19)");
     {
         const auto material = effectstests::material();
         const std::vector<std::pair<std::string, Signal>> signals { { "the FX's material", material }, { "a 220 Hz sine", sine(220.0, 0.25f) },
@@ -306,45 +376,76 @@ void testDungeonSynthModern(Suite& s) {
                     && identical(runStage<dc::DungeonSynth>(p44, material, 3.0, 96000.0), runStage<dc::s17::DungeonSynth>(p44, material, 3.0, 96000.0)),
                 "Classic 100 % at 44.1 and 96 kHz: bit-identical to Session 17's");
     }
-    s.section("dungeon synth: Modern, a lush warm vintage sampler (Session 18)");
+    s.section("dungeon synth: Modern as obvious as Classic, warm instead of grimy (Session 19)");
     const auto m = measure();
-    const auto list4 = [](const double (&v)[4], int decimals = 1) { return fmt(v[1], decimals) + " / " + fmt(v[2], decimals) + " / " + fmt(v[3], decimals); };
-    // No fizz: above 8 kHz, what is not music (the aliasing, the images, the noise) stays far down
-    // even on the harshest material, at every amount.
-    s.check(m.harsh[1] < -60.0 && m.harsh[2] < -60.0 && m.harsh[3] < -60.0, "Modern: on a bright saw, the aliasing and noise above 8 kHz stay under -60 dB of the output (25 / 50 / 100 %)",
+    // The sampler as asked: 22-26 kHz at 100 % whatever the host's rate, 10-11 bits.
+    s.check(m.rate44 >= 22000.0 && m.rate44 <= 26000.0 && m.rate48 >= 22000.0 && m.rate48 <= 26000.0 && m.rate96 >= 22000.0 && m.rate96 <= 26000.0
+                && dc::modern::samplerBits >= 10.0f && dc::modern::samplerBits <= 11.0f,
+            "Modern 100 %: the vintage sampler at 22-26 kHz (44.1 / 48 / 96 kHz hosts) and 10-11 bits",
+            fmt(m.rate44, 0) + " / " + fmt(m.rate48, 0) + " / " + fmt(m.rate96, 0) + " Hz, " + fmt(dc::modern::samplerBits, 1) + " bits");
+    // No fizz, at any setting: above 8 kHz, what is not music stays far down on the harshest material.
+    s.check(m.harsh[0] < -60.0 && m.harsh[1] < -60.0 && m.harsh[2] < -60.0 && m.harsh[3] < -60.0,
+            "Modern: no fizz (on a bright saw, the non-harmonic energy above 8 kHz under -60 dB at 25 / 50 / 75 / 100 %)",
             list4(m.harsh) + " dB (Classic 100 %: " + fmt(m.harshClassic) + " dB)");
-    s.check(m.t60[3] >= 7.0 && m.t60[2] < m.t60[3] && m.t60[1] < m.t60[2], "Modern's hall: long at 100 % (T60), shorter towards 0 %", list4(m.t60, 2) + " s");
-    double meanTop = 0, meanWarm = 0;
+    // The tape clearly heard at 100 % (about Classic's amount of harmonics, but even), growing
+    // with the roller, subtle at 25 %; even harmonics as strong as the odd ones (warm).
+    s.check(m.harmonics[3] >= -32.0 && m.harmonics[3] <= -18.0 && m.harmonics[0] < m.harmonics[3] - 12.0 && m.harmonics[1] < m.harmonics[3] - 4.0,
+            "Modern: warm tape saturation clearly there at 100 % (harmonics 2-5 of a -10 dBFS 200 Hz sine), less at 25 / 50 %",
+            list4(m.harmonics) + " dB (Classic 100 %: " + fmt(m.harmonicsClassic) + " dB)");
+    s.check(m.even >= m.odd - 3.0, "Modern 100 %: the tape's harmonics are warm (2nd and 4th about as strong as 3rd and 5th, or stronger)",
+            "even " + fmt(m.even) + " dB, odd " + fmt(m.odd) + " dB");
+    double meanTop = 0, meanWarm = 0, meanEars = 0, meanEarsClassic = 0, meanSum = 0, meanSumClassic = 0;
+    int bright = 0;
     for (const auto& t : m.takes) {
-        meanTop += t.top8[3] / double(m.takes.size());
+        if (t.inPlace) {
+            // At 100 % each instrument at least most of Classic's distance (the mean over the five,
+            // below, at least Classic's), and the roller scales it: 25 % subtle (a third of 100 % at
+            // most), 50 % part of the way, growing at every step.
+            s.check(t.ears[3] >= 0.75 * t.earsClassic, t.name + ": Modern 100 % far from 0 %, near Classic 100 %'s distance or beyond (spectro-temporal, each ear)",
+                    fmt(t.ears[3], 2) + " dB (Classic " + fmt(t.earsClassic, 2) + " dB, x" + fmt(t.ears[3] / std::max(t.earsClassic, 1.0e-9), 2) + "); ears summed " + fmt(t.fine[3], 2)
+                        + " / " + fmt(t.fineClassic, 2) + ", third-octave " + fmt(t.st[3], 2) + " / " + fmt(t.stClassic, 2) + " dB");
+            s.check(t.ears[0] < t.ears[1] && t.ears[1] < t.ears[2] && t.ears[2] < t.ears[3] && t.ears[0] <= 0.36 * t.ears[3] && t.ears[1] >= 0.3 * t.ears[3] && t.ears[1] <= 0.75 * t.ears[3],
+                    t.name + ": one roller curve: 25 % subtle, 50 % part of the way, growing to 100 %", list4(t.ears, 2) + " dB at 25 / 50 / 75 / 100 %");
+            meanEars += t.ears[3] / 5.0;
+            meanEarsClassic += t.earsClassic / 5.0;
+            meanSum += t.fine[3] / 5.0;
+            meanSumClassic += t.fineClassic / 5.0;
+            if (t.name.rfind(instName(dc::inst::designFor(dc::Necropolis, 0)), 0) != 0)   // the pad's place rings longer than any hall
+                s.check(t.tail[3] >= 3.0, t.name + ": Modern 100 %: the hall's tail after the melody", fmt(t.tail[3]) + " dB");
+        } else if (t.name.rfind("FX " + placeName(dc::Cathedral, 2), 0) != 0 && t.name.rfind("FX " + placeName(dc::Necropolis, 0), 0) != 0) {
+            // (Bright material: three instruments dry and the FX's dry path; the places are dark.)
+            meanTop += t.top8[3];
+            ++bright;
+            s.check(t.top8[3] <= -5.0 && t.top8[3] >= -30.0 && t.top8[0] > t.top8[3] + 3.0, t.name + ": Modern's smooth low-pass (above 8 kHz clearly lower at 100 %, gently at 25 %)",
+                    "above 8 kHz " + list4(t.top8) + " dB");
+        }
         meanWarm += t.lowMid[3] / double(m.takes.size());
-        s.check(t.top8[3] <= -1.5 && t.top8[3] >= -14.0 && t.top8[1] <= 0.3, t.name + ": Modern 100 % smooths the top (above 8 kHz lower), not muffled",
-                "above 8 kHz " + list4(t.top8) + " dB at 25 / 50 / 100 %");
-        // (A pad already all low-mid, in a dark place, has the least to gain: at least not thinner.)
-        s.check(t.lowMid[3] >= 0.25 && t.lowMid[2] >= 0.0, t.name + ": Modern adds low-mid warmth (160-500 Hz against 1-5 kHz)", list4(t.lowMid) + " dB at 25 / 50 / 100 %");
-        s.check(t.width[3] >= 1.5 && t.width[2] > 0.3, t.name + ": Modern widens the image", list4(t.width) + " dB of side at 25 / 50 / 100 %");
-        if (t.tails && t.name.rfind(instName(dc::inst::designFor(dc::Necropolis, 0)), 0) != 0)   // the pad's place rings longer than any hall
-            s.check(t.tail[3] >= 1.5, t.name + ": Modern 100 % has a longer tail", fmt(t.tail[3]) + " dB");
-        s.check(t.distance[3] >= 1.2 && t.distance[1] > 0.05 && t.distance[1] <= 0.5 * t.distance[3] && t.distance[2] <= t.distance[3],
-                t.name + ": 25 / 50 % subtle and clearly there, 100 % the full sound (third-octave distance to 0 %)", list4(t.distance, 2) + " dB");
-        s.check(std::abs(t.loud[1]) <= 1.5 && std::abs(t.loud[2]) <= 1.5 && std::abs(t.loud[3]) <= 1.5, t.name + ": Modern level-matched (within 1.5 dB of 0 %)", list4(t.loud, 2) + " dB");
+        // (A pad that is already all low-mid, in a dark wet place, has the least to gain: at least
+        // not thinner. Session 16's heavy tape made it 6 dB thinner.)
+        s.check(t.lowMid[3] >= -0.5 && t.lowMid[2] >= -0.5, t.name + ": Modern adds low-mid warmth, never thinner (160-500 Hz against 1-5 kHz)", list4(t.lowMid) + " dB");
+        s.check(t.width[3] >= 2.0 && t.width[1] > 0.3, t.name + ": Modern widens the image (the ensemble)", list4(t.width) + " dB of side");
+        bool level = true;
+        for (double v : t.loud) level = level && std::abs(v) <= 1.5;
+        s.check(level, t.name + ": Modern level-matched (within 1.5 dB of 0 % at 25 / 50 / 75 / 100 %)", list4(t.loud, 2) + " dB");
     }
-    s.check(meanTop <= -4.0 && meanWarm >= 1.5, "Modern 100 %: on average a clearly smoother top and a fuller low-mid",
-            "above 8 kHz " + fmt(meanTop) + " dB, low-mid against 1-5 kHz +" + fmt(meanWarm) + " dB");
-    s.metric("Modern 100 %: mean change above 8 kHz", meanTop, " dB");
-    s.metric("Modern 100 %: mean low-mid warmth", meanWarm, " dB");
-    s.metric("Modern 100 %: bright saw harshness above 8 kHz", m.harsh[3], " dB");
-    // Before / after (Session 17's Modern): cleaner at the top, gentler saturation.
+    meanTop /= std::max(1, bright);
+    s.check(meanWarm >= 1.5, "Modern 100 %: on average a fuller low-mid", "+" + fmt(meanWarm) + " dB");
+    // THE check: on the five instruments in their places, Modern 100 % is at least as far from 0 %
+    // as Classic 100 % (the spectro-temporal distance, each ear, their mean).
+    s.check(meanEars >= meanEarsClassic, "Modern 100 % is at least as obvious as Classic 100 % on the five instruments in their places (mean spectro-temporal distance from 0 %)",
+            fmt(meanEars, 2) + " dB against Classic's " + fmt(meanEarsClassic, 2) + " dB (x" + fmt(meanEars / std::max(meanEarsClassic, 1.0e-9), 2) + "); both ears summed "
+                + fmt(meanSum, 2) + " / " + fmt(meanSumClassic, 2) + " dB");
+    s.metric("Modern 100 % against Classic 100 %: mean distance ratio (five instruments in their places)", meanEars / std::max(meanEarsClassic, 1.0e-9), "");
+    s.metric("Modern 100 %: bright saw, non-harmonic energy above 8 kHz", m.harsh[3], " dB");
+    s.metric("Modern 100 %: harmonics of a -10 dBFS sine", m.harmonics[3], " dB");
+    s.metric("Modern 100 %: mean change above 8 kHz (bright material)", meanTop, " dB");
+    // The hall at a wet level comparable to Classic's: the gaps against the playing (what is heard
+    // as its wetness) within 1.5 dB of Classic's, and the hall alone at least Classic's (its longer
+    // decay builds up more while the chord plays).
     {
-        Plan p;
-        p.era = 1;
-        p.chorus = 0;
-        p.send = 0;
-        const double before = harshnessDb(runStage<dc::s17::DungeonSynth>(p, brightSaw(), 4.0).l), after = m.harsh[3];
-        const double hb = harmonicsFft(runStage<dc::s17::DungeonSynth>(p, sine(200.0, 0.316f), 4.0).l, 200.0, 48000);
-        const double ha = harmonicsFft(runStage<dc::DungeonSynth>(p, sine(200.0, 0.316f), 4.0).l, 200.0, 48000);
-        s.check(ha < hb - 6.0 && ha > -50.0, "Modern 100 %: warm, gentle saturation (harmonics 2-5 of a -10 dBFS sine: present, far less than Session 17's)",
-                fmt(hb) + " -> " + fmt(ha) + " dB");
-        s.check(after < before - 15.0, "Modern 100 %: on a bright saw far cleaner above 8 kHz than Session 17's Modern", fmt(before) + " -> " + fmt(after) + " dB");
+        const auto wc = wetOf(1.0f, 0), wm = wetOf(1.0f, 1);
+        s.check(std::abs(wm.gaps - wc.gaps) <= 1.5 && wm.hall >= wc.hall - 1.0,
+                "Modern 100 %: the hall as wet as Classic's (a chord 1 s on / 1 s off: the gaps against the playing, the hall against the input)",
+                "gaps " + fmt(wm.gaps) + " dB (Classic " + fmt(wc.gaps) + "), hall " + fmt(wm.hall) + " dB (Classic " + fmt(wc.hall) + ")");
     }
 }

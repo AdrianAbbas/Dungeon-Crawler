@@ -25,7 +25,7 @@ public:
         roller.setTooltip("Dungeon Synth: how much it sounds like dungeon synth (0 %: as it is; 25 % subtle, 50 % clearly, 100 % the full genre sound)");
         addAndMakeVisible(roller);
         classic.setTooltip("Classic: the 90s cassette demo (a cheap 13 kHz, 8-bit sampler with its aliasing, tape wow, flutter and hiss, a dark top, nearly mono, a big grainy old-digital hall)");
-        modern.setTooltip("Modern: lush and warm, a vintage sampler (gentle 12-bit, 32 kHz, smooth), warm tape, a deep slow ensemble chorus, wide, a long dark hall that blooms");
+        modern.setTooltip("Modern: lush and warm, a vintage sampler (24 kHz, 10-bit, smooth), warm tape, a deep slow ensemble chorus, wide, a long dark hall that blooms");
         for (auto* b : { &classic, &modern }) {
             b->setClickingTogglesState(false);
             b->setColour(juce::TextButton::buttonOnColourId, colours::blood.withAlpha(0.85f));
