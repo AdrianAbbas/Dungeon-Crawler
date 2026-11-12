@@ -4358,3 +4358,8 @@ adds about 2.5 ms of delay (the sampler's and the tape's linear-phase filters; n
 latency, as in Session 18). The Era switch now crossfades two chains (0.25 s) instead of morphing
 one. The CI runs with the developer's recordings, so its figures differ from these; the report
 is `dsmodern/dsmodern-report.txt`.
+
+**CI, Session 19: green on the first run** (`1c1ff1a`, run 43251380041, branch
+`session-19-dungeon-synth-modern`, macOS and Linux): Linux 3295 passed, 0 failed (the whole suite
+with the developer's recordings, `16-dsmodern` included); the job 53 minutes. The renders and
+`dsmodern-report.txt` are in the test-logs artifact, `dsmodern/`.
