@@ -180,7 +180,8 @@ private:
     float ceiling = 1, ceilingTarget = 1, ceilingDown = 0, ceilingUp = 0;
     float slowCoefficient = 0, fastCoefficient = 0, glideCoefficient = 0;
     int matchCounter = 0;
-    std::array<dsp::Svf, 4> weightHigh {};
-    std::array<dsp::Biquad, 4> weightShelf {};
+    std::array<dsp::Svf, 6> weightHigh {}, weightHigh2 {};   // fourth order (the lows the warmth adds count as a meter counts them)
+    std::array<dsp::Biquad, 6> weightShelf {};
+    float directFast = 0;   // the chain before the hall's return (what the fast ceiling hears)
 };
 }

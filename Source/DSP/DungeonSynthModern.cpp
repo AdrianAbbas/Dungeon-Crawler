@@ -255,7 +255,8 @@ void DungeonSynthModern::prepare(double sampleRate) {
     ceilingDown = dsp::timeCoefficient(0.015, sr);
     ceilingUp = dsp::timeCoefficient(0.4, sr);
     widthCoefficient = dsp::timeCoefficient(0.1, sr);
-    for (auto& f : weightHigh) f.set(60.0, sr, 1.414f);
+    for (auto& f : weightHigh) f.set(60.0, sr, 1.847f);
+    for (auto& f : weightHigh2) f.set(60.0, sr, 0.765f);
     for (auto& f : weightShelf) f.highShelf(sr, 1700.0, 4.0);
     for (auto& f : rumble) f.set(22.0, sr, 1.414f);
     noise.seed(0x4d4f4452u);
@@ -273,9 +274,10 @@ void DungeonSynthModern::clearState() noexcept {
     chorusLine.clear();
     midPower = sidePower = 0;
     widthGain = 1;
-    refSlow = refFast = outSlow = outFast = refHold = 0;
+    refSlow = refFast = outSlow = outFast = refHold = directFast = 0;
     gain = gainTarget = ceiling = ceilingTarget = 1;
     for (auto& f : weightHigh) f.clear();
+    for (auto& f : weightHigh2) f.clear();
     for (auto& f : weightShelf) f.clear();
 }
 
@@ -568,6 +570,12 @@ void DungeonSynthModern::process(float* l, float* r, int n) noexcept {
                 hallCtl += (wanted < hallCtl ? ctlDown : ctlUp) * (wanted - hallCtl);
                 const float g = hallOnly ? sendNow : sendNow * hallCtl;
                 if (hallOnly) yl = yr = 0.0f;
+                // The fast ceiling hears the chain and only half of the hall: at a new note the last
+                // one's tail is not taken for an overshoot (hearing all of it, it ducked every onset
+                // by 4 dB on a low reed; hearing none, the hall built up 2 dB within a phrase).
+                const float dl = weightShelf[4].process(weightHigh2[4].highPass(weightHigh[4].highPass(yl)));
+                const float dr = weightShelf[5].process(weightHigh2[5].highPass(weightHigh[5].highPass(yr)));
+                directFast += fastCoefficient * (0.5f * (dl * dl + dr * dr) * (1.0f - 0.55f * d.s) * (1.0f - 0.55f * d.s) - directFast);
                 yl += hl * g;
                 yr += hr * g;
             }
@@ -606,10 +614,11 @@ void DungeonSynthModern::process(float* l, float* r, int n) noexcept {
                 yl *= makeup;
                 yr *= makeup;
             }
-            const float wl = weightShelf[0].process(weightHigh[0].highPass(xl)), wr = weightShelf[1].process(weightHigh[1].highPass(xr));
+            const float wl = weightShelf[0].process(weightHigh2[0].highPass(weightHigh[0].highPass(xl)));
+            const float wr = weightShelf[1].process(weightHigh2[1].highPass(weightHigh[1].highPass(xr)));
             const float ref = 0.5f * (wl * wl + wr * wr);
-            const float pl = weightShelf[2].process(weightHigh[2].highPass(yl));
-            const float pr = weightShelf[3].process(weightHigh[3].highPass(yr));
+            const float pl = weightShelf[2].process(weightHigh2[2].highPass(weightHigh[2].highPass(yl)));
+            const float pr = weightShelf[3].process(weightHigh2[3].highPass(weightHigh[3].highPass(yr)));
             const float out = 0.5f * (pl * pl + pr * pr);
             refSlow += slowCoefficient * (ref - refSlow);
             refFast += fastCoefficient * (ref - refFast);
@@ -622,7 +631,8 @@ void DungeonSynthModern::process(float* l, float* r, int n) noexcept {
                 // (-12 .. +6 dB: at 100 % the hall at the music's level, the ensemble and the warmth
                 // add more than Classic's 6 dB of range.)
                 if (playing && outSlow > 1.0e-12f) gainTarget = std::clamp(std::sqrt(refSlow / outSlow), 0.25f, 2.0f);
-                if (playing && outFast > 1.0e-12f) ceilingTarget = std::clamp(std::sqrt(1.122f * refFast / outFast), 0.25f, 2.0f);
+                const float heard = 0.5f * (directFast + outFast);   // the chain, and half of the hall
+                if (playing && heard > 1.0e-12f) ceilingTarget = std::clamp(std::sqrt(1.122f * refFast / heard), 0.25f, 2.0f);
             }
             gain += glideCoefficient * (gainTarget - gain);
             ceiling += (ceilingTarget < ceiling ? ceilingDown : ceilingUp) * (ceilingTarget - ceiling);

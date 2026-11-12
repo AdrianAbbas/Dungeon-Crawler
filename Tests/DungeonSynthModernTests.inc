@@ -267,6 +267,26 @@ std::string list4(const double (&v)[steps], int decimals = 1) {
 // `--ds-modern`: the numbers behind the Session 19 checks.
 int dsModern() {
     using namespace dsmodern;
+    if (std::getenv("DS_REED")) {   // TEMP
+        const auto take = [&](float amount) {
+            InstHost h;
+            h.play(27);
+            h.set(dc::ids::dungeonSynth, amount);
+            h.set(dc::ids::dungeonSynthEra, 1.0f);
+            h.render(0.05);
+            melody(h, 0.1, 45);
+            h.render(0.05 + melodySeconds + 1.5);
+            return effectstests::Take { h.outL, h.outR };
+        };
+        const auto b = take(0);
+        for (float a : { 0.5f, 1.0f }) {
+            const auto t = take(a);
+            std::cout << a << ": loudness " << fmt(loudness(t.l, t.r, 48000) - loudness(b.l, b.r, 48000), 2) << " per 0.25 s:";
+            for (std::size_t i = 0; i + 12000 <= t.l.size(); i += 12000) std::cout << " " << fmt(effectstests::levelDb(t.l, t.r, i, i + 12000) - effectstests::levelDb(b.l, b.r, i, i + 12000), 1);
+            std::cout << "\n";
+        }
+        return 0;
+    }
     const auto m = measure();
     std::cout << "Modern 100 %: the sampler at " << fmt(m.rate44, 0) << " / " << fmt(m.rate48, 0) << " / " << fmt(m.rate96, 0) << " Hz (44.1 / 48 / 96 kHz hosts), "
               << fmt(dc::modern::samplerBits, 1) << " bits; tape " << fmt(dc::modern::tapeDriveDb, 1) << " dB; low-pass " << fmt(dc::modern::lowPassHz, 0) << " Hz\n";
