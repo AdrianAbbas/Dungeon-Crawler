@@ -176,7 +176,7 @@ private:
     // The image.
     float midPower = 0, sidePower = 0, widthGain = 1, widthCoefficient = 0;
     // The level matcher (as Classic's: K-weighted, learning while the music plays).
-    float refSlow = 0, refFast = 0, outSlow = 0, outFast = 0, refHold = 0, gain = 1, gainTarget = 1;
+    float refSlow = 0, refFast = 0, outSlow = 0, outFast = 0, refHold = 0, outHold = 0, gain = 1, gainTarget = 1;
     float ceiling = 1, ceilingTarget = 1, ceilingDown = 0, ceilingUp = 0;
     float slowCoefficient = 0, fastCoefficient = 0, glideCoefficient = 0;
     int matchCounter = 0;

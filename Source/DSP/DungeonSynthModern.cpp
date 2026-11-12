@@ -274,7 +274,7 @@ void DungeonSynthModern::clearState() noexcept {
     chorusLine.clear();
     midPower = sidePower = 0;
     widthGain = 1;
-    refSlow = refFast = outSlow = outFast = refHold = directFast = 0;
+    refSlow = refFast = outSlow = outFast = refHold = outHold = directFast = 0;
     gain = gainTarget = ceiling = ceilingTarget = 1;
     for (auto& f : weightHigh) f.clear();
     for (auto& f : weightHigh2) f.clear();
@@ -570,7 +570,7 @@ void DungeonSynthModern::process(float* l, float* r, int n) noexcept {
                 hallCtl += (wanted < hallCtl ? ctlDown : ctlUp) * (wanted - hallCtl);
                 const float g = hallOnly ? sendNow : sendNow * hallCtl;
                 if (hallOnly) yl = yr = 0.0f;
-                // The fast ceiling hears the chain and (part of) the hall: at a new note the last
+                // The fast ceiling hears the chain and half of the hall: at a new note the last
                 // one's tail is not taken for an overshoot (hearing all of it, it ducked every onset
                 // by 4 dB on a low reed; hearing none, the hall built up 2 dB within a phrase).
                 const float dl = weightShelf[4].process(weightHigh2[4].highPass(weightHigh[4].highPass(yl)));
@@ -625,15 +625,16 @@ void DungeonSynthModern::process(float* l, float* r, int n) noexcept {
             outSlow += slowCoefficient * (out - outSlow);
             outFast += fastCoefficient * (out - outFast);
             refHold += (refSlow > refHold ? holdAttack : holdRelease) * (refSlow - refHold);
+            outHold += (outSlow > outHold ? holdAttack : holdRelease) * (outSlow - outHold);
             const bool playing = refSlow > 1.0e-7f && refFast > 0.3f * refSlow && refSlow > 0.2f * refHold;
             if (--matchCounter <= 0) {
                 matchCounter = 16;
                 // (-12 .. +6 dB: at 100 % the hall at the music's level, the ensemble and the warmth
                 // add more than Classic's 6 dB of range.)
-                if (playing && outSlow > 1.0e-12f) gainTarget = std::clamp(std::sqrt(refSlow / outSlow), 0.25f, 2.0f);
-                // All of the hall while the music sustains, half of it as a note re-enters after a dip.
-                const float share = 0.5f + 0.5f * std::min(1.0f, refSlow / std::max(refHold, 1.0e-12f));
-                const float heard = (1.0f - share) * directFast + share * outFast;
+                // Its loud moments against the input's (both held, 1.5 s): loudness is what the loud
+                // moments are, and the hall and the tape even the level out between them.
+                if (playing && outHold > 1.0e-12f) gainTarget = std::clamp(std::sqrt(refHold / outHold), 0.25f, 2.0f);
+                const float heard = 0.5f * (directFast + outFast);   // the chain, and half of the hall
                 if (playing && heard > 1.0e-12f) ceilingTarget = std::clamp(std::sqrt(1.122f * refFast / heard), 0.25f, 2.0f);
             }
             gain += glideCoefficient * (gainTarget - gain);
