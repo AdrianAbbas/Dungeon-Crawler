@@ -243,9 +243,9 @@ void DungeonSynthModern::prepare(double sampleRate) {
     satRms = dsp::timeCoefficient(0.02, sr);
     satRmsDown = dsp::timeCoefficient(0.2, sr);
     driftCoefficient = dsp::timeCoefficient(0.6, sr);
-    slowCoefficient = dsp::timeCoefficient(0.3, sr);
+    slowCoefficient = dsp::timeCoefficient(0.2, sr);   // (Classic 0.3 s: this hall builds up more)
     fastCoefficient = dsp::timeCoefficient(0.05, sr);
-    glideCoefficient = dsp::timeCoefficient(0.12, sr);
+    glideCoefficient = dsp::timeCoefficient(0.08, sr);
     holdAttack = dsp::timeCoefficient(0.01, sr);
     // (4 s: Classic's 1.5 s is shorter than this hall's decay and would pull its tails down.)
     holdRelease = dsp::timeCoefficient(4.0, sr);
@@ -570,7 +570,7 @@ void DungeonSynthModern::process(float* l, float* r, int n) noexcept {
                 hallCtl += (wanted < hallCtl ? ctlDown : ctlUp) * (wanted - hallCtl);
                 const float g = hallOnly ? sendNow : sendNow * hallCtl;
                 if (hallOnly) yl = yr = 0.0f;
-                // The fast ceiling hears the chain and only half of the hall: at a new note the last
+                // The fast ceiling hears the chain and half of the hall: at a new note the last
                 // one's tail is not taken for an overshoot (hearing all of it, it ducked every onset
                 // by 4 dB on a low reed; hearing none, the hall built up 2 dB within a phrase).
                 const float dl = weightShelf[4].process(weightHigh2[4].highPass(weightHigh[4].highPass(yl)));

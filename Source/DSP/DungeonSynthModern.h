@@ -171,7 +171,7 @@ private:
     dsp::DelayLine preDelay;
     dsp::Svf hallHigh, hallLow;
     std::array<dsp::Svf, 4> hallDark {};
-    float hallDampCoefficient = 0.3f, hallModDepth = 0, hallPreDelay = 0, hallCeiling = 1.0f;   // the hall's energy at most the music's on long chords (Classic: 2 dB under)
+    float hallDampCoefficient = 0.3f, hallModDepth = 0, hallPreDelay = 0, hallCeiling = 0.8f;   // the hall's energy at most 1 dB under the music's on long chords (Classic: 2 dB)
     float hallInHold = 0, hallInPower = 0, hallPower = 0, hallCtl = 1, holdAttack = 0, holdRelease = 0, powerCoefficient = 0, ctlDown = 0, ctlUp = 0;
     // The image.
     float midPower = 0, sidePower = 0, widthGain = 1, widthCoefficient = 0;
