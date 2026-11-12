@@ -23,13 +23,20 @@ if [[ "${1:-}" == --customer ]]; then
     mkdir -p "$customer"
     /usr/bin/ditto "$pkg" "$customer/DUNGEON CRAWLER.pkg"
     install -m 644 "$here/packaging/DUNGEON CRAWLER - Read Me.pdf" "$customer/"
+    # No extended attributes or resource forks (no __MACOSX/ entries in the zip). Stapled
+    # tickets live inside the package file itself, so nothing is lost.
+    /usr/bin/xattr -cr "$customer"
     # Exactly these two files, nothing else.
     listing=$(cd "$customer" && LC_ALL=C /bin/ls -A)
     expected=$(printf '%s\n%s' "DUNGEON CRAWLER - Read Me.pdf" "DUNGEON CRAWLER.pkg")
     [[ "$listing" == "$expected" ]] || { echo "error: unexpected files in the customer package: $listing" >&2; exit 1; }
-    /usr/bin/ditto -c -k --sequesterRsrc --keepParent "$customer" "$customer.zip"
+    /usr/bin/ditto -c -k --norsrc --noextattr --noacl --keepParent "$customer" "$customer.zip"
     echo "Packaged $customer.zip"
     /usr/bin/unzip -l "$customer.zip"
+    if /usr/bin/unzip -Z1 "$customer.zip" | /usr/bin/grep -vE '^DUNGEON-CRAWLER-1\.0-macOS/((DUNGEON CRAWLER\.pkg)|(DUNGEON CRAWLER - Read Me\.pdf))?$'; then
+        echo "error: the customer zip holds more than the package and the Read Me" >&2; exit 1
+    fi
+    /usr/bin/xcrun stapler validate "$customer/DUNGEON CRAWLER.pkg"
     exit 0
 fi
 build="$1"
