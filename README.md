@@ -291,38 +291,40 @@ winds (Tin Whistle, Wooden Flute, Shepherd's Flute) are ready for the developer'
 recorder and ocarina: prepared from the Samples repository as `recorder-alto-sus` (and
 optionally `-vib`, `-stac`) or `ocarina-sus`, they are played in place of the flute.
 
-## Dungeon Synth (both plug-ins, Session 15; made unmistakable in Session 16)
+## Warmth and the Grit (the warmth pass)
 
-A **DUNGEON SYNTH** roller with an **Era** switch makes any instrument (or anything through
-the FX) sound like dungeon synth instead of general dark fantasy. On the instrument panel it
-sits to the right of the keyboard; in the FX between Travel and the switches. **0 %** (the
-default, and what every project saved before it opens at) is the sound exactly as before;
-**25 %** subtle, **50 %** clearly dungeon synth, **100 %** the full genre sound. Drag it, use
-the mouse wheel, double-click for 0 %; both controls are automatable and saved with presets
-and projects.
+**Warmth** (the instrument: on, 100 %, by default; the FX: 0 %) is the warm, hazy, weary
+character dungeon synth has, on every instrument and in both Eras. In the order the sound meets
+it: a decorrelated three-voice ensemble (each side its own slowly sweeping delays, 7-18 ms) and
+the voices' own detune (each note 3-8 cents off, drifting slowly); tape wow (slow and drifting)
+and flutter; a sloped top (a gentle shelf and a 6 dB/oct corner that drifts, never a wall); slow
+breathing on pads; gentle 2x oversampled tape saturation and a slow bus compressor (2.5:1,
+30 / 300 ms, about 4 dB on dense parts) with a leveller that lifts the quiet parts a little; a
+long, dark stereo hall (decorrelated left and right, longer and wider in Modern, no shimmer);
+40-80 Hz warmth and a broad 200-500 Hz cut; an air bed of soft tape hiss that follows the music
+(none in silence) so the top sits about 30 dB under the whole; the bass below 150 Hz kept mono;
+and a slow width control that holds the image at the Era's stereo (left/right correlation about
+0.55 in Classic, 0.4 in Modern: never mono). **Mono** (off by default) folds the output to mono
+on purpose. Projects saved before open with Warmth on (the instrument) and their own settings.
+Quality **Eco** runs a lighter version (two ensemble voices, an unmodulated hall, 2x Grit).
 
-- **Classic** (the 90s cassette demo: an old tape of a cheap keyboard in a huge cold
-  castle): a cheap sampler (down to about 13 kHz with its aliasing grit, about 8 bits), the
-  keyboard's light chorus, a big dark, grainy old-digital hall at a high wet level, cassette
-  wow (about 0.5 %, slow and drifting) and flutter, tape hiss riding under the music (about
-  -45 dBFS on bright material, gone in silence), a thin bottom, a boxy, honky middle, a dark
-  top (5.5 kHz), a nearly mono image.
-- **Modern** (lush, warm, nostalgic: a warm vintage sampler, not a broken one; Session 18):
-  gentle bit and rate reduction (12 bits and 32 kHz at 100 %, 29.4 kHz at 44.1 kHz) between
-  clean linear-phase filters (smooth, rounded, no fizz or noise), warm, gentle tape saturation
-  on the body (below about 2.5 kHz, the top left clean), a fuller low-mid and a smooth (not
-  muffled) top, a deep, slow, wide vintage ensemble chorus (strongest on pads, strings, choirs
-  and organs, almost none on drums), a long, dark modulated hall that blooms, a hint of slow
-  wow and very little hiss.
+The **DUNGEON SYNTH** roller is the **Grit** (0 % by default: untouched; its parameter and
+automation are the same as before). It crushes warmly: 4x oversampled, asymmetric tube/tape
+saturation on the body (even harmonics; its drive follows the music's level, so the colour is the
+same loud or soft), a gentle bit crush that stays at 12 bits or more (13 in Modern), a soft
+tape grain riding the music, then a dark tilt and band limit, so it thickens and darkens and
+never fizzes or thins, and its own level match. The **Era** voices both: **Classic** a worn
+cassette (more hiss and wow, more drive, narrower but stereo), **Modern** lush and wide (a longer
+hall, less hiss, gentler drive). On the instrument panel the roller sits to the right of the
+keyboard; in the FX between Travel and the switches. Drag it, use the mouse wheel, double-click
+for 0 %; Warmth, Mono, the Grit and the Era are automatable and saved with presets and projects.
 
-It works on the whole sound, after the place (as a cassette records everything): the place's
-space and effects come first, so the Crypt, the Necropolis and the Dwarven Hall still sound
-different, and then all of it goes through the tape (only the hiss goes in before the place,
-which shapes it as it shapes the music; the hall takes on the place's length and tone). Its hall follows **Intensity**,
-**Effects** (towards 0 %: the stage stays on the dry instrument, the hall goes with the
-place), the **MIX** section's Reverb and **Mix**. **Lock instrument** and **Punch** work as
-before; **Bypass** is always the untouched input. Loudness stays within about 1.5 dB as it
-moves (its own level matcher), and moving it or switching the Era is click-free.
+Both work on the whole sound, after the place (as a tape records everything): the place's
+space and effects come first, so the places still sound different. The warm hall follows
+**Intensity**, **Effects** (towards 0 %: the dry instrument, without the hall), the **MIX**
+section's Reverb and **Mix**. **Lock instrument** and **Punch** work as before; **Bypass** is
+always the untouched input; moving any of them is click-free. The stages add 0.5 ms (the Grit)
+and 3 ms (the warm chain, its tape) to the output, not reported as latency.
 
 Factory presets built around it (category **Dungeon synth**, at the end of the preset list;
 search "dungeon synth", "lo-fi", "retro" or "cassette"), at 85-100 %: Cassette Castle Theme,
@@ -377,7 +379,8 @@ where it belongs and its tags.
 | **↶ ↷** | Undo / redo of your edits in the window. |
 | **⚙** | Window size (75–200 %, or drag the corner) and Quality: Eco (lightest: no animation, mono spectral layer), Standard, High (smoothest animation). |
 | **Mix** | The MIX section: reverb, echoes, modulation, character, atmosphere, and the reverbs' low cut, pre-delay and duck (see Mix above). |
-| **Dungeon Synth** (roller) + **Classic / Modern** | How much it sounds like dungeon synth (0 %: as it is, 100 %: the full genre sound) and which era (see Dungeon Synth above). |
+| **Dungeon Synth** (roller, the Grit) + **Classic / Modern** | How hard the sound is crushed, warmly (0 %: untouched), and which era (see Warmth and the Grit above). |
+| **Warmth**, **Mono** (host parameters) | The warm character (100 % on the instrument, 0 % on the FX) and a deliberate fold to mono (off). |
 | **Magnifier** (top right), Cmd+F | Search places, instruments, presets and sounds (see Search above). |
 | **▾** (above the controls) | Hide the controls to see the whole picture. |
 

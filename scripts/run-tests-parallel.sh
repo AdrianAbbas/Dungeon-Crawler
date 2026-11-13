@@ -8,7 +8,7 @@
 # Together the shards cover every test group and every location (9-recordings: Session 8;
 # 10-mix: Session 11; 11-brass: Session 12; 12-realbrass: Session 13; 13-seat: Session 14;
 # 14-dungeonsynth: Session 15, its control's checks in 1-basics; 15-realwinds: Session 17;
-# 16-dsmodern: Session 18; release, 1.0.0, in 1-basics).
+# release, 1.0.0, in 1-basics; 16-warmth: the warmth pass, which replaced Session 18's 16-dsmodern).
 # Usage: scripts/run-tests-parallel.sh path/to/DungeonCrawlerTests [log directory]
 set -u
 tests="${1:?the DungeonCrawlerTests binary}"
@@ -36,8 +36,8 @@ wait
 "$tests" --only seat > "$logs/13-seat.txt" 2>&1
 # Session 15: DUNGEON SYNTH (the null test at 0 %, what each Era does, levels, clicks; alone too).
 "$tests" --only dungeonsynth > "$logs/14-dungeonsynth.txt" 2>&1
-# Session 18: DUNGEON SYNTH's Modern rebuilt (Classic bit-exact with Session 17; alone too).
-"$tests" --only dsmodern > "$logs/16-dsmodern.txt" 2>&1
+# The warmth pass: the warm chain and the Grit on the test phrase (alone too: it times the CPU).
+"$tests" --only warmth > "$logs/16-warmth.txt" 2>&1
 # Session 17: the recorded woodwinds (VSCO 2 CE, CC0; alone too, like the recorded brass).
 "$tests" --only realwinds > "$logs/15-realwinds.txt" 2>&1
 # Session 16: the navigation group joins them (its journey notice is a 2.5 s wall-clock timer;

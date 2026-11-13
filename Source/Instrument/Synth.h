@@ -691,6 +691,10 @@ struct Voice {
     // Session 14, the brass seated: its amount (0 = none), the soft top (a one-pole low-pass
     // per side; the shelf takes `shelfDepth` of what lies above it) and the warmth.
     float seat = 0, shelfCoef = 0, shelfDepth = 0, shelfL = 0, shelfR = 0;
+    // Warmth pass: the voice's own detune (+/-3-8 cents, chosen per note) and its slow random drift.
+    float warmCents = 0, warmDrift = 0, warmGoal = 0;
+    int warmCounter = 0;
+    uint64_t warmSeed = 0;
     bool active() const { return on; }
 };
 
@@ -713,6 +717,8 @@ public:
     void setLevel(float gain) noexcept { level = gain; }
     // The voices' Vowel and Ensemble (0.5 = as designed), for notes that start from now.
     void setVoiceControls(float vowel, float ensemble) noexcept { voiceVowel = vowel; voiceEnsemble = ensemble; }
+    // Warmth pass: how much of the voices' own detune and drift is heard (0 = exactly as before).
+    void setWarmth(float amount) noexcept { warmth = std::isfinite(amount) ? std::clamp(amount, 0.0f, 1.0f) : 0.0f; }
     // Session 11: Punch (0..2, 1 = the instrument's own) and Punch Time (seconds), for
     // notes that start from now.
     void setPunch(float amount, float seconds) noexcept { punch = amount; punchSeconds = seconds; }
@@ -770,6 +776,7 @@ private:
     int widthPos = 0, widthActive = 0;   // widthActive: samples the line still has to empty
     float widthPhase = 0;
     double tempo = 120;
+    float warmth = 0;
     int designNow = 0, counter = 0, orderCounter = 0;
     uint64_t noteCount = 0;
     std::array<std::atomic<uint64_t>, 2> lit {};

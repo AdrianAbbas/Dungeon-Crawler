@@ -65,6 +65,9 @@ inline constexpr const char* instPunchTime = "instPunchTime";
 // Session 15 (appended, both plug-ins): the DUNGEON SYNTH roller and its Era.
 inline constexpr const char* dungeonSynth = "dungeonSynth";
 inline constexpr const char* dungeonSynthEra = "dungeonSynthEra";
+// Warmth pass (appended, both plug-ins): the warm character chain and the deliberate Mono switch.
+inline constexpr const char* warmth = "warmth";
+inline constexpr const char* stereoMono = "stereoMono";
 }
 
 namespace dc {
@@ -262,6 +265,12 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
                                                            juce::NormalisableRange<float>(0.0f, 1.0f), 0.0f, percent));
     layout.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID { ids::dungeonSynthEra, 1 }, "Dungeon Synth Era",
                                                             juce::StringArray::fromTokens(dungeonSynthEras, "|", ""), 0));
+    // Warmth pass (appended last: no existing parameter moves). The warm character chain: on by
+    // default on the instrument (so a session saved before it opens with the new sound), off on
+    // the FX (whose Intensity 0 stays a true dry path). Mono: a deliberate fold to mono, off.
+    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::warmth, 1 }, "Warmth",
+                                                           juce::NormalisableRange<float>(0.0f, 1.0f), instrumentNames.isEmpty() ? 0.0f : 1.0f, percent));
+    layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { ids::stereoMono, 1 }, "Mono", false));
     return layout;
 }
 }

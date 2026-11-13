@@ -13,8 +13,8 @@
 //   DungeonCrawlerTests --listen-recordings dir    melody and chords on the instruments with the new recordings; the FX's voice places before/after
 //   DungeonCrawlerTests --listen-dungeonsynth dir  Session 15: the dark fantasy melody on five instruments at 0 / 50 / 100 %, Classic and Modern
 //   DungeonCrawlerTests --ds-report | --ds-hashes | --ds-snapshots dir   Session 15: the numbers, the null-test hashes, the control's snapshots
-//   DungeonCrawlerTests --ds-audit | --ds-strength | --ds-places   Session 16: what of DUNGEON SYNTH reaches the output; the numbers behind the strength checks
-//   DungeonCrawlerTests --ds-modern | --listen-dsmodern dir   Session 18: Modern's numbers; Modern before / after on five instruments
+//   DungeonCrawlerTests --warmth-renders dir   the warmth pass: the test phrase, 4 instruments x 2 Eras x Grit 0 / 50 / 100 %, warm (measured by tools/warmth/measure.py)
+//   DungeonCrawlerTests --warm ...   any group or render with the warm chain on (otherwise only the warmth group has it)
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
 #include "UI/Scenes.h"
@@ -2652,20 +2652,25 @@ int qaDebug(int la, int ka, int lb, int kb) {
 #include "RealBrassTests.inc"
 #include "SeatTests.inc"
 #include "DungeonSynthTests.inc"
-#include "DungeonSynthModernTests.inc"   // Session 18
 #include "RealWindTests.inc"
 #include "ReleaseTests.inc"           // 1.0.0
+#include "WarmthTests.inc"            // the warmth pass
 
 int main(int argc, char** argv) {
     juce::ScopedJuceInitialiser_GUI gui;
     juce::String snapshot;
     juce::StringArray only;
     // --no-samples: as a build without the recordings (CI without SAMPLES_TOKEN).
-    for (int i = 1; i < argc; ++i)
+    // Warmth pass: the groups and renders measure the engine as it was before the warm chain
+    // (the warmth group, `--warmth-renders` and `--warm` turn it on).
+    DungeonCrawlerProcessor::setWarmthAvailableForTests(false);
+    for (int i = 1; i < argc; ++i) {
         if (juce::String(argv[i]) == "--no-samples") wb::samples::Bank::bypassForTests(true);
+        if (juce::String(argv[i]) == "--warm") DungeonCrawlerProcessor::setWarmthAvailableForTests(true);
+    }
     for (int i = 1; i < argc; ++i) {
         const juce::String arg(argv[i]);
-        if (arg == "--no-samples") continue;
+        if (arg == "--no-samples" || arg == "--warm") continue;
         if (arg == "--snapshot" && i + 1 < argc) snapshot = argv[++i];
         else if (arg == "--only" && i + 1 < argc) only = juce::StringArray::fromTokens(argv[++i], ",", "");
         else if (arg == "--calibrate" && i + 1 < argc) return calibrate(argv[i + 1]);
@@ -2701,13 +2706,9 @@ int main(int argc, char** argv) {
         else if (arg == "--listen-realwinds" && i + 1 < argc) return listenRealWinds(argv[i + 1]);
         else if (arg == "--ds-hashes") return dsHashes();
         else if (arg == "--ds-report") return dsReport();
-        else if (arg == "--ds-audit") return dsAudit();
-        else if (arg == "--ds-strength") return dsStrength();
-        else if (arg == "--ds-places") return dsPlaces();
         else if (arg == "--listen-dungeonsynth" && i + 1 < argc) return listenDungeonSynth(argv[i + 1]);
         else if (arg == "--ds-snapshots" && i + 1 < argc) return dsSnapshots(argv[i + 1]);
-        else if (arg == "--ds-modern") return dsModern();                                             // Session 18
-        else if (arg == "--listen-dsmodern" && i + 1 < argc) return listenDsModern(argv[i + 1]);
+        else if (arg == "--warmth-renders" && i + 1 < argc) return warmthRenders(argv[i + 1]);   // the warmth pass
         else if (arg == "--render" && i + 2 < argc)
             return renderToFile(argv[i + 1], juce::String(argv[i + 2]).getIntValue(), i + 3 < argc ? juce::String(argv[i + 3]).getDoubleValue() : 8.0);
     }
@@ -2748,7 +2749,7 @@ int main(int argc, char** argv) {
     if (run("seat")) testSeat(s);               // Session 14
     if (run("dungeonsynth")) testDungeonSynth(s);   // Session 15
     if (run("dungeonsynthui")) testDungeonSynthUi(s);
-    if (run("dsmodern")) testDungeonSynthModern(s);   // Session 18
+    if (run("warmth")) testWarmth(s);           // the warmth pass
     if (run("realwinds")) testRealWinds(s);     // Session 17
     if (run("release")) testRelease(s);         // 1.0.0
     if (only.contains("qa")) testQa(s);   // long (130 journeys): run explicitly

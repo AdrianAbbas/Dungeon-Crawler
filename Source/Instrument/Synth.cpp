@@ -913,6 +913,14 @@ void Synth::noteOn(int key, float velocity) noexcept {
         n.legatoFromMidi = slurFromMidi;
     }
     v.note = n;
+    // Warmth pass: the voice's own detune, 3-8 cents either way (deterministic per note), and its drift.
+    v.warmSeed = d::mix64(noteCount * 0xD1B54A32D192ED03ull + 0x5741524Dull);
+    {
+        const float u = d::unipolar(v.warmSeed);
+        v.warmCents = (u < 0.5f ? -1.0f : 1.0f) * (3.0f + 10.0f * std::abs(u - 0.5f));
+        v.warmDrift = v.warmGoal = 0;
+        v.warmCounter = 0;
+    }
     // The post: tone follows the Tone macro (two octaves either way) and the velocity.
     const auto& p = des.post;
     v.toneHz = std::min(p.toneHz * std::exp2(2.0f * n.offset(0)) * std::exp2(-p.velocityTone * (1.0f - v.velocity)), 0.45f * rate);
@@ -1000,7 +1008,7 @@ void Synth::noteOn(int key, float velocity) noexcept {
             default: break;
         }
     // Whatever the layers started at, the first chunk's update tunes them now.
-    const float bendSemis = bendNow * bendRange;
+    const float bendSemis = bendNow * bendRange + (warmth > 0.0f ? warmth * v.warmCents * 0.01f : 0.0f);
     for (auto& L : v.layer)
         if (L.model != Model::None) L.update(rate, bendSemis, modNow);
     if (key >= 0) lit[std::size_t(key >> 6)].fetch_or(uint64_t(1) << (key & 63), std::memory_order_relaxed);
@@ -1111,6 +1119,17 @@ void Synth::controlChunk() noexcept {
             case ModWheel::Growl: v.drive = v.baseDrive + 0.6f * modNow; break;
             case ModWheel::Swell: v.wheelLevel = 0.55f + 0.9f * modNow; break;
         }
+        // Warmth pass: the voice's detune and a slow random drift (+/-2 cents, a new goal every ~1.3 s).
+        float warmSemis = 0;
+        if (warmth > 0.0f) {
+            if (--v.warmCounter <= 0) {
+                v.warmCounter = std::max(1, int(1.3f / chunkSeconds));
+                v.warmSeed = d::mix64(v.warmSeed + 0x9E3779B97F4A7C15ull);
+                v.warmGoal = 4.0f * (d::unipolar(v.warmSeed) - 0.5f);
+            }
+            v.warmDrift += std::min(1.0f, chunkSeconds / 0.8f) * (v.warmGoal - v.warmDrift);
+            warmSemis = warmth * (v.warmCents + v.warmDrift) * 0.01f;
+        }
         if (toneMul != 1.0f || wheel == ModWheel::Brightness || wheel == ModWheel::Expression) v.tone.set(std::min(v.toneHz * toneMul, 0.45f * rate), v.toneQ, rate);
         for (auto& L : v.layer) {
             if (L.model == Model::None) continue;
@@ -1134,7 +1153,7 @@ void Synth::controlChunk() noexcept {
                 }
             }
             if (L.model == Model::Woodwind) L.woodwind.wheel = wheel == ModWheel::Expression ? modNow : 0.0f;
-            L.update(rate, bendSemis + bendExtra, vibrato);
+            L.update(rate, warmth > 0.0f ? bendSemis + bendExtra + warmSemis : bendSemis + bendExtra, vibrato);
         }
         bool any = false;
         for (const auto& L : v.layer) any |= L.active();

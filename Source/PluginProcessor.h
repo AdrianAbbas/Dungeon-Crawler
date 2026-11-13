@@ -6,7 +6,7 @@
 #include "World/Presets.h"
 #include "DSP/Atmosphere.h"
 #include "Instrument/Synth.h"
-#include "DSP/DungeonSynth.h"
+#include "DSP/Warmth.h"
 
 // Direction Update 3: one processor, two plug-ins. DUNGEON CRAWLER (the instrument: no
 // input, MIDI plays the place's instrument, which then sounds in the place) and DUNGEON
@@ -94,6 +94,8 @@ private:
     // Session 15: DUNGEON SYNTH and its Era.
     std::atomic<float>* dsAmount = nullptr;
     std::atomic<float>* dsEra = nullptr;
+    std::atomic<float>* warmthParam = nullptr;   // Warmth pass
+    std::atomic<float>* monoParam = nullptr;
 
 public:
     juce::AudioProcessorValueTreeState parameters;
@@ -146,13 +148,21 @@ public:
     // The Effects roller (0..1.5; 1 = the place as designed).
     float effectsAmount() const noexcept;
     // Session 15: DUNGEON SYNTH (0..1; 0 = exactly as before) and its Era (0 Classic, 1 Modern).
+    // Warmth pass: the roller is the Grit (dc::Grit), the Era also voices the warm chain.
     float dungeonSynthAmount() const noexcept;
     int dungeonSynthEra() const noexcept;
-    const dc::DungeonSynth& dungeonSynthStage() const noexcept { return dungeon; }
-    // Tests: false runs the code path exactly as before Session 15 (the stage never called),
-    // for the null test against DUNGEON SYNTH at 0 %.
-    void setDungeonSynthEnabledForTest(bool on) noexcept { dungeonEnabled = on; }
-    const dc::DungeonSynth& dungeonSynthForTest() const noexcept { return dungeon; }
+    // Warmth pass: the warm character chain (0..1; the instrument 100 % by default, the FX 0 %) and
+    // the deliberate Mono switch (off by default).
+    float warmthAmount() const noexcept;
+    bool monoOn() const noexcept;
+    const dc::WarmChain& warmChainForTest() const noexcept { return warm; }
+    const dc::Grit& gritForTest() const noexcept { return grit; }
+    dc::Grit& gritStageForTest() noexcept { return grit; }
+    // Tests: false runs the code path exactly as before the warmth pass for every processor
+    // (the warm chain and the voices' detune never run, whatever the Warmth parameter says); the
+    // suite's older groups measure the engine so, the warmth group with it on.
+    static void setWarmthAvailableForTests(bool on) noexcept { warmthAvailable().store(on); }
+    static bool warmthAvailableForTests() noexcept { return warmthAvailable().load(); }
     int qualityMode() const noexcept;
     // Presets: factory (the effect: favourite spots, journeys; the instrument: instrument
     // presets, instruments elsewhere, journeys) and user presets (state files).
@@ -275,8 +285,10 @@ private:
     std::array<std::array<float, dc::maxChunk>, 2> dryAligned {}, work {};
     // Session 15: the stage (before the dry path and the place), the input aligned for Bypass
     // (which is always the untouched input), the stage's output and its hall's return.
-    dc::DungeonSynth dungeon;
-    bool dungeonEnabled = true;
+    // Warmth pass: the Grit (the DUNGEON SYNTH roller) and the warm chain, on the whole output.
+    dc::Grit grit;
+    dc::WarmChain warm;
+    static std::atomic<bool>& warmthAvailable() noexcept { static std::atomic<bool> on { true }; return on; }
     std::array<dc::dsp::DelayLine, 2> rawDelay;
     std::array<std::array<float, dc::maxChunk>, 2> rawAligned {}, post {};
     std::array<float, dc::maxChunk> bypassedAt {};

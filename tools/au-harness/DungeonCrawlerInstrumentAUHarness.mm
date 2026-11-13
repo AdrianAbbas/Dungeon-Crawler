@@ -611,9 +611,10 @@ void v2Suite(Report& r, AudioComponent component, bool outOfProcess, bool useWin
         }
 
         // 4b. Session 16: DUNGEON SYNTH reaches the audio in this host (in and out of process):
-        // a held chord in the place's instrument at 0 %, then Classic and Modern at 100 %:
-        // Classic folds the place's wide image nearly to mono, Modern's ensemble keeps it wide
-        // (far wider than Classic), the level stays. The Linux suite measures the stage itself.
+        // a held chord in the place's instrument at 0 %, then Classic and Modern at 100 %.
+        // The warmth pass: the roller is the Grit; the warm chain (Warmth, on by default) keeps
+        // the image stereo in both Eras (it never folds to mono: the side within 15 dB of the mid),
+        // the level stays. The Linux suite measures the stages themselves ("dungeonsynth", "warmth").
         {
             const auto* amount = findParameter(params, { "Dungeon Synth" });
             const auto* era = findParameter(params, { "Dungeon Synth Era" });
@@ -641,10 +642,14 @@ void v2Suite(Report& r, AudioComponent component, bool outOfProcess, bool useWin
                 const auto& modern = modernChord.held;
                 r.check(off.finite && classic.finite && modern.finite && off.rmsDb() > -50.0 && classic.rmsDb() > -50.0 && modern.rmsDb() > -50.0,
                         "a chord plays at 0 % and at 100 % (Classic, Modern)", strf("%.1f / %.1f / %.1f dBFS", off.rmsDb(), classic.rmsDb(), modern.rmsDb()));
-                r.check(classic.widthDb() < off.widthDb() - 8.0, "Dungeon Synth 100 % Classic is heard: the image folds nearly to mono",
-                        strf("side against mid: 0 %% %.1f dB, Classic %.1f dB", off.widthDb(), classic.widthDb()));
-                r.check(modern.widthDb() > classic.widthDb() + 8.0, "the Era switch is heard: Modern stays wide, far wider than Classic",
-                        strf("side against mid: Classic %.1f dB, Modern %.1f dB", classic.widthDb(), modern.widthDb()));
+                r.check(off.widthDb() > -15.0 && classic.widthDb() > -15.0 && modern.widthDb() > -15.0,
+                        "the warmth keeps the chord stereo at 0 % and at 100 % (Classic, Modern): never mono",
+                        strf("side against mid: 0 %% %.1f, Classic %.1f, Modern %.1f dB", off.widthDb(), classic.widthDb(), modern.widthDb()));
+                const auto* warmth = findParameter(params, { "Warmth" });
+                const auto* mono = findParameter(params, { "Mono" });
+                r.check(warmth != nullptr && mono != nullptr && std::abs(warmth->info.defaultValue - warmth->info.maxValue) < 1.0e-4f
+                            && std::abs(mono->info.defaultValue - mono->info.minValue) < 1.0e-4f,
+                        "parameters Warmth (100 % by default) and Mono (off by default) exist");
                 const double a0 = offChord.attack.rmsDb(), ac = classicChord.attack.rmsDb(), am = modernChord.attack.rmsDb();
                 r.check(std::abs(ac - a0) < 3.0 && std::abs(am - a0) < 3.0, "Dungeon Synth keeps the level (the chord's attack within 3 dB of 0 %)",
                         strf("0 %% %.1f, Classic %.1f, Modern %.1f dBFS", a0, ac, am));

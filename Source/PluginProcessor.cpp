@@ -62,6 +62,8 @@ DungeonCrawlerProcessor::DungeonCrawlerProcessor(PluginKind k)
     atmosOn = parameters.getRawParameterValue(dc::ids::atmosOn);
     dsAmount = parameters.getRawParameterValue(dc::ids::dungeonSynth);
     dsEra = parameters.getRawParameterValue(dc::ids::dungeonSynthEra);
+    warmthParam = parameters.getRawParameterValue(dc::ids::warmth);
+    monoParam = parameters.getRawParameterValue(dc::ids::stereoMono);
     if (isInstrument()) {
         instPunch = parameters.getRawParameterValue(dc::ids::instPunch);
         instPunchTime = parameters.getRawParameterValue(dc::ids::instPunchTime);
@@ -170,7 +172,17 @@ float DungeonCrawlerProcessor::dungeonSynthAmount() const noexcept {
 
 int DungeonCrawlerProcessor::dungeonSynthEra() const noexcept {
     const float v = dsEra->load();
-    return std::isfinite(v) && v >= 0.5f ? dc::DungeonSynth::Modern : dc::DungeonSynth::Classic;
+    return std::isfinite(v) && v >= 0.5f ? int(dc::Era::Modern) : int(dc::Era::Classic);
+}
+
+float DungeonCrawlerProcessor::warmthAmount() const noexcept {
+    if (!warmthAvailable().load(std::memory_order_relaxed)) return 0.0f;
+    const float v = warmthParam->load();
+    return std::isfinite(v) ? juce::jlimit(0.0f, 1.0f, v) : 0.0f;
+}
+
+bool DungeonCrawlerProcessor::monoOn() const noexcept {
+    return warmthAvailable().load(std::memory_order_relaxed) && monoParam->load() >= 0.5f;
 }
 
 bool DungeonCrawlerProcessor::journeyRunning() const noexcept {
@@ -450,9 +462,11 @@ void DungeonCrawlerProcessor::prepareToPlay(double sampleRate, int) {
     latency = world.latencySamples();
     for (auto& d : dryDelay) d.prepare(static_cast<std::size_t>(latency + 8));
     for (auto& d : rawDelay) d.prepare(static_cast<std::size_t>(latency + 8));
-    // Session 15/16: DUNGEON SYNTH (on the whole output, after the place).
-    dungeon.setControls(dungeonSynthAmount(), dungeonSynthEra(), dc::inst::dungeonSynthChorusFx, 0.0f);
-    dungeon.prepare(rate);
+    // Warmth pass: the Grit and the warm chain (on the whole output, after the place).
+    grit.setControls(dungeonSynthAmount(), dungeonSynthEra(), qualityMode() == 0);
+    grit.prepare(rate);
+    warm.setControls(warmthAmount(), dungeonSynthEra(), monoOn(), dc::inst::dungeonSynthChorusFx, 0.0f, qualityMode() == 0);
+    warm.prepare(rate);
     for (auto* s : { &inputGain, &outputGain, &wetMix }) s->setTime(0.02, rate);
     placeGain.setTime(0.3, rate);
     placeGain.snap(1.0f);
@@ -740,23 +754,24 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
     const int atmosSeedValue = juce::jlimit(1, 999, static_cast<int>(std::lround(finiteOr(atmosSeed->load(), 1))));
     const double beatsPerSample = bpm / 60.0 / rate;
     // Session 16: DUNGEON SYNTH works on the whole output (after the place, the Mix and the
-    // Output gain, before the safety limiter), as a cassette records the whole sound. In Session 15
-    // it was before the place, whose own reverb, air and ambience then covered it (in its place
-    // the Dark Choir Pad at Classic 100 % came out brighter than at 0 %). Its hall follows the
+    // Output gain, before the safety limiter), as a cassette records the whole sound.
+    // Warmth pass: the roller is the Grit; the warm chain follows it. The chain's hall follows the
     // place's wet path: Intensity x Effects (towards 0 %: the dry path, without it), the MIX
-    // section's Reverb and Mix; its own matcher keeps the output at the input's loudness. The
-    // hall is the genre's own: it follows the user's MIX Reverb, not the instrument's fit (which
-    // keeps strings, brass and plucks drier in a song) that the place's reverbs follow.
+    // section's Reverb (the user's, not the instrument's fit) and Mix.
     {
         const float hallSend = (amount <= neutralIntensity ? 0.0f : juce::jmin(1.25f, amount)) * juce::jlimit(0.0f, dc::mixMax, userReverb)
                              * juce::jlimit(0.0f, 1.0f, finiteOr(mix->load(), 1.0f));
-        const float chorus = isInstrument() ? dc::inst::dungeonSynthChorus(index) : dc::inst::dungeonSynthChorusFx;
-        dungeon.setControls(dungeonSynthAmount(), dungeonSynthEra(), chorus, hallSend);
-        // The place the music is in (as it is now, travelling included): the hall takes on it.
+        const float pad = isInstrument() ? dc::inst::dungeonSynthChorus(index) : dc::inst::dungeonSynthChorusFx;
+        const bool eco = qualityMode() == 0;
+        const float warmth = warmthAmount();
+        grit.setControls(dungeonSynthAmount(), dungeonSynthEra(), eco);
+        warm.setControls(warmth, dungeonSynthEra(), monoOn(), pad, hallSend, eco);
         const auto& f = world.frame();
-        dungeon.setPlace(f[dc::Decay], f[dc::Cutoff], juce::jlimit(0.0f, 1.0f, (f[dc::ReverbMix] + f[dc::VaultMix]) * amount));
+        warm.setPlace(f[dc::Decay], f[dc::Cutoff]);
+        if (isInstrument()) synth.setWarmth(warmth);
     }
-    const bool staging = dungeonEnabled && dungeon.active();
+    const bool gritting = grit.active();
+    const bool warming = warm.active();
     float inPeak = 0, outPeak = 0;
     for (int start = 0; start < numSamples; start += dc::maxChunk) {
         const int n = juce::jmin(dc::maxChunk, numSamples - start);
@@ -781,8 +796,6 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
             l[i] = x0 * g;
             r[i] = x1 * g;
         }
-        // DUNGEON SYNTH's hiss goes in before the place (the place shapes it as it shapes the music).
-        if (staging) dungeon.processHiss(l, r, n);
         world.process(l, r, n, dryAligned[0].data(), dryAligned[1].data());
         if (isInstrument()) {
             // The instrument in its place: a measured correction per place (some spaces
@@ -809,7 +822,8 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
             post[0][k] = ol;
             post[1][k] = orr;
         }
-        if (staging) dungeon.process(post[0].data(), post[1].data(), n);
+        if (gritting) grit.process(post[0].data(), post[1].data(), n);
+        if (warming) warm.process(post[0].data(), post[1].data(), n);
         for (int i = 0; i < n; ++i) {
             const auto k = static_cast<std::size_t>(i);
             float ol = post[0][k], orr = post[1][k];

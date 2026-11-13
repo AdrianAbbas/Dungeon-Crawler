@@ -572,3 +572,20 @@ GitHub Release), on a Mac that had an earlier build installed and a project save
       `~/Library/Application Support/DungeonCrawler` is still there.
 - [ ] Logic's own presets saved earlier appear in its preset menu for each plug-in.
 - [ ] Uninstall as the Read Me says: both plug-ins disappear from the hosts after a restart.
+
+## Warmth pass (build 2 of 1.0.0)
+
+Install the signed `DUNGEON CRAWLER Installer.pkg` from the manual CI run (or the developer
+artifact). In GarageBand, on a software instrument track with DUNGEON CRAWLER:
+
+- [ ] A project saved with build 1 opens with the same instrument, place and settings, and now
+      sounds warmer: stereo (not mono), a soft hazy top with a little tape hiss while it plays
+      (none in silence), slow tape wow, a long dark hall, glued and a little louder.
+- [ ] Chords on pads and strings are wide in Modern, narrower but still stereo in Classic; the
+      bass stays centred.
+- [ ] The Dungeon Synth roller (the Grit) at 50 % and 100 %: thicker and darker, crushed but
+      warm; never fizzy, harsh or thin; the level about the same.
+- [ ] In the plug-in's generic controls (or automation): Warmth 0 % is the sound of build 1;
+      Mono folds to mono and back without a click.
+- [ ] Listen to the CI artifact `DUNGEON-CRAWLER-warmth-renders`: each `before/<instrument>-*.wav`
+      (build 1) against `after/<instrument>-<era>-grit<0|50|100>.wav` (this build).

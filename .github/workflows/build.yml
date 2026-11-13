@@ -345,23 +345,60 @@ jobs:
       # (Royal Strings, Dark Choir Pad, Chamber Organ, Wooden Flute, Lute) at 0 %, Classic 50 and
       # 100 %, Modern 50 and 100 %, one WAV each; the FX's material through the Crypt and the Gates
       # the same way in one file each; and the numbers behind the checks.
-      # Session 16: an A/B file per instrument (0 %, Classic 100 %, Modern 100 %), the strength
-      # numbers and the audit (what of the stage reaches the output).
+      # Session 16: an A/B file per instrument (0 %, Classic 100 %, Modern 100 %) and the numbers.
+      # The warmth pass: rendered with the warm chain on (--warm: the sound that ships); the roller
+      # is the Grit. (Session 16-18's strength, audit and Modern before/after renders went with the
+      # stage they measured.)
       - name: Listening renders (dungeon synth, Classic and Modern, 0 / 50 / 100 %, WAV)
         if: always()
         run: |
-          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-dungeonsynth build/test-logs/dungeonsynth
-          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-report > build/test-logs/dungeonsynth/dungeonsynth-report.txt || true
-          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-strength > build/test-logs/dungeonsynth/dungeonsynth-strength.txt || true
-          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-audit > build/test-logs/dungeonsynth/dungeonsynth-audit.txt || true
-      # Session 18: DUNGEON SYNTH Modern rebuilt as a lush, warm vintage sampler. The dark fantasy
-      # melody on five instruments in their places, Modern 100 % before (Session 17) and after, an
-      # A/B file each (0 %, before, after), after at 25 and 50 %, and the numbers.
-      - name: Listening renders (dungeon synth Modern before and after, WAV)
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --warm --listen-dungeonsynth build/test-logs/dungeonsynth
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --warm --ds-report > build/test-logs/dungeonsynth/dungeonsynth-report.txt || true
+      # The warmth pass: the test phrase (the dark fantasy test melody over held chords) on four
+      # instruments, both Eras, Grit 0 / 50 / 100 %, by this build (after) and by the 1.0.0 build
+      # (before: its test binary built here from its commit, with the same JUCE and samples),
+      # measured by tools/warmth/measure.py into the job summary and gated (correlation, the top,
+      # the loudness range, the true peak, the Grit's texture), and the CPU of the same listening
+      # renders compared (within 1.5x). The renders are a developer artifact, never committed.
+      - name: Warmth pass, build the 1.0.0 test binary (before)
+        if: always()
+        env:
+          BEFORE_COMMIT: 232077e6c2b001855a10d1486a48da758ae2b91d
+        run: |
+          git fetch --no-tags --depth 1 origin "$BEFORE_COMMIT"
+          git worktree add --detach build-before-src "$BEFORE_COMMIT"
+          cmake -S build-before-src -B build-before -G Ninja -DCMAKE_BUILD_TYPE=Release -DJUCE_PATH="${{ runner.temp }}/juce" -DDC_SAMPLES_DIR="${{ runner.temp }}/samples" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+          cmake --build build-before --parallel 4 --target DungeonCrawlerTests
+      - name: Warmth pass, render the test phrase before and after (WAV)
         if: always()
         run: |
-          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-dsmodern build/test-logs/dsmodern
-          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --ds-modern > build/test-logs/dsmodern/dsmodern-report.txt || true
+          mkdir -p build/warmth
+          python3 -m pip install --quiet numpy scipy soundfile
+          TIMEFORMAT=%U
+          { time build-before/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --listen-dungeonsynth build/warmth/before > build/warmth/before.log 2>&1 ; } 2> build/warmth/cpu-before.txt
+          { time build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --warm --listen-dungeonsynth build/warmth/after-listen > build/warmth/after-listen.log 2>&1 ; } 2> build/warmth/cpu-after.txt
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --warmth-renders build/warmth/after > build/warmth/after.log 2>&1
+          tail -3 build/warmth/after.log
+      - name: Warmth pass, measure and gate (job summary)
+        if: always()
+        run: >
+          python3 tools/warmth/measure.py --after build/warmth/after --before build/warmth/before
+          --summary "$GITHUB_STEP_SUMMARY" --json build/warmth/metrics.json
+          --cpu-before build/warmth/cpu-before.txt --cpu-after build/warmth/cpu-after.txt --gate
+      - name: Upload the warmth pass renders (before and after; renders only, for the developer)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: DUNGEON-CRAWLER-warmth-renders
+          path: |
+            build/warmth/before/
+            build/warmth/after/
+            build/warmth/metrics.json
+            build/warmth/cpu-*.txt
+            build/warmth/after.log
+          if-no-files-found: warn
+          retention-days: 14
       # Session 17: the woodwinds (Village Green tin whistle, Forest Edge wooden flute, Foothills
       # shepherd's flute, Bog murky reed) playing a woodwind phrase before (sound 14, the
       # synthesis) and after (sound 15, the recorded woodwinds), dry and in its place, an

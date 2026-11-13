@@ -35,7 +35,8 @@ for entry in "DungeonCrawler aumu Dgci DungeonCrawlerInstAUFactory com.windwarda
         long=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$info" 2>/dev/null || echo "(absent)")
         printf '    bundle ID %s, version %s (%s)\n' "$id" "$short" "$long"
         [[ "$id" == "$bundle_id" ]] || { echo "::error::$bundle has bundle ID $id (expected $bundle_id)"; status=1; }
-        [[ "$short" == 1.0.0 && "$long" == 1.0.0 ]] || { echo "::error::$bundle is version $short ($long), expected 1.0.0"; status=1; }
+        # The warmth pass: the version stays 1.0.0, the build number (CFBundleVersion) is 2 (CMakeLists.txt).
+        [[ "$short" == 1.0.0 && "$long" == 2 ]] || { echo "::error::$bundle is version $short (build $long), expected 1.0.0 (build 2)"; status=1; }
         for meta in "$info" "$bundle/Contents/Resources/moduleinfo.json"; do
             [[ -f "$meta" ]] || continue
             if /usr/bin/grep -iE 'veil audio|elsewhere|audio\.veil' "$meta"; then echo "::error::$meta still names the old company"; status=1; fi

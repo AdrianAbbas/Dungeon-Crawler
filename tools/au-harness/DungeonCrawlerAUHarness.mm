@@ -679,10 +679,10 @@ void v2Suite(Report& r, AudioComponent component, bool outOfProcess, bool useWin
 
         // 3c. Session 16: DUNGEON SYNTH reaches the audio in this host (in and out of process).
         // On the dry path (Intensity 0: the place out, only the stage acts) a mono 440 Hz sine:
-        // 0 % passes it untouched; Classic and Modern at 100 % change it strongly (the tape's
-        // wow alone moves its phase); Modern's ensemble widens the mono tone, Classic keeps it
-        // nearly mono; back at 0 % it passes untouched again. The Linux suite measures the stage
-        // itself (group "dungeonsynth").
+        // 0 % passes it untouched; Classic and Modern at 100 % change it (the warmth pass: the
+        // roller is the Grit, saturation and crush, its image unchanged), the level stays; back at
+        // 0 % it passes untouched again. The Linux suite measures the stage itself (groups
+        // "dungeonsynth" and "warmth").
         {
             const auto* amount = findParameter(params, { "Dungeon Synth" });
             const auto* era = findParameter(params, { "Dungeon Synth Era" });
@@ -699,12 +699,10 @@ void v2Suite(Report& r, AudioComponent component, bool outOfProcess, bool useWin
                 setParameter(unit, amount->id, amount->info.minValue);
                 auto back = host.render(2.5, 1.5);
                 r.check(off.finite && off.diffDb() < -40.0, "Dungeon Synth 0 % passes the input through (residual < -40 dB)", off.describe());
-                r.check(classic.finite && classic.diffDb() > -10.0 && classic.rmsDb() > -40.0, "Dungeon Synth 100 % Classic changes the sound strongly (residual > -10 dB)",
+                r.check(classic.finite && classic.diffDb() > -25.0 && classic.rmsDb() > -40.0, "Dungeon Synth (Grit) 100 % Classic changes the sound (residual > -25 dB)",
                         classic.describe());
-                r.check(s == noErr && modern.finite && modern.diffDb() > -14.0 && modern.rmsDb() > -40.0, "Dungeon Synth 100 % Modern changes the sound strongly (residual > -14 dB)",
+                r.check(s == noErr && modern.finite && modern.diffDb() > -25.0 && modern.rmsDb() > -40.0, "Dungeon Synth (Grit) 100 % Modern changes the sound (residual > -25 dB)",
                         modern.describe());
-                r.check(modern.widthDb() > classic.widthDb() + 10.0, "the Era switch is heard: Modern's ensemble widens a mono tone, Classic keeps it nearly mono",
-                        strf("side against mid: Classic %.1f dB, Modern %.1f dB", classic.widthDb(), modern.widthDb()));
                 r.check(std::abs(classic.rmsDb() - off.rmsDb()) < 3.0 && std::abs(modern.rmsDb() - off.rmsDb()) < 3.0, "Dungeon Synth keeps the level (within 3 dB of 0 %)",
                         strf("0 %% %.1f, Classic %.1f, Modern %.1f dBFS", off.rmsDb(), classic.rmsDb(), modern.rmsDb()));
                 r.check(back.finite && back.diffDb() < -40.0, "back at 0 %: the input passes untouched again", back.describe());

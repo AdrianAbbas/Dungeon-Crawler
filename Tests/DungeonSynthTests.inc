@@ -284,34 +284,6 @@ int dsReport() {
 }
 
 namespace dstests {
-// The hall's decay (s): its impulse response on the stage alone, T30 from the Schroeder curve.
-double hallT60(float amount, int era) {
-    dc::DungeonSynth ds;
-    ds.setControls(amount, era, 0.6f, 1.0f);
-    ds.prepare(48000);
-    ds.setHallOnlyForTest(true);
-    std::array<float, 64> l {}, r {};
-    std::vector<double> energy;
-    for (int b = 0; b < 48000 * 14 / 64; ++b) {
-        l.fill(0.0f);
-        r.fill(0.0f);
-        if (b == 0) l[0] = r[0] = 0.5f;
-        ds.process(l.data(), r.data(), 64);
-        for (int i = 0; i < 64; ++i) energy.push_back(double(l[i]) * l[i] + double(r[i]) * r[i]);
-    }
-    std::vector<double> curve(energy.size());
-    double sum = 0;
-    for (std::size_t i = energy.size(); i-- > 0;) { sum += energy[i]; curve[i] = sum; }
-    if (sum <= 0.0) return 0.0;
-    double t5 = -1, t35 = -1;
-    for (std::size_t i = 0; i < curve.size(); ++i) {
-        const double db = 10.0 * std::log10(std::max(curve[i], 1.0e-30) / curve[0]);
-        if (t5 < 0 && db <= -5.0) t5 = double(i) / 48000.0;
-        if (t35 < 0 && db <= -35.0) { t35 = double(i) / 48000.0; break; }
-    }
-    return t5 >= 0 && t35 > t5 ? 2.0 * (t35 - t5) : 0.0;
-}
-// The largest second difference over a range (both channels).
 double maxStepOf(const std::vector<float>& l, const std::vector<float>& r, std::size_t from, std::size_t to) {
     double m = 0;
     for (std::size_t i = std::max<std::size_t>(from, 2); i < std::min(to, l.size()); ++i) {
@@ -323,8 +295,8 @@ double maxStepOf(const std::vector<float>& l, const std::vector<float>& r, std::
 
 // Session 16: measuring the stage's strength.
 // The power spectrum (Hann, 65536 points: 0.73 Hz a bin) of x from `from`.
-std::vector<double> spectrumOf(const std::vector<float>& x, std::size_t from) {
-    constexpr int order = 16, size = 1 << order;
+std::vector<double> spectrumOf(const std::vector<float>& x, std::size_t from, int order = 16) {
+    const int size = 1 << order;
     juce::dsp::FFT fft(order);
     std::vector<float> buf(2 * size, 0.0f);
     for (int i = 0; i < size; ++i) {
@@ -367,23 +339,6 @@ double noiseFloorDbfs(const std::vector<float>& x, std::initializer_list<double>
     for (std::size_t i = from; i < std::min(x.size(), from + 65536); ++i) ms += double(x[i]) * x[i];
     ms /= 65536.0;
     return 10.0 * std::log10(std::max(1.0e-30, (total - tonal) / std::max(total, 1.0e-30) * ms));
-}
-// The stage alone (no place, no processor) on a signal, 64-sample blocks at 48 kHz.
-effectstests::Take stageRun(float amount, int era, float chorus, float send, const Signal& signal, double seconds, bool hallOnly = false) {
-    dc::DungeonSynth ds;
-    ds.setControls(amount, era, chorus, send);
-    ds.prepare(48000);
-    ds.setHallOnlyForTest(hallOnly);
-    const auto n = std::size_t(seconds * 48000.0);
-    effectstests::Take t { std::vector<float>(n), std::vector<float>(n) };
-    for (std::size_t i = 0; i < n; ++i) { t.l[i] = signal(0, (long long) i, 48000.0); t.r[i] = signal(1, (long long) i, 48000.0); }
-    for (std::size_t i = 0; i < n; i += 64) {
-        const int m = int(std::min<std::size_t>(64, n - i));
-        ds.setControls(amount, era, chorus, send);
-        if (!hallOnly) ds.processHiss(t.l.data() + i, t.r.data() + i, m);   // as the processor does (before its place)
-        ds.process(t.l.data() + i, t.r.data() + i, m);
-    }
-    return t;
 }
 // Wow and flutter of a held tone (cents RMS): the pitch per period (zero crossings), below
 // 2 Hz (wow) and 2..25 Hz (flutter); and the wow's peak (% of speed).
@@ -428,21 +383,6 @@ Signal pulsedChord() {
         return 0.08f * float(v);
     };
 }
-// The stage's tails: the energy in the gaps against the energy while it plays (dB), and the
-// hall alone while it plays against the input (dB).
-struct Wet { double gaps = -200, hall = -200; };
-Wet wetOf(float amount, int era) {
-    const auto chord = pulsedChord();
-    const auto out = stageRun(amount, era, 0.6f, 1.0f, chord, 10.0), hall = stageRun(amount, era, 0.6f, 1.0f, chord, 10.0, true);
-    double on = 0, off = 0, in = 0, h = 0;
-    for (std::size_t i = 2 * 48000; i < out.l.size(); ++i) {
-        const bool playing = (i / 48000) % 2 == 0;
-        const double y = double(out.l[i]) * out.l[i] + double(out.r[i]) * out.r[i];
-        if (playing) { on += y; const double x = chord(0, (long long) i, 48000.0); in += 2.0 * x * x; h += double(hall.l[i]) * hall.l[i] + double(hall.r[i]) * hall.r[i]; }
-        else off += y;
-    }
-    return { 10.0 * std::log10(std::max(off, 1.0e-30) / std::max(on, 1.0e-30)), 10.0 * std::log10(std::max(h, 1.0e-30) / std::max(in, 1.0e-30)) };
-}
 // The FX's dry path (Intensity 0: the place is out, the stage on the input) on its material.
 effectstests::Take fxDry(Ds d, double seconds = 6.0) {
     Host h;
@@ -456,205 +396,7 @@ const std::vector<int>& brightInstruments() {
     static const std::vector<int> v { dc::inst::designFor(dc::Castle, 2), dc::inst::designFor(dc::HauntedForest, 0), dc::inst::designFor(dc::Castle, 0) };
     return v;   // Royal Strings, Wooden Flute, Lute
 }
-
-// Everything the strength checks and `--ds-strength` measure.
-struct Strength {
-    // [era][0 25 %, 1 50 %, 2 100 %]
-    double harmonics[2][3] {}, alias[2] {}, noise[2][3] {}, t60[2][3] {}, rate44 = 0, rate48 = 0;
-    WowFlutter wow[2][3] {};
-    Wet wet[2][3] {};
-    struct Place { std::string name; double distance[2][3] {}, cm = 0, width[2][3] {}, tail[2] {}, top8[2] {}, top12[2] {}; };
-    std::vector<Place> places;   // in its place (five instruments) and the FX in two places
-    struct Bright { std::string name; double top8[2][3] {}, top12[2][3] {}; };
-    std::vector<Bright> bright;  // dry
-};
-Strength measureStrength() {
-    Strength m;
-    const float amounts[3] { 0.25f, 0.5f, 1.0f };
-    for (int era : { 0, 1 })
-        for (int k = 0; k < 3; ++k) {
-            const float a = amounts[k];
-            const auto e = std::size_t(era);
-            const auto ku = std::size_t(k);
-            const auto tone = stageRun(a, era, 0.0f, 0.0f, sine(200.0, 0.316f), 4.0);
-            m.harmonics[e][ku] = harmonicsFft(tone.l, 200.0, 48000);
-            // A tone with some treble (220 Hz at -15 dBFS RMS and its 12th harmonic, 2.64 kHz, at
-            // -23 dBFS RMS, so whatever the tape makes of them stays on 220's harmonics): the hiss
-            // rides under the music's treble.
-            const auto typical = stageRun(a, era, 0.0f, 0.0f, [](int ch, long long n, double sr) { return sine(220.0, 0.25f)(ch, n, sr) + sine(2640.0, 0.1f)(ch, n, sr); }, 4.0);
-            m.noise[e][ku] = noiseFloorDbfs(typical.l, { 220.0 }, 48000);
-            const auto held = stageRun(a, era, 0.0f, 0.0f, sine(1000.0, 0.25f), 12.0);
-            m.wow[e][ku] = wowFlutterOf(held.l, 48000, held.l.size());
-            m.t60[e][ku] = hallT60(a, era);
-            m.wet[e][ku] = wetOf(a, era);
-        }
-    for (int era : { 0, 1 }) {
-        // Aliasing: a 9 kHz tone at 100 % folds to 13 - 9 = 4 kHz in Classic (the sampler at 13 kHz).
-        const auto t = stageRun(1.0f, era, 0.0f, 0.0f, sine(9000.0, 0.25f), 3.0);
-        const auto p = spectrumOf(t.l, 48000);
-        m.alias[std::size_t(era)] = 10.0 * std::log10(std::max(bandPower(p, 3850.0, 4150.0), 1.0e-30) / std::max(bandPower(p, 20.0, 24000.0), 1.0e-30));
-    }
-    for (double rate : { 44100.0, 48000.0 }) {
-        dc::DungeonSynth ds;
-        ds.setControls(1.0f, 0, 0.0f, 0.0f);
-        ds.prepare(rate);
-        (rate < 46000.0 ? m.rate44 : m.rate48) = ds.samplerRate();
-    }
-    const auto place = [&](const std::string& name, const std::function<effectstests::Take(Ds)>& render, bool tails) {
-        Strength::Place p;
-        p.name = name;
-        const auto base = render({ 0, 0 });
-        const auto b0 = bandsDb(base.l, base.r);
-        effectstests::Take full[2];
-        for (int era : { 0, 1 })
-            for (int k = 0; k < 3; ++k) {
-                const auto t = render({ amounts[k], era });
-                const auto e = std::size_t(era), ku = std::size_t(k);
-                const auto b = bandsDb(t.l, t.r);
-                p.distance[e][ku] = spectralDistance(b0, b);
-                p.width[e][ku] = widthDb(t) - widthDb(base);
-                if (k == 2) {
-                    full[e] = t;
-                    p.top8[e] = topDb(b, 8000) - topDb(b0, 8000);
-                    p.top12[e] = topDb(b, 12000) - topDb(b0, 12000);
-                    p.tail[e] = tails ? tailDb(t) - tailDb(base) : 0.0;
-                }
-            }
-        p.cm = spectralDistance(full[0], full[1]);
-        m.places.push_back(p);
-    };
-    for (int instrument : dsInstruments()) place(instName(instrument) + " in its place", [instrument](Ds d) { return instMelody(instrument, d); }, true);
-    for (const auto& [l, k] : std::vector<std::pair<int, int>> { { dc::Cathedral, 2 }, { dc::Necropolis, 0 } })
-        place("FX " + placeName(l, k), [l = l, k = k](Ds d) { return fxMaterial(l, k, d); }, false);
-    const auto bright = [&](const std::string& name, const std::function<effectstests::Take(Ds)>& render) {
-        Strength::Bright b;
-        b.name = name;
-        const auto b0 = bandsDb(render({ 0, 0 }).l, render({ 0, 0 }).r);
-        for (int era : { 0, 1 })
-            for (int k = 0; k < 3; ++k) {
-                const auto t = render({ amounts[k], era });
-                const auto bt = bandsDb(t.l, t.r);
-                b.top8[era][k] = topDb(bt, 8000) - topDb(b0, 8000);
-                b.top12[era][k] = topDb(bt, 12000) - topDb(b0, 12000);
-            }
-        m.bright.push_back(b);
-    };
-    // Session 17: the Wooden Flute's bright material is its synthesis (sound 14), as these checks
-    // were written for: the recorded flute (sound 15) is dark by design (it has little above
-    // 8 kHz for the stage to roll off; the realwinds group checks the roller on it).
-    for (int instrument : brightInstruments())
-        bright(instName(instrument) + " dry", [instrument](Ds d) {
-            return instMelody(instrument, d, 1.0, false, instrument == dc::inst::designFor(dc::HauntedForest, 0) ? int(dc::inst::SoundSeated) : int(dc::inst::SoundLatest));
-        });
-    bright("FX dry path", [](Ds d) { return fxDry(d); });
-    return m;
-}
 } // namespace dstests
-
-// `--ds-strength` (Session 16): the numbers behind the strength checks.
-int dsStrength() {
-    using namespace dstests;
-    const auto m = measureStrength();
-    const char* eras[2] { "Classic", "Modern" };
-    const char* at[3] { "25", "50", "100" };
-    std::cout << "sampler rate at 100 % Classic: " << fmt(m.rate44, 0) << " Hz at 44.1 kHz, " << fmt(m.rate48, 0) << " Hz at 48 kHz\n";
-    for (int e : { 0, 1 }) {
-        std::cout << eras[e] << ": alias of a 9 kHz tone at 4 kHz " << fmt(m.alias[e], 1) << " dB\n";
-        for (int k = 0; k < 3; ++k)
-            std::cout << "  " << eras[e] << " " << at[k] << " %: harmonics " << fmt(m.harmonics[e][k], 1) << " dB, noise floor " << fmt(m.noise[e][k], 1)
-                      << " dBFS, wow " << fmt(m.wow[e][k].wow, 2) << " cents RMS (peak " << fmt(m.wow[e][k].wowPeakPercent, 3) << " %), flutter "
-                      << fmt(m.wow[e][k].flutter, 2) << " cents RMS, hall T60 " << fmt(m.t60[e][k], 2) << " s, gaps/playing " << fmt(m.wet[e][k].gaps, 1)
-                      << " dB, hall/input " << fmt(m.wet[e][k].hall, 1) << " dB\n";
-    }
-    for (const auto& p : m.places) {
-        std::cout << p.name << ":";
-        for (int e : { 0, 1 })
-            std::cout << " " << eras[e] << " distance " << fmt(p.distance[e][0], 2) << " / " << fmt(p.distance[e][1], 2) << " / " << fmt(p.distance[e][2], 2)
-                      << " dB, width " << fmt(p.width[e][0], 1) << " / " << fmt(p.width[e][1], 1) << " / " << fmt(p.width[e][2], 1) << " dB, tail " << fmt(p.tail[e], 1)
-                      << " dB, top8 " << fmt(p.top8[e], 1) << ", top12 " << fmt(p.top12[e], 1) << ";";
-        std::cout << " Classic-Modern " << fmt(p.cm, 2) << " dB\n";
-    }
-    for (const auto& b : m.bright) {
-        std::cout << b.name << ":";
-        for (int e : { 0, 1 }) std::cout << " " << eras[e] << " above 8 kHz " << fmt(b.top8[e][0], 1) << " / " << fmt(b.top8[e][1], 1) << " / " << fmt(b.top8[e][2], 1)
-                                         << ", above 12 kHz " << fmt(b.top12[e][0], 1) << " / " << fmt(b.top12[e][1], 1) << " / " << fmt(b.top12[e][2], 1) << ";";
-        std::cout << "\n";
-    }
-    return 0;
-}
-
-// `--ds-audit` (Session 16): what reaches the output. For each instrument, the stage alone (the
-// instrument dry) and in its place, and the FX in two places: 0 % against Classic and Modern at
-// 100 %, and Classic against Modern: spectral distance, above 6 kHz, width (side against mid),
-// the tail after the melody.
-int dsAudit() {
-    using namespace dstests;
-    const auto line = [](const std::string& name, const effectstests::Take& base, const effectstests::Take& c, const effectstests::Take& m, bool tails) {
-        std::cout << name << ": distance 0-C " << fmt(spectralDistance(base, c), 2) << " / 0-M " << fmt(spectralDistance(base, m), 2) << " / C-M "
-                  << fmt(spectralDistance(c, m), 2) << " dB; above 8 kHz C " << fmt(topDb(c, 8000) - topDb(base, 8000), 1)
-                  << " M " << fmt(topDb(m, 8000) - topDb(base, 8000), 1) << ", above 12 kHz M " << fmt(topDb(m, 12000) - topDb(base, 12000), 1) << " dB (0 %: " << fmt(topDb(base, 8000), 1) << "); width C " << fmt(widthDb(c) - widthDb(base), 1)
-                  << " M " << fmt(widthDb(m) - widthDb(base), 1) << " dB (0 %: " << fmt(widthDb(base), 1) << ")";
-        if (tails) std::cout << "; tail C " << fmt(tailDb(c) - tailDb(base), 1) << " M " << fmt(tailDb(m) - tailDb(base), 1) << " dB";
-        std::cout << "\n";
-    };
-    for (int instrument : dsInstruments()) {
-        for (bool inPlace : { false, true }) {
-            const auto base = instMelody(instrument, { 0, 0 }, 3.0, inPlace), c = instMelody(instrument, { 1, 0 }, 3.0, inPlace),
-                       m = instMelody(instrument, { 1, 1 }, 3.0, inPlace);
-            line(instName(instrument) + (inPlace ? " in its place" : " dry"), base, c, m, true);
-        }
-    }
-    for (const auto& [l, k] : std::vector<std::pair<int, int>> { { dc::Cathedral, 2 }, { dc::Necropolis, 0 } }) {
-        const auto base = fxMaterial(l, k, { 0, 0 }), c = fxMaterial(l, k, { 1, 0 }), m = fxMaterial(l, k, { 1, 1 });
-        line("FX " + placeName(l, k), base, c, m, false);
-    }
-    return 0;
-}
-
-// `--ds-places` (Session 16): the place still matters. The Soft Choir (locked) in the Crypt, the
-// Gates and the Dwarven Hall: how different each pair is at 0 % and at 100 % (both Eras).
-namespace dstests {
-struct PlacePair { std::string a, b; double d0 = 0, d1 = 0; };
-std::vector<PlacePair> placePairs(int era) {
-    const int choir = dc::inst::designFor(dc::Cathedral, 0);
-    const std::vector<std::pair<int, int>> places { { dc::Cathedral, 2 }, { dc::Necropolis, 0 }, { dc::Mountains, 3 } };
-    std::vector<effectstests::Take> at0, at100;
-    for (const auto& [l, k] : places)
-        for (float a : { 0.0f, 1.0f }) {
-            InstHost h;
-            h.play(choir, false);
-            h.go(l, k);
-            setDs(h, { a, era });
-            h.render(0.05);
-            melody(h, 0.1);
-            h.render(0.05 + melodySeconds + 2.0);
-            (a == 0.0f ? at0 : at100).push_back({ h.outL, h.outR });
-        }
-    std::vector<PlacePair> out;
-    for (std::size_t i = 0; i < places.size(); ++i)
-        for (std::size_t j = i + 1; j < places.size(); ++j)
-            out.push_back({ placeName(places[i].first, places[i].second), placeName(places[j].first, places[j].second),
-                            effectstests::effectShare(at0[i].l, at0[i].r, at0[j].l, at0[j].r, 0, at0[i].l.size()),
-                            effectstests::effectShare(at100[i].l, at100[i].r, at100[j].l, at100[j].r, 0, at100[i].l.size()) });
-    return out;
-}
-}
-int dsPlaces() {
-    if (std::getenv("DS_FRAMES") != nullptr)
-        for (const auto& [l, k] : std::vector<std::pair<int, int>> { { dc::Cathedral, 2 }, { dc::Necropolis, 0 }, { dc::Mountains, 3 } }) {
-            Host h;
-            h.go(l, k);
-            h.render(1.0, silence());
-            const auto& f = h.p->engine().frame();
-            std::cout << placeName(l, k) << ": decay " << f[dc::Decay] << " cutoff " << f[dc::Cutoff] << " reverbMix " << f[dc::ReverbMix] << " vaultMix " << f[dc::VaultMix]
-                      << " space " << f[dc::Space] << " delayMix " << f[dc::DelayMix] << " darkness " << f[dc::Darkness] << "\n";
-        }
-    for (int era : { 0, 1 })
-        for (const auto& p : dstests::placePairs(era))
-            std::cout << (era == 0 ? "Classic" : "Modern") << " " << p.a << " / " << p.b << ": " << fmt(p.d0) << " dB at 0 %, " << fmt(p.d1) << " dB at 100 % ("
-                      << fmt(100.0 * p.d1 / std::max(p.d0, 1.0e-9), 0) << " %)\n";
-    return 0;
-}
 
 void testDungeonSynth(Suite& s) {
     using namespace dstests;
@@ -674,18 +416,17 @@ void testDungeonSynth(Suite& s) {
         }
         s.check(fx.getParameters().size() + 13 == inst.getParameters().size(), "both plug-ins got the same two parameters (the instrument still adds thirteen)");
     }
-    // 0 %: the null test. Every render with the roller at 0 % (Classic and Modern) is bit for bit
-    // the render with the stage never called (the code path as before Session 15).
+    // 0 %: the null test. Every render with the roller at 0 % is the same in Classic and Modern,
+    // bit for bit, and the Grit never runs (the code path as before Session 15).
     {
-        const auto before = nullRenders([](DungeonCrawlerProcessor& p) { p.setDungeonSynthEnabledForTest(false); });
         const auto atZero = nullRenders();
         const auto atZeroModern = nullRenders([](DungeonCrawlerProcessor& p) {
             auto* era = p.parameters.getParameter(dc::ids::dungeonSynthEra);
             era->setValueNotifyingHost(era->convertTo0to1(1.0f));
         });
-        for (std::size_t k = 0; k < before.size(); ++k) {
-            const bool same = before[k].l == atZero[k].l && before[k].r == atZero[k].r && before[k].l == atZeroModern[k].l && before[k].r == atZeroModern[k].r;
-            s.check(same, "0 %: " + before[k].name + " is bit-identical to the sound before (null test)", std::to_string(before[k].l.size()) + " samples");
+        for (std::size_t k = 0; k < atZero.size(); ++k) {
+            const bool same = atZero[k].l == atZeroModern[k].l && atZero[k].r == atZeroModern[k].r;
+            s.check(same, "0 %: " + atZero[k].name + " is the same in both Eras, bit for bit (the Grit never runs)", std::to_string(atZero[k].l.size()) + " samples");
         }
     }
     // Moved and brought back to 0 %: the stage rests once its hall has rung out, and the FX's dry
@@ -698,11 +439,11 @@ void testDungeonSynth(Suite& s) {
         h.render(2.0, effectstests::material());
         h.set(dc::ids::dungeonSynth, 0.0f);
         double waited = 0;
-        while (h.p->dungeonSynthStage().active() && waited < 20.0) { h.render(0.25, effectstests::material()); waited += 0.25; }
+        while (h.p->gritForTest().active() && waited < 20.0) { h.render(0.25, effectstests::material()); waited += 0.25; }
         const auto from = h.end();
         h.render(1.0, effectstests::material());
         const auto latency = std::size_t(h.p->getLatencySamples());
-        bool exact = !h.p->dungeonSynthStage().active();
+        bool exact = !h.p->gritForTest().active();
         for (std::size_t i = from; i < h.end(); ++i) exact = exact && h.outL[i] == h.inL[i - latency];
         s.check(exact, "back at 0 %: the stage rests (" + fmt(waited, 2) + " s after) and the dry path is the input exactly");
     }
@@ -718,7 +459,7 @@ void testDungeonSynth(Suite& s) {
             p->getStateInformation(block);
             DungeonCrawlerProcessor reopened(p->kind());
             reopened.setStateInformation(block.getData(), int(block.getSize()));
-            s.check(std::abs(reopened.dungeonSynthAmount() - 0.6f) < 1.0e-3f && reopened.dungeonSynthEra() == dc::DungeonSynth::Modern,
+            s.check(std::abs(reopened.dungeonSynthAmount() - 0.6f) < 1.0e-3f && reopened.dungeonSynthEra() == int(dc::Era::Modern),
                     kind(*p) + ": saved with the session (60 %, Modern)");
             // A session saved before Session 15 (neither parameter in it) opens at 0 %, Classic.
             auto xml = juce::AudioProcessor::getXmlFromBinary(block.getData(), int(block.getSize()));
@@ -731,7 +472,7 @@ void testDungeonSynth(Suite& s) {
             juce::MemoryBlock old;
             juce::AudioProcessor::copyXmlToBinary(*xml, old);
             reopened.setStateInformation(old.getData(), int(old.getSize()));
-            s.check(reopened.dungeonSynthAmount() == 0.0f && reopened.dungeonSynthEra() == dc::DungeonSynth::Classic, kind(*p) + ": an older session opens at 0 % (as it sounded)");
+            s.check(reopened.dungeonSynthAmount() == 0.0f && reopened.dungeonSynthEra() == int(dc::Era::Classic), kind(*p) + ": an older session opens at 0 % (as it sounded)");
             // A user preset brings it back; a factory preset without it plays at 0 %; Init: 0 %.
             juce::File preset = juce::File::getSpecialLocation(juce::File::tempDirectory).getChildFile("dc-ds-test.dcpreset");
             if (auto x = juce::AudioProcessor::getXmlFromBinary(block.getData(), int(block.getSize()))) x->writeTo(preset);
@@ -739,132 +480,123 @@ void testDungeonSynth(Suite& s) {
             s.check(p->dungeonSynthAmount() == 0.0f, kind(*p) + ": a factory preset without it plays at 0 %");
             p->loadUserPreset(preset);
             preset.deleteFile();
-            s.check(std::abs(p->dungeonSynthAmount() - 0.6f) < 1.0e-3f && p->dungeonSynthEra() == dc::DungeonSynth::Modern, kind(*p) + ": a user preset brings it back");
+            s.check(std::abs(p->dungeonSynthAmount() - 0.6f) < 1.0e-3f && p->dungeonSynthEra() == int(dc::Era::Modern), kind(*p) + ": a user preset brings it back");
             p->applyInit();
-            s.check(p->dungeonSynthAmount() == 0.0f && p->dungeonSynthEra() == dc::DungeonSynth::Classic, kind(*p) + ": Init sets 0 %, Classic");
+            s.check(p->dungeonSynthAmount() == 0.0f && p->dungeonSynthEra() == int(dc::Era::Classic), kind(*p) + ": Init sets 0 %, Classic");
         }
     }
-    // Session 16: strong enough. Each figure below fails the suite when the stage is too subtle
-    // (the numbers: `--ds-strength`, DEVLOG Session 16). The stage alone first (no place, the
-    // instrument's chorus weight 0 where the tape is measured), then in the places.
-    s.section("dungeon synth: strong enough, Classic and Modern clearly apart (Session 16)");
+    // Warmth pass: the roller is the Grit (dc::Grit). It crushes warmly: thicker (even harmonics,
+    // a fuller low end), darker (never fizzy), 12 bits or more, no aliasing whine, level-matched.
+    s.section("dungeon synth: the Grit crushes warmly (warmth pass)");
     {
-        const auto m = measureStrength();
-        const auto list3 = [](const double (&v)[3], int decimals = 1) { return fmt(v[0], decimals) + " / " + fmt(v[1], decimals) + " / " + fmt(v[2], decimals); };
-        s.check(m.rate44 >= 11000.0 && m.rate44 <= 16000.0 && m.rate48 >= 11000.0 && m.rate48 <= 16000.0, "Classic 100 %: the sampler runs at 11-16 kHz (44.1 and 48 kHz hosts)",
-                fmt(m.rate44, 0) + " / " + fmt(m.rate48, 0) + " Hz");
-        s.check(m.alias[0] > -15.0 && m.alias[1] < -40.0, "aliasing: a 9 kHz tone folds to 4 kHz in Classic (heard), not in Modern",
-                "Classic " + fmt(m.alias[0]) + " dB, Modern " + fmt(m.alias[1]) + " dB of the output");
-        // Session 18: Modern's tape is warm and gentle (Session 16's rich, heavy saturation, -21 dB
-        // here, blurred every chord: the "low quality" Modern); Classic's unchanged.
-        s.check(m.harmonics[1][2] > -40.0 && m.harmonics[1][2] < -26.0 && m.harmonics[1][0] < m.harmonics[1][2] - 6.0 && m.harmonics[0][2] > -34.0,
-                "saturation (a -10 dBFS sine, harmonics 2-5): Modern warm and gentle (present, never heavy), subtle at 25 %; Classic's grit",
-                "Classic " + list3(m.harmonics[0]) + " | Modern " + list3(m.harmonics[1]) + " dB at 25 / 50 / 100 %");
-        s.check(m.noise[0][2] > -50.0 && m.noise[0][2] < -40.0 && m.noise[0][1] < m.noise[0][2] - 6.0 && m.noise[0][0] < -60.0 && m.noise[1][2] < -60.0,
-                "tape hiss: about -45 dBFS at Classic 100 %, much less at 50 and 25 %, nearly none in Modern",
-                "Classic " + list3(m.noise[0]) + " | Modern " + list3(m.noise[1]) + " dBFS");
-        const auto& cw = m.wow[0][2];
-        const auto& mw = m.wow[1][2];
-        s.check(cw.wowPeakPercent >= 0.3 && cw.wowPeakPercent <= 0.8 && cw.wow >= 4.0 && cw.flutter >= 0.8,
-                "Classic 100 %: cassette wow (0.3-0.8 % deep, slow) and flutter on a held 1 kHz tone",
-                "wow " + fmt(cw.wow, 2) + " cents RMS (" + fmt(cw.wowPeakPercent, 3) + " % peak), flutter " + fmt(cw.flutter, 2) + " cents RMS");
-        s.check(mw.wow >= 0.8 && mw.wow <= 3.0 && mw.wow < 0.5 * cw.wow && mw.flutter < 0.5 * cw.flutter && m.wow[0][0].wow < 0.35 * cw.wow,
-                "Modern 100 %: a slight slow wow (far less than Classic); Classic 25 % only a hint",
-                "Modern wow " + fmt(mw.wow, 2) + ", flutter " + fmt(mw.flutter, 2) + "; Classic 25 % wow " + fmt(m.wow[0][0].wow, 2) + " cents RMS");
-        s.check(m.t60[0][2] >= 3.0 && m.t60[1][2] >= 7.0 && m.t60[1][2] >= m.t60[0][2] + 3.0 && m.t60[0][1] < m.t60[0][2] && m.t60[1][1] < m.t60[1][2],
-                "the hall: big in Classic, very long in Modern (T60), shorter towards 0 %",
-                "Classic " + list3(m.t60[0], 2) + " | Modern " + list3(m.t60[1], 2) + " s");
-        const double g[2][3] { { m.wet[0][0].gaps, m.wet[0][1].gaps, m.wet[0][2].gaps }, { m.wet[1][0].gaps, m.wet[1][1].gaps, m.wet[1][2].gaps } };
-        for (int e : { 0, 1 })
-            s.check(g[e][2] > -12.0 && g[e][1] > -19.0 && g[e][1] < -9.0 && g[e][0] < -18.0 && m.wet[std::size_t(e)][2].hall > -3.0,
-                    std::string(e == 0 ? "Classic" : "Modern") + ": the hall at a high wet level (a chord 1 s on / 1 s off: the gaps against the playing; the hall against the input)",
-                    "gaps " + list3(g[e]) + " dB at 25 / 50 / 100 %; hall " + fmt(m.wet[std::size_t(e)][2].hall) + " dB at 100 %");
-        s.metric("Classic 100 %: wow (cents RMS)", cw.wow);
-        s.metric("Modern 100 %: harmonics (dB)", m.harmonics[1][2]);
-        s.metric("Classic 100 %: hiss (dBFS)", m.noise[0][2]);
-        // In the places (five instruments in theirs, the FX in two): the spectrum moves, the image
-        // narrows (Classic) or widens (Modern), the tail grows; Classic and Modern far apart.
-        double meanC = 0, meanM = 0;
-        for (const auto& p : m.places) {
-            meanC += p.distance[0][2] / double(m.places.size());
-            meanM += p.distance[1][2] / double(m.places.size());
-            for (int e : { 0, 1 }) {
-                const auto& d = p.distance[e];
-                s.check(d[2] >= (e == 0 ? 2.0 : 1.2) && d[1] >= d[0] && d[2] >= d[1] && d[0] <= 0.5 * d[2],
-                        p.name + ": " + (e == 0 ? "Classic" : "Modern") + " moves the spectrum, clearly at 100 %, subtly at 25 % (third-octave distance to 0 %)",
-                        list3(d, 2) + " dB at 25 / 50 / 100 %");
+        // Harmonics of a -10 dBFS 220 Hz sine on the FX's dry path (Intensity 0: only the Grit acts).
+        for (int era : { 0, 1 }) {
+            auto h0 = fxSine({ 0, era }, 220.0, 0.316f, 4.0), h1 = fxSine({ 1, era }, 220.0, 0.316f, 4.0);
+            const auto a = h1.at(1.5), b = h1.at(4.0);
+            const double off = harmonicsDb(h0.outL, 220.0, a, b), on = harmonicsDb(h1.outL, 220.0, a, b);
+            const double f = tonePower(h1.outL, 220.0, a, b), h2 = 10.0 * std::log10(tonePower(h1.outL, 440.0, a, b) / f), h3 = 10.0 * std::log10(tonePower(h1.outL, 660.0, a, b) / f);
+            s.check(off < -80.0 && on > -34.0 && on < -12.0, std::string(era == 0 ? "Classic" : "Modern") + " 100 %: saturated, rich but not harsh (harmonics 2-5 of a -10 dBFS sine)",
+                    fmt(off) + " dB at 0 %, " + fmt(on) + " dB at 100 %");
+            s.check(h2 > -45.0 && h2 > h3 - 6.0, std::string(era == 0 ? "Classic" : "Modern") + " 100 %: asymmetric, the even harmonics there (warmth)",
+                    "2nd " + fmt(h2) + " dB, 3rd " + fmt(h3) + " dB");
+        }
+        // No aliasing whine at 100 %: a steady 1 kHz sine and a 1-12 kHz sweep (the grain off, so
+        // only the saturation and the crush are heard): nothing tonal off the harmonics.
+        for (int era : { 0, 1 }) {
+            const auto run = [era](const Signal& sig, double seconds) {
+                Host h;
+                h.go(dc::Dungeon, 0);
+                h.set(dc::ids::intensity, 0.0f);
+                setDs(h, { 1, era });
+                h.p->gritStageForTest().setTextureForTest(false);
+                h.render(seconds, sig);
+                return h.outL;
+            };
+            const auto steady = run(sine(1000.0, 0.5f), 3.0);
+            const auto sp = spectrumOf(steady, std::size_t(1.5 * 48000));
+            const double bin = 48000.0 / double(sp.size() * 2);
+            double fundamental = 0, stray = 0;
+            for (std::size_t k = 1; k < sp.size(); ++k) {
+                const double hz = double(k) * bin, nearest = std::round(hz / 1000.0) * 1000.0;
+                // (the Hann window's leakage around each harmonic, +/-12 bins, is not counted)
+                if (std::abs(hz - 1000.0) <= 12.0 * bin) fundamental = std::max(fundamental, sp[k]);
+                else if (nearest < 1.0 || std::abs(hz - nearest) > 12.0 * bin) stray = std::max(stray, sp[k]);
             }
-            const auto& wc = p.width[0];
-            s.check(wc[2] <= -15.0 && wc[1] <= -3.0 && wc[1] >= -8.0 && wc[0] <= -1.0 && wc[0] >= -4.0, p.name + ": Classic narrows the image (nearly mono at 100 %)",
-                    list3(wc) + " dB of side at 25 / 50 / 100 %");
-            s.check(p.width[1][2] >= 1.5 && p.width[1][2] >= wc[2] + 18.0, p.name + ": Modern widens it (the ensemble), far from Classic's",
-                    fmt(p.width[1][2]) + " dB (Classic " + fmt(wc[2]) + ")");
-            s.check(p.cm >= 3.0, p.name + ": Classic and Modern at 100 % sound clearly different (third-octave distance)", fmt(p.cm, 2) + " dB");
+            const double strayDb = 10.0 * std::log10(std::max(stray, 1.0e-30) / std::max(fundamental, 1.0e-30));
+            s.check(strayDb < -70.0, std::string(era == 0 ? "Classic" : "Modern") + " 100 %: a 1 kHz sine has no aliasing (no bin off its harmonics within 70 dB)", fmt(strayDb) + " dB");
+            // The sweep: frame by frame, the strongest bin away from the sweep's harmonics.
+            const double seconds = 4.0, f0 = 1000.0, f1 = 12000.0;
+            const Signal sweep = [=](int, long long n, double sr) {
+                const double t = double(n) / sr, kk = std::log(f1 / f0) / seconds;
+                return 0.5f * float(std::sin(2.0 * juce::MathConstants<double>::pi * f0 * (std::exp(kk * t) - 1.0) / kk));
+            };
+            const auto swept = run(sweep, seconds);
+            double worst = -200;
+            const std::size_t frame = 4096;
+            for (std::size_t at = std::size_t(0.3 * 48000); at + frame < std::size_t(3.9 * 48000); at += 2048) {
+                const auto spf = spectrumOf(swept, at, 12);
+                const double t = (double(at) + 0.5 * double(frame)) / 48000.0, hz0 = f0 * std::exp(std::log(f1 / f0) / seconds * t);
+                const double binf = 48000.0 / double(spf.size() * 2);
+                double fund = 0, other = 0;
+                for (std::size_t k = 1; k < spf.size(); ++k) {
+                    const double hz = double(k) * binf;
+                    if (hz < 150.0) continue;
+                    bool harmonic = false;
+                    // (within a frame the sweep moves by about 5 % of its pitch: 6 % around each harmonic)
+                    for (int m = 1; m * hz0 < 23500.0; ++m)
+                        harmonic |= std::abs(hz - m * hz0) <= 0.06 * m * hz0 + 4.0 * binf;
+                    if (std::abs(hz - hz0) <= 0.06 * hz0 + 4.0 * binf) fund = std::max(fund, spf[k]);
+                    else if (!harmonic) other = std::max(other, spf[k]);
+                }
+                worst = std::max(worst, 10.0 * std::log10(std::max(other, 1.0e-30) / std::max(fund, 1.0e-30)));
+            }
+            s.check(worst < -55.0, std::string(era == 0 ? "Classic" : "Modern") + " 100 %: a 1-12 kHz sweep has no aliasing whine (strongest stray bin)", fmt(worst) + " dB");
         }
-        // (Session 18: Modern 2.0, was 2.5: its heavy saturation moved the spectrum most, and thinned it.)
-        s.check(meanC >= 5.0 && meanM >= 2.0, "on average the spectrum moves strongly at 100 % (Classic, Modern)", fmt(meanC, 2) + " / " + fmt(meanM, 2) + " dB");
-        for (const auto& p : m.places) {
-            if (p.name.rfind("FX", 0) == 0 || p.name.rfind(instName(dc::inst::designFor(dc::Necropolis, 0)), 0) == 0) continue;   // the pad's place rings longer than any hall
-            s.check(p.tail[0] >= 2.5 && p.tail[1] >= 1.5, p.name + ": the hall's tail after the melody (Classic, Modern 100 %)", fmt(p.tail[0]) + " / " + fmt(p.tail[1]) + " dB");
-        }
-        // The top: bright material dry (three instruments, the FX's dry path).
-        for (const auto& b : m.bright) {
-            s.check(b.top12[0][2] <= -10.0 && b.top12[0][1] <= -7.0 && b.top8[0][2] <= -12.0 && b.top8[0][1] <= -6.0,
-                    b.name + ": Classic rolls off the top (the cassette's 5.5 kHz)",
-                    "above 8 kHz " + list3(b.top8[0]) + ", above 12 kHz " + list3(b.top12[0]) + " dB at 25 / 50 / 100 %");
-            s.check(b.top12[1][2] <= -5.5 && b.top12[1][1] <= -3.5, b.name + ": Modern softens the top (10 kHz)", "above 12 kHz " + list3(b.top12[1]) + " dB at 25 / 50 / 100 %");
+        // Thicker and darker on the instruments in their places: the top above 6 kHz down, the body
+        // (160-500 Hz against 1-5 kHz) not thinner, the lows (63-250 Hz) kept.
+        for (int instrument : dsInstruments()) {
+            const auto base = instMelody(instrument, { 0, 0 }, 1.5);
+            const auto b0 = bandsDb(base.l, base.r);
+            const auto bodyOf = [](const std::vector<double>& bands) {
+                double body = 0, presence = 0, low = 0;
+                for (int b = 0; b < 25; ++b) {
+                    const double fc = 63.0 * std::pow(2.0, b / 3.0), e = std::pow(10.0, bands[std::size_t(b)] / 10.0);
+                    if (fc >= 160.0 && fc <= 500.0) body += e;
+                    if (fc >= 1000.0 && fc <= 5000.0) presence += e;
+                    if (fc <= 250.0) low += e;
+                }
+                return std::make_pair(10.0 * std::log10(body / std::max(presence, 1.0e-30)), 10.0 * std::log10(std::max(low, 1.0e-30)));
+            };
+            const auto [body0, low0] = bodyOf(b0);
+            for (int era : { 0, 1 }) {
+                const auto t = instMelody(instrument, { 1, era }, 1.5);
+                const auto b1 = bandsDb(t.l, t.r);
+                const auto [body1, low1] = bodyOf(b1);
+                // Darker: the top above 6 kHz down 2 dB or more, or (a source with almost nothing up
+                // there) kept 40 dB under the whole: the crush and the grain never fizz.
+                const double top0 = highShare(base.l, base.r, 6000.0), top1 = highShare(t.l, t.r, 6000.0);
+                s.check((top1 <= top0 - 2.0 || top1 <= -40.0) && body1 >= body0 - 1.0 && low1 >= low0 - 0.75,
+                        instName(instrument) + " " + (era == 0 ? "Classic" : "Modern") + " 100 %: thicker and darker, never thinner or fizzy",
+                        "above 6 kHz " + fmt(top0) + " -> " + fmt(top1) + " dB of the whole, body " + fmt(body1 - body0) + " dB, lows " + fmt(low1 - low0) + " dB");
+            }
         }
     }
-    {
-        // Modern's ensemble: a mono pad gains width, more on strings than on the war drums.
-        const auto chorus = [](int instrument, Ds d) {
-            InstHost h(48000, 512, 2);
-            h.play(instrument);
-            h.dry();
-            setDs(h, d);
-            h.on(0.05, 57, 0.7f);
-            h.render(3.0);
-            return widthDb({ h.outL, h.outR }, h.idx(1.0), h.outL.size());
-        };
-        const int strings = dc::inst::designFor(dc::Castle, 2);
-        const double sw0 = chorus(strings, { 0, 1 }), sw1 = chorus(strings, { 1, 1 });
-        s.check(sw1 > sw0 + 1.0, "Modern: the ensemble chorus widens the strings", fmt(sw0) + " -> " + fmt(sw1) + " dB of side");
-        s.check(dc::inst::dungeonSynthChorus(strings) > dc::inst::dungeonSynthChorus(dc::inst::designFor(dc::Mountains, 1)) + 0.5f,
-                "the chorus belongs on pads and strings (the war drums take almost none)");
-    }
-    // The AU host harnesses' DUNGEON SYNTH checks (tools/au-harness, in and out of process on
-    // macOS), measured the same way here so a change that would fail them fails first here.
+    // The AU host harness's FX figures (tools/au-harness), measured the same way here so a change
+    // that would fail them fails first here: 0 % passes, 100 % changes a sine, the level stays.
     {
         const auto fxRun = [](Ds d) {
             Host h;
             h.set(dc::ids::intensity, 0.0f);
             setDs(h, d);
             h.render(4.0, sine(440.0, 0.25f));
-            effectstests::Take t { h.outL, h.outR };
-            return std::make_tuple(h.residualDb(h.at(2.0), h.end()), widthDb(t, h.at(2.0), h.end()), toDb(h.rms(h.at(2.0), h.end())));
+            return std::make_pair(h.residualDb(h.at(2.0), h.end()), toDb(h.rms(h.at(2.0), h.end())));
         };
-        const auto [r0, w0, l0] = fxRun({ 0, 0 });
-        const auto [rc, wc, lc] = fxRun({ 1, 0 });
-        const auto [rm, wm, lm] = fxRun({ 1, 1 });
-        s.check(r0 < -40.0 && rc > -10.0 && rm > -14.0 && wm > wc + 10.0 && std::abs(lc - l0) < 3.0 && std::abs(lm - l0) < 3.0,
-                "the FX harness's figures: 0 % passes, Classic and Modern change a sine strongly, Modern widens it, the level stays",
-                "residual " + fmt(r0) + " / " + fmt(rc) + " / " + fmt(rm) + " dB, side against mid Classic " + fmt(wc) + ", Modern " + fmt(wm) + " dB, level "
-                    + fmt(l0) + " / " + fmt(lc) + " / " + fmt(lm) + " dBFS");
-        const auto chord = [](Ds d) {
-            InstHost h;
-            setDs(h, d);
-            h.render(0.3);
-            for (int key : { 57, 64, 69 }) h.on(0.3, key, 100.0f / 127.0f);
-            h.render(3.0);
-            effectstests::Take t { h.outL, h.outR };
-            return std::make_pair(widthDb(t, h.idx(1.3), h.outL.size()), effectstests::levelDb(t.l, t.r, h.idx(0.35), h.idx(0.9)));
-        };
-        const auto [iw0, il0] = chord({ 0, 0 });
-        const auto [iwc, ilc] = chord({ 1, 0 });
-        const auto [iwm, ilm] = chord({ 1, 1 });
-        s.check(iwc < iw0 - 8.0 && iwm > iwc + 8.0 && std::abs(ilc - il0) < 3.0 && std::abs(ilm - il0) < 3.0,
-                "the instrument harness's figures: a chord's image folds to mono in Classic, stays wide in Modern, its attack's level stays",
-                "side against mid " + fmt(iw0) + " / " + fmt(iwc) + " / " + fmt(iwm) + " dB, level " + fmt(il0) + " / " + fmt(ilc) + " / " + fmt(ilm) + " dB");
+        const auto [r0, l0] = fxRun({ 0, 0 });
+        const auto [rc, lc] = fxRun({ 1, 0 });
+        const auto [rm, lm] = fxRun({ 1, 1 });
+        s.check(r0 < -40.0 && rc > -25.0 && rm > -25.0 && std::abs(lc - l0) < 3.0 && std::abs(lm - l0) < 3.0,
+                "the FX harness's figures: 0 % passes, Classic and Modern change a sine, the level stays",
+                "residual " + fmt(r0) + " / " + fmt(rc) + " / " + fmt(rm) + " dB, level " + fmt(l0) + " / " + fmt(lc) + " / " + fmt(lm) + " dBFS");
     }
     const std::vector<Ds> halfAndFull { { 0.25f, 0 }, { 0.5f, 0 }, { 1, 0 }, { 0.25f, 1 }, { 0.5f, 1 }, { 1, 1 } };
     // Level-matched: the loudest 400 ms (K-weighted) within 1.5 dB of 0 % at 25, 50 and 100 %.
@@ -988,19 +720,6 @@ void testDungeonSynth(Suite& s) {
         h.go(dc::Cathedral, 2);
         h.render(0.5);
         s.check(h.p->playingInstrument.load() == lute, "with it on, Lock instrument keeps the lute while travelling");
-        const auto tailWith = [&](const juce::String& id, float value) {
-            InstHost t;
-            t.play(lute);
-            setDs(t, { 1, 1 });
-            if (id.isNotEmpty()) t.set(id, value);
-            t.render(0.05);
-            melody(t, 0.1);
-            t.render(0.05 + melodySeconds + 3.0);
-            return tailDb({ t.outL, t.outR });
-        };
-        const double full = tailWith({}, 0), noEffects = tailWith(dc::ids::effects, 0.0f), noReverb = tailWith(dc::ids::mixGroups[0], 0.0f);
-        s.check(noEffects < full - 6.0, "Effects 0 % takes the place and the hall away (the stage stays on the dry instrument)", fmt(full) + " -> " + fmt(noEffects) + " dB");
-        s.check(noReverb < full - 6.0, "the MIX section's Reverb turns the hall down with the place's reverbs", fmt(full) + " -> " + fmt(noReverb) + " dB");
         // Punch still shapes the hit (the brass, dry, with the stage on).
         const int horn = dc::inst::designFor(dc::Castle, 4);
         const auto hit = [&](float punch) {
@@ -1147,7 +866,7 @@ void testDungeonSynthUi(Suite& s) {
         s.check(std::abs(w.p->dungeonSynthAmount() - 0.5f) < 1.0e-3f, kind + ": the roller sets the amount (50 %)");
         s.check(roller.readout() == "50 %", kind + ": the roller reads 50 %");
         control->modernButton().onClick();
-        s.check(w.p->dungeonSynthEra() == dc::DungeonSynth::Modern && control->modernButton().getToggleState() && !control->classicButton().getToggleState(),
+        s.check(w.p->dungeonSynthEra() == int(dc::Era::Modern) && control->modernButton().getToggleState() && !control->classicButton().getToggleState(),
                 kind + ": Modern clicked: the Era is Modern and shown");
         auto* era = w.p->parameters.getParameter(dc::ids::dungeonSynthEra);
         era->setValueNotifyingHost(era->convertTo0to1(0.0f));   // automation

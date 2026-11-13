@@ -7,6 +7,9 @@ if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Darwin")
 endif()
 # 1.0.0 is frozen (docs/ROADMAP.md): bug fixes only. Hosts, bundles and the installer read it from here.
 project(DUNGEON_CRAWLER VERSION 1.0.0 LANGUAGES C CXX)
+# The build number (CFBundleVersion; the version above is what hosts and users see). 1: the first
+# 1.0.0 build; 2: the warmth pass (still 1.0.0: not sold yet).
+set(DC_BUILD_NUMBER 2)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -39,7 +42,7 @@ set(DC_SOURCES
     Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/Engine.cpp Source/UserData.cpp
     Source/DSP/Abyss.cpp Source/DSP/AncientBlood.cpp Source/DSP/Choir.cpp
     Source/DSP/Wraith.cpp Source/DSP/Echoes.cpp Source/DSP/Crypt.cpp
-    Source/DSP/Relics.cpp Source/DSP/Signature.cpp Source/DSP/Vault.cpp Source/DSP/Convolver.cpp Source/DSP/Ensemble.cpp Source/DSP/Atmosphere.cpp Source/DSP/DungeonSynth.cpp Source/World/Locations.cpp Source/World/Search.cpp
+    Source/DSP/Relics.cpp Source/DSP/Signature.cpp Source/DSP/Vault.cpp Source/DSP/Convolver.cpp Source/DSP/Ensemble.cpp Source/DSP/Atmosphere.cpp Source/DSP/Warmth.cpp Source/World/Locations.cpp Source/World/Search.cpp
     Source/Instrument/SampleBank.cpp Source/Instrument/Synth.cpp Source/Instrument/Designs.cpp Source/Instrument/Captures.cpp Source/UI/InstrumentPanel.cpp
     Source/UI/EngravedLookAndFeel.cpp Source/UI/Engraving.cpp Source/UI/Scenes.cpp Source/UI/ScenePlaces.cpp Source/UI/SceneCache.cpp
     Source/UI/Painted.cpp Source/UI/SearchPanel.cpp Source/UI/MixPanel.cpp)
@@ -84,6 +87,7 @@ function(dc_add_plugin target)
         COMPANY_COPYRIGHT "Windward Audio"
         BUNDLE_ID "${P_BUNDLE}"
         VERSION "${PROJECT_VERSION}"
+        BUILD_VERSION "${DC_BUILD_NUMBER}"
         PLUGIN_MANUFACTURER_CODE Veil
         PLUGIN_CODE ${P_CODE}
         PRODUCT_NAME "${target}"
