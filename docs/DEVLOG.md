@@ -1,6 +1,7 @@
 # DUNGEON CRAWLER development log
 
-**1.0.0 is released and frozen (2026-11-12): bug fixes only.** New ideas go to
+**1.0.0 is released and frozen (2026-11-12): bug fixes only.** (Unfrozen once, at the developer's
+request, for the warmth pass before sale: still 1.0.0, build 2; see the last entry.) New ideas go to
 [ROADMAP.md](ROADMAP.md) under "1.1 ideas", not into the code; see [CHANGELOG.md](../CHANGELOG.md)
 and [RELEASING.md](RELEASING.md).
 
@@ -4181,3 +4182,107 @@ own and other names, system and user) and an unrelated plug-in, installs, checks
 (the unrelated one kept), each plug-in listed once as "Windward Audio: ...", and the presets
 planted in the old folders copied by the plug-ins on load.
 
+
+
+## Session: warmth pass (2026-11-13)
+
+The developer compared a demo with a reference dark-fantasy synth: DC was mono (L/R correlation
+1.00 against 0.44), its top a wall (8-12 kHz -62 dB, 12-20 kHz -71 dB of the whole against about
+-31), its grit thin (2-8 kHz flatness 0.021 against 0.145), unglued (-20.8 LUFS, LRA 12.6,
+short-term p10 -35 against -14.6, 4.9, -22), too much 200-500 Hz and too little 20-80 Hz. "Lacking
+the warmth dungeon synth usually has in all aspects ... lifeless in a bland way." Version stays
+1.0.0 (not sold yet); the build number (CFBundleVersion) is now 2. AU codes, VST3 class IDs and
+every parameter ID unchanged; two parameters appended (`warmth`, `stereoMono`).
+
+### Step 0: where the sound collapsed to mono (measured on the 1.0.0 renders)
+
+- **DUNGEON SYNTH Classic** (the culprit): the side scaled by 1 - 0.9 x amount (0.1 at 100 %), the
+  chorus and the hall fed from the mid, the hall at 0.6 width, one wow delay for both sides:
+  Classic 100 % measured 0.98-0.99 on all four instruments (0.62-0.80 at 50 %), the demo's 1.00.
+  Its top was a sixth-order 5.5 kHz low-pass after a 13 kHz / 8.5-bit sampler: 8-20 kHz at -80 to
+  -113 dB. Modern went the other way: side x1.6 and subtracted chorus voices, correlation -0.22 to
+  -0.55 (out of phase).
+- **The sampler voices**: the recordings are mono by design (dual-mono sources, prepare.py); their
+  width came only from the places and the stage. Not a collapse, but nothing decorrelated them.
+- **Reverb / the Effects roller / the output stage**: no forced mono. The processor folds to mono only
+  for a mono output bus (the host's layout), which stays.
+- Fix: the stage is gone (`Source/DSP/DungeonSynth.*`, its Session 17 legacy copy and the
+  `dsmodern` group with it). The only deliberate mono left is the new **Mono** switch (off).
+
+### Steps 1-3: the warm chain and the Grit (`Source/DSP/Warmth.*`)
+
+**WarmChain** ("Warmth", 100 % on the instrument by default, 0 % on the FX so its Intensity 0 stays a
+true dry path), on the whole output after the place and the Grit: a three-voice ensemble with its
+own read heads per side (7.2-17.3 ms, 0.15-0.43 Hz, drifting), tape wow (Classic 8 cents at
+0.6 Hz, Modern 4 at 0.38) with a random drift and flutter, a high shelf and a 6 dB/oct corner
+that drifts +/-12 % (Classic 10.5 kHz, Modern 14.5), slow random breathing on pads (+/-0.5 dB),
+2x oversampled level-following tape saturation (its sub-45 Hz products removed), a 2.5:1 bus
+compressor (30 / 300 ms, threshold 8 dB under the held 250 ms level: about 4 dB on dense parts,
+7 dB peaks) with a +3 dB leveller for the gaps and tails, an eight-line stereo hall (decorrelated
+in and out, Classic 5 s / 0.8 width, Modern 8 s / full width, x the place's length, no shimmer),
++3 dB at 58 Hz and -3 dB at 320 Hz, an envelope-following pink air bed above 7.5 kHz that fills
+8-20 kHz to -29 dB (Classic) / -33 dB (Modern) of the whole (none in silence), an eighth-order
+150 Hz high-pass on the side (bass mono), a slow width servo to correlation 0.64 / 0.47 (lands
+about 0.6 / 0.44), Mono, a -1.3 dBFS ceiling. Per-voice detune in the synth: each note 3-8 cents
+either way, drifting +/-2 cents (`Synth::setWarmth`). Eco: two ensemble voices, no hall modulation.
+
+**Grit** (the DUNGEON SYNTH roller, its ID kept): 4x oversampled (2x in Eco) asymmetric tube
+saturation of the body below 2.2 kHz (drive follows the level; Classic 12 dB, Modern 9.5), its
+sub-45 Hz products removed; a crush at 12 bits (13 Modern) scaled to the envelope; a grain of
+1-4 kHz modulation noise riding the program's presence band; a dark tilt (+3.5 dB at 240 Hz,
+-7 dB above 2.5 kHz) and a 24 dB/oct band limit at 7 kHz (Modern 10); its own level match. Both
+stages have a 23-sample linear-phase oversampler latency (the chain also 2.5 ms of tape), not
+reported, crossfaded in after their lines have refilled (no click on start).
+
+What went wrong on the way: the compressor's reference first snapped to the first sample of an
+onset (the opening second squashed by 13 dB, 4 dB lost overall, levels differing run to run);
+the tape's asymmetry made 30 Hz thumps (+21 dB); the hiss spilled into 2-8 kHz (flatness 0.9); the
+Grit's grain and its saturated treble brightened dark instruments by up to 44 dB above 6 kHz (a
+fizz); a first-use snap made the Grit jump onto empty delay lines (171x the steady step).
+
+### Step 4: the measurement (CI, Linux job)
+
+`--warmth-renders dir`: the test phrase (`darkFantasyPhrase`, the A minor melody twice over held
+Am-F-G-E chords, 9.6 s, 3.5 s ring-out) on Royal Strings, Dark Choir Pad, Chamber Organ and Lute
+in their places, both Eras, Grit 0 / 50 / 100 %, 48 kHz stereo. The 1.0.0 test binary is built in
+CI from 232077e and renders the same with `--listen-dungeonsynth`. `tools/warmth/measure.py`
+measures both into the job summary and fails on correlation > 0.8, 8-20 kHz < -40 dB, LRA > 9,
+true peak > -0.5 dBTP, flatness < 0.12 at Grit 100 %, CPU > 1.5x. Renders: artifact
+`DUNGEON-CRAWLER-warmth-renders` (never committed). The LRA gate reads the music (the phrase and
+1.5 s of ring-out, both builds the same): with 3 s windows a 13 s render's last 3.5 s of decay
+alone set the 10th percentile (lute: 11-14 LU on the whole file whatever the glue); the whole-file
+figure is reported beside it. The suite's older groups run with the warm chain unavailable (the
+engine exactly as before it); group `warmth` (shard 16) checks it all in C++ too.
+
+Measured here (Linux, the developer's recordings), before (1.0.0) -> after:
+
+| instrument, era | L/R corr (Grit 0 / 100) | 8-12 kHz | 12-20 kHz | 20-80 Hz | 200-500 Hz | flatness 2-8k (Grit 100) | LUFS | LRA music / file | ST p10 | true peak |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Royal Strings Classic | 0.12 / 0.99 -> 0.59 / 0.59 | -58.9 -> -30.5 | -79.3 -> -27.7 | -25.5 -> -25.7 | -2.0 -> -2.5 | 0.003 -> 0.27 | -15.0 -> -14.9 | 3.0 / 7.5 -> 1.8 / 6.0 | -16.3 -> -15.3 | -5.1 -> -7.4 |
+| Royal Strings Modern | 0.12 / -0.50 -> 0.43 / 0.43 | -58.9 -> -34.3 | -79.3 -> -31.5 | -25.5 -> -28.8 | -2.0 -> -2.5 | 0.07 -> 0.18 | -15.0 -> -11.8 | 3.0 / 7.5 -> 1.2 / 4.6 | -16.3 -> -11.8 | -5.1 -> -4.2 |
+| Dark Choir Pad Classic | 0.09 / 0.99 -> 0.63 / 0.63 | -72.3 -> -29.7 | -75.8 -> -26.8 | -16.0 -> -13.3 | -3.2 -> -4.1 | 0.02 -> 0.61 | -10.7 -> -12.3 | 3.4 / 3.5 -> 2.0 / 2.9 | -12.0 -> -12.6 | -0.3 -> -1.9 |
+| Dark Choir Pad Modern | 0.09 / -0.55 -> 0.44 / 0.44 | -72.3 -> -33.5 | -75.8 -> -30.7 | -16.0 -> -15.9 | -3.2 -> -2.7 | 0.04 -> 0.65 | -10.7 -> -10.0 | 3.4 / 3.5 -> 1.7 / 2.0 | -12.0 -> -10.7 | -0.3 -> -1.2 |
+| Chamber Organ Classic | 0.42 / 0.99 -> 0.64 / 0.63 | -117.6 -> -30.5 | -119.8 -> -27.7 | -27.8 -> -23.2 | -1.5 -> -1.5 | 0.01 -> 0.65 | -19.7 -> -20.5 | 4.2 / 7.7 -> 1.9 / 6.5 | -22.4 -> -21.4 | -6.9 -> -11.7 |
+| Chamber Organ Modern | 0.42 / -0.27 -> 0.46 / 0.47 | -117.6 -> -34.3 | -119.8 -> -31.4 | -27.8 -> -24.6 | -1.5 -> -1.6 | 0.01 -> 0.70 | -19.7 -> -19.2 | 4.2 / 7.7 -> 2.8 / 8.1 | -22.4 -> -20.8 | -6.9 -> -10.0 |
+| Lute Classic | -0.10 / 0.98 -> 0.59 / 0.59 | -51.9 -> -30.4 | -60.2 -> -27.5 | -39.5 -> -32.5 | -0.9 -> -1.4 | 0.003 -> 0.26 | -24.1 -> -23.2 | 6.6 / 11.8 -> 3.5 / 11.0 | -29.3 -> -25.2 | -7.1 -> -13.2 |
+| Lute Modern | -0.10 / -0.44 -> 0.44 / 0.44 | -51.9 -> -34.1 | -60.2 -> -31.3 | -39.5 -> -35.4 | -0.9 -> -1.4 | 0.07 -> 0.18 | -24.1 -> -21.1 | 6.6 / 11.8 -> 4.1 / 13.6 | -29.3 -> -23.3 | -7.1 -> -10.3 |
+
+(The before columns at Grit 0 are the same 1.0.0 file for both Eras: the Era did nothing at 0 %.
+Every band figure is dB of the whole; Grit 50 % lies between, all 24 renders in the CI summary.)
+
+**Missed targets, reported rather than looped:** the loudness range over the music is now 1.2-4.1
+LU, under the 4-7 target (the glue plus the long hall flatten a 9.6 s phrase; the whole-file range,
+its ring-out included, is 2.0-13.6 and fails 9 only on the Lute and Modern Chamber Organ ring-out).
+The 200-500 Hz share moved only 0-1 dB (the EQ itself cuts 2-3.5 dB, checked on noise; these
+instruments hold most of their energy there, so the share barely moves). The 20-80 Hz share rose on
+the choir, organ and lute (+2.7 to +7 dB) but fell 0.2-3.3 dB on the strings (the hall and air add
+the most to them). Loudness stays near 1.0 (+-2 dB), not the reference's -14.6 on every
+instrument. Tuned by measurement, not by ear; nothing heard on a Mac yet.
+
+### Step 5: CPU
+
+Test phrase (Royal Strings, Linux): with the warmth against the engine before it, Grit 0 %
+1.30-1.38x, Grit 100 % 1.45-1.54x of the old Grit-0 path; CI also compares the whole
+`--listen-dungeonsynth` set against the 1.0.0 binary (gated at 1.5x). Made affordable by stepping
+every log / pow / sqrt / exp2 to 16-sample control blocks, parabolic LFO sines, a rational tanh,
+and re-tuning filters only when a control moves.
