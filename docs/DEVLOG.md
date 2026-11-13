@@ -4286,3 +4286,12 @@ Test phrase (Royal Strings, Linux): with the warmth against the engine before it
 `--listen-dungeonsynth` set against the 1.0.0 binary (gated at 1.5x). Made affordable by stepping
 every log / pow / sqrt / exp2 to 16-sample control blocks, parabolic LFO sines, a rational tanh,
 and re-tuning filters only when a control moves.
+
+**CI, warmth pass: green** (`306f2b9`, run 43515343938, macOS and Linux): Linux 3369 passed, 0
+failed (the whole suite with the developer's recordings and the recorded brass; the local `seat`
+failures were this container's missing brass library, identical on the 1.0.0 build). The warmth
+gate: 24 renders, 0 failures (table in the run's job summary, renders in the artifact
+`DUNGEON-CRAWLER-warmth-renders`). CPU, the same `--listen-dungeonsynth` renders: 1.0.0 build
+96.5 s, this build (warm) 105.2 s, 1.09x. macOS: both AU harnesses (the rewritten Dungeon Synth
+checks), the bundle gate (1.0.0, build 2), signing, notarisation and the package install passed.
+Then a manual run (workflow_dispatch) on main for the signed, notarised installer.
