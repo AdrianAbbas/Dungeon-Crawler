@@ -48,13 +48,14 @@ Status: the brief ([docs/PROJECT_BRIEF.md](docs/PROJECT_BRIEF.md)) and Direction
 
 ## Install (macOS 10.15+, Apple Silicon and Intel)
 
-Customers get **DUNGEON-CRAWLER-1.0-macOS**: the signed, notarised installer
-`DUNGEON CRAWLER.pkg` and `DUNGEON CRAWLER - Read Me.pdf`, nothing else. It is the
-`DUNGEON-CRAWLER-1.0-macOS` artifact of a signed CI run (pushes to `main`, manual runs)
+Customers get **DUNGEON CRAWLER-1.0-macOS** (to the Windward Audio
+[installer standard](docs/INSTALLER_STANDARD.md)): the signed, notarised installer
+`DUNGEON CRAWLER Installer.pkg` and `DUNGEON CRAWLER - Read Me.pdf`, nothing else. It is the
+`DUNGEON CRAWLER-1.0-macOS` artifact of a signed CI run (pushes to `main`, manual runs)
 and the asset of the GitHub Release of each `v*` tag.
 
 1. Quit GarageBand, Logic Pro and any other music apps.
-2. Double-click `DUNGEON CRAWLER.pkg` and follow the steps.
+2. Double-click `DUNGEON CRAWLER Installer.pkg` and follow the steps.
 3. Open your music app: both plug-ins are listed under **Windward Audio**.
 
 The package installs both plug-ins for all users as Audio Units
@@ -63,7 +64,7 @@ and VST3s (`/Library/Audio/Plug-Ins/VST3/DungeonCrawler.vst3`, `DungeonCrawlerFX
 silently removes copies installed before 1.0. Your presets live in
 `~/Library/Windward Audio/DUNGEON CRAWLER/` and `~/Library/Windward Audio/DUNGEON CRAWLER FX/`;
 on first launch 1.0 copies them there from the folders used before (the originals are kept).
-Uninstalling is described in the Read Me ([source](tools/readme/build_readme_pdf.py)).
+Uninstalling is described in the Read Me ([source](installer/templates/readme-pdf.txt.in)).
 
 For testing, every green run also has **DUNGEON-CRAWLER-dev-macOS**: the bare bundles with
 `install-mac.sh` / `uninstall-mac.sh` / `diagnose-mac.sh` for a per-user install
@@ -412,7 +413,7 @@ effects (e.g. Reaper, Cubase, Bitwig) work.
 
 | Problem | Fix |
 |---|---|
-| Silent slot with plain sliders in GarageBand | Install with `DUNGEON CRAWLER.pkg` (signed and notarised); with the developer zip run `install-mac.sh` again, then restart GarageBand. |
+| Silent slot with plain sliders in GarageBand | Install with `DUNGEON CRAWLER Installer.pkg` (signed and notarised); with the developer zip run `install-mac.sh` again, then restart GarageBand. |
 | Plug-in missing from the list | GarageBand: Settings → Audio/MIDI → tick "Audio Units", restart. Logic: Plug-in Manager → Reset & Rescan. |
 | Plain sliders instead of the map | The window's view menu: "Editor", not "Controls". |
 | "travelling…" for a moment | A scene is prepared the first time it is shown (a fraction of a second; engraved scenes about a second at Retina size); after that it is cached. |
@@ -478,5 +479,5 @@ on the runner and validates the installed copies again, and renders the listenin
 | `tools/sample-prep/` | Prepares the developer's recordings for the sampler (from WORLDBUILDER) |
 | `Tests/` | Offline tests through `processBlock` and the editor |
 | `tools/au-harness/`, `scripts/`, `packaging/` | CI host harnesses (effect, instrument), signing / notarisation / installer package, install/uninstall/diagnostics, install notes |
-| `packaging/pkg/`, `packaging/DUNGEON CRAWLER - Read Me.pdf`, `tools/readme/` | The installer's text, distribution and scripts; the customer Read Me and its source |
+| `installer/`, `packaging/pkg/` | The installer to the Windward Audio [installer standard](docs/INSTALLER_STANDARD.md) (pages, distribution, licence, backgrounds, the customer Read Me; `installer/product.json` is the only per-product file) and the install scripts |
 | `Source/UserData.*` | Where the user's presets and scenes live (Windward Audio folders) and the one-time copy from before 1.0 |

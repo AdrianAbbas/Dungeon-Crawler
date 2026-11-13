@@ -557,12 +557,12 @@ The developer heard almost no difference in Session 15 (the place covered the st
 
 ## 1.0.0 release (the installer, Windward Audio)
 
-Install from the customer download **DUNGEON-CRAWLER-1.0-macOS** (a signed CI run or the
+Install from the customer download **DUNGEON CRAWLER-1.0-macOS** (a signed CI run or the
 GitHub Release), on a Mac that had an earlier build installed and a project saved with it:
 
-- [ ] The download holds only `DUNGEON CRAWLER.pkg` and `DUNGEON CRAWLER - Read Me.pdf`.
-- [ ] Double-clicking the package opens without a Gatekeeper warning; the welcome and
-      conclusion pages read as specified (Windward Audio, support@windwardaudio.com).
+- [ ] The download holds only `DUNGEON CRAWLER Installer.pkg` and `DUNGEON CRAWLER - Read Me.pdf`.
+- [ ] Double-clicking the package opens without a Gatekeeper warning; the window title,
+      pages and wording follow the [installer standard](INSTALLER_STANDARD.md) (Windward Audio, support@windwardaudio.com).
 - [ ] GarageBand and Logic list **Windward Audio → DUNGEON CRAWLER** and **Windward Audio →
       DUNGEON CRAWLER FX**, each once; nothing is listed under the old company name.
 - [ ] Logic → Plug-in Manager shows version 1.0.0 for both.

@@ -1,0 +1,14 @@
+{
+    "_comment": "The only per-product file of the Windward Audio installer standard (docs/INSTALLER_STANDARD.md). Everything else in installer/ is copied unchanged between products.",
+    "product": "DUNGEON CRAWLER",
+    "id": "dungeoncrawler",
+    "version": "1.0",
+    "description": "A dark-fantasy instrument and effect.",
+    "accent": "#c0242c",
+    "min_macos": "10.15",
+    "min_macos_name": "Catalina",
+    "plugins": [
+        { "name": "DUNGEON CRAWLER", "kind": "instrument", "bundle": "DungeonCrawler" },
+        { "name": "DUNGEON CRAWLER FX", "kind": "effect", "bundle": "DungeonCrawlerFX" }
+    ]
+}

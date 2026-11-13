@@ -5,10 +5,11 @@
 # That zip is the developer package (CI artifact DUNGEON-CRAWLER-dev-macOS), for testing only.
 # Usage: scripts/package-mac.sh <build dir with DungeonCrawler_artefacts and DungeonCrawlerFX_artefacts> <dist dir> [config]
 #
-# Customer package: scripts/package-mac.sh --customer <signed, notarised "DUNGEON CRAWLER.pkg"> <dist dir>
-# stages <dist dir>/DUNGEON-CRAWLER-1.0-macOS with only "DUNGEON CRAWLER.pkg" and
-# "DUNGEON CRAWLER - Read Me.pdf", and zips it as <dist dir>/DUNGEON-CRAWLER-1.0-macOS.zip (the
-# release asset). It refuses an unsigned package.
+# Customer package (docs/INSTALLER_STANDARD.md): scripts/package-mac.sh --customer <signed,
+# notarised "DUNGEON CRAWLER.pkg"> <dist dir> stages "<dist dir>/DUNGEON CRAWLER-<version>-macOS" with only
+# "DUNGEON CRAWLER Installer.pkg" and "DUNGEON CRAWLER - Read Me.pdf" (written by scripts/build-pkg.sh
+# next to the pkg), and zips it as "<dist dir>/DUNGEON CRAWLER-<version>-macOS.zip" (the release
+# asset). <version> is installer/product.json's. It refuses an unsigned package.
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [[ "${1:-}" == --customer ]]; then
@@ -18,25 +19,27 @@ if [[ "${1:-}" == --customer ]]; then
         echo "error: $pkg is not signed with Developer ID Installer; no customer package" >&2
         exit 1
     fi
-    customer="$dist/DUNGEON-CRAWLER-1.0-macOS"
+    version=$(/usr/bin/python3 -c 'import json, sys; print(json.load(open(sys.argv[1]))["version"])' "$here/installer/product.json")
+    customer="$dist/DUNGEON CRAWLER-$version-macOS"
     rm -rf "$customer" "$customer.zip"
     mkdir -p "$customer"
-    /usr/bin/ditto "$pkg" "$customer/DUNGEON CRAWLER.pkg"
-    install -m 644 "$here/packaging/DUNGEON CRAWLER - Read Me.pdf" "$customer/"
+    /usr/bin/ditto "$pkg" "$customer/DUNGEON CRAWLER Installer.pkg"
+    install -m 644 "$(dirname "$pkg")/DUNGEON CRAWLER - Read Me.pdf" "$customer/"
     # No extended attributes or resource forks (no __MACOSX/ entries in the zip). Stapled
     # tickets live inside the package file itself, so nothing is lost.
     /usr/bin/xattr -cr "$customer"
     # Exactly these two files, nothing else.
     listing=$(cd "$customer" && LC_ALL=C /bin/ls -A)
-    expected=$(printf '%s\n%s' "DUNGEON CRAWLER - Read Me.pdf" "DUNGEON CRAWLER.pkg")
+    expected=$(printf '%s\n%s' "DUNGEON CRAWLER - Read Me.pdf" "DUNGEON CRAWLER Installer.pkg")
     [[ "$listing" == "$expected" ]] || { echo "error: unexpected files in the customer package: $listing" >&2; exit 1; }
     /usr/bin/ditto -c -k --norsrc --noextattr --noacl --keepParent "$customer" "$customer.zip"
     echo "Packaged $customer.zip"
     /usr/bin/unzip -l "$customer.zip"
-    if /usr/bin/unzip -Z1 "$customer.zip" | /usr/bin/grep -vE '^DUNGEON-CRAWLER-1\.0-macOS/((DUNGEON CRAWLER\.pkg)|(DUNGEON CRAWLER - Read Me\.pdf))?$'; then
+    top="DUNGEON CRAWLER-$version-macOS/"
+    if /usr/bin/unzip -Z1 "$customer.zip" | /usr/bin/grep -vxF -e "$top" -e "${top}DUNGEON CRAWLER Installer.pkg" -e "${top}DUNGEON CRAWLER - Read Me.pdf"; then
         echo "error: the customer zip holds more than the package and the Read Me" >&2; exit 1
     fi
-    /usr/bin/xcrun stapler validate "$customer/DUNGEON CRAWLER.pkg"
+    /usr/bin/xcrun stapler validate "$customer/DUNGEON CRAWLER Installer.pkg"
     exit 0
 fi
 build="$1"

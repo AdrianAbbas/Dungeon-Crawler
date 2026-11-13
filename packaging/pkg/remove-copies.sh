@@ -1,8 +1,8 @@
 # Shared body of DUNGEON CRAWLER.pkg's preinstall scripts (scripts/build-pkg.sh puts a line
-# `mode=old|au|vst3` above it). Runs as root, with macOS's bash 3.2, silently: everything it
+# `mode=prepare|au|vst3` above it). Runs as root, with macOS's bash 3.2, silently: everything it
 # removes is logged to /var/log/install.log only (lines starting "DUNGEON CRAWLER installer:").
 # Never removes presets or anything outside the plug-in folders.
-#   mode=old   copies installed before 1.0, under the old company's bundle IDs
+#   mode=prepare  copies installed before 1.0, under the old company's bundle IDs
 #              (audio.veil.dungeoncrawler*, whatever the file is called), in every format,
 #              system-wide and in every user's ~/Library: hosts would list them twice
 #   mode=au    other copies of DungeonCrawler.component and DungeonCrawlerFX.component:
@@ -13,7 +13,11 @@
 set -u
 log() { echo "DUNGEON CRAWLER installer: $*"; }
 case "$mode" in
-    old)  exts="component vst3"; names=""; ids="" ;;
+    prepare) exts="component vst3"; names=""; ids=""
+          # Receipts of the package's earlier identifiers (com.windwardaudio.dungeoncrawler.pkg.*).
+          for receipt in au vst3 remove-old; do
+              /usr/sbin/pkgutil --forget "com.windwardaudio.dungeoncrawler.pkg.$receipt" > /dev/null 2>&1 || true
+          done ;;
     au)   exts="component"; names="DungeonCrawler|DungeonCrawlerFX"; ids=" com.windwardaudio.dungeoncrawler com.windwardaudio.dungeoncrawlerfx " ;;
     vst3) exts="vst3"; names="DungeonCrawler|DungeonCrawlerFX"; ids=" com.windwardaudio.dungeoncrawler com.windwardaudio.dungeoncrawlerfx " ;;
     *)    log "unknown mode $mode"; exit 0 ;;
@@ -30,7 +34,7 @@ for home in /Library /Users/*/Library; do
             [ -e "$bundle" ] || continue
             base="$(basename "$bundle" ".$ext")"
             id="$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$bundle/Contents/Info.plist" 2>/dev/null || true)"
-            if [ "$mode" = old ]; then
+            if [ "$mode" = prepare ]; then
                 case "$id" in audio.veil.dungeoncrawler|audio.veil.dungeoncrawler.*) remove "$bundle" ;; esac
                 continue
             fi

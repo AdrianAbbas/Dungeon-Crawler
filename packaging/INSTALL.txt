@@ -3,7 +3,7 @@ DUNGEON CRAWLER 1.0.0 by Windward Audio - DEVELOPER PACKAGE (for testing only)
   DUNGEON CRAWLER FX  the dark-fantasy location effect
 (macOS 10.15+, Apple Silicon and Intel)
 
-Customers install "DUNGEON CRAWLER.pkg" (CI artifact DUNGEON-CRAWLER-1.0-macOS) and
+Customers install "DUNGEON CRAWLER Installer.pkg" (CI artifact DUNGEON CRAWLER-1.0-macOS) and
 read "DUNGEON CRAWLER - Read Me.pdf". This folder is the developer package: the bare
 bundles and the install scripts.
 

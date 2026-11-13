@@ -23,14 +23,14 @@ approach of the LIMINAL repository (VACANCY). All of it happens in CI
 | `codesign --verify --deep --strict`, `spctl --assess` for the bundles (`--type open`) and the installer (`--type install`): each must say `accepted` and `source=Notarized Developer ID` | `scripts/ci-verify-signing.sh` | signing runs |
 | Zip path: quarantined download, `install-mac.sh --ci`, auval and AU harnesses (with a session saved before 1.0) | `scripts/ci-user-install-test.sh` | always |
 | Package path: Gatekeeper on the quarantined `.pkg`, old copies planted, `sudo installer -pkg`, receipts, bundle IDs and version 1.0.0, old copies removed, registry (each plug-in once, as "Windward Audio: ..."), codesign / Gatekeeper on the installed copies, auval and AU harnesses arm64 + x86_64 on the installed copies, the preset migration | `scripts/ci-pkg-install-test.sh` | always (Gatekeeper parts only when notarised) |
-| Customer download `DUNGEON-CRAWLER-1.0-macOS` (only the pkg and the Read Me) | `scripts/package-mac.sh --customer` | signing runs |
+| Customer download `DUNGEON CRAWLER-1.0-macOS` (only `DUNGEON CRAWLER Installer.pkg` and the Read Me) | `scripts/package-mac.sh --customer` | signing runs |
 | Delete the keychain and the key file, restore the keychain search list | `scripts/ci-signing-cleanup.sh` | always, last step |
 
 Artifacts:
 
 | Artifact | Contents | Kept |
 | --- | --- | --- |
-| `DUNGEON-CRAWLER-1.0-macOS` | the customer download: only `DUNGEON CRAWLER.pkg` (signed, notarised, stapled) and `DUNGEON CRAWLER - Read Me.pdf`; signed runs only | 14 days |
+| `DUNGEON CRAWLER-1.0-macOS` | the customer download, to the [installer standard](INSTALLER_STANDARD.md): only `DUNGEON CRAWLER Installer.pkg` (signed, notarised, stapled) and `DUNGEON CRAWLER - Read Me.pdf`; signed runs only | 14 days |
 | `DUNGEON-CRAWLER-dev-macOS` | the developer zip: the four bundles, `install-mac.sh`, `uninstall-mac.sh`, `diagnose-mac.sh`, `INSTALL.txt`; every green run; for testing only | 14 days |
 | `DUNGEON-CRAWLER-macOS-diagnostics` | install, auval and harness logs; notarisation logs under `notary/` | 5 days |
 | `DUNGEON-CRAWLER-linux-test-logs` | the test suite's logs and the listening renders | 5 days |
@@ -57,7 +57,7 @@ gh workflow run build.yml --ref v1.0.0
 ```
 
 The manual run on the tag signs and notarises, and the `release` job (manual runs on
-`refs/tags/v*` only) attaches `DUNGEON-CRAWLER-1.0-macOS.zip` (the pkg and the Read Me) to the
+`refs/tags/v*` only) attaches `DUNGEON CRAWLER-1.0-macOS.zip` (`DUNGEON CRAWLER Installer.pkg` and the Read Me) to the
 GitHub Release of that tag, creating the release if needed.
 
 ## Secrets (Settings > Secrets and variables > Actions)
@@ -109,14 +109,16 @@ check they restore every parameter unchanged.
 
 ## The installer package
 
-`DUNGEON CRAWLER.pkg` installs for all users:
+Pages, wording, background, licence and Read Me follow the Windward Audio
+[installer standard](INSTALLER_STANDARD.md). `DUNGEON CRAWLER.pkg` (shipped as `DUNGEON CRAWLER Installer.pkg`) installs for all users:
 
 - `/Library/Audio/Plug-Ins/Components/DungeonCrawler.component` and `DungeonCrawlerFX.component` (choice "Audio Units")
 - `/Library/Audio/Plug-Ins/VST3/DungeonCrawler.vst3` and `DungeonCrawlerFX.vst3` (choice "VST3")
 
 The sounds ship inside the bundles (`Contents/Resources/Samples`), with the painted art; the
 factory presets of both plug-ins are compiled into their binaries, so they install with the
-bundles. The welcome and conclusion pages are `packaging/pkg/welcome.html` and `conclusion.html`.
+bundles. The pages (Welcome, Read Me, License, Summary) are rendered from `installer/templates` by
+`installer/render.py`.
 
 Before installing, the preinstall scripts (`packaging/pkg/remove-copies.sh`) silently remove
 (logged only to `/var/log/install.log`, lines starting with `DUNGEON CRAWLER installer:`),
@@ -151,14 +153,15 @@ sudo rm -rf /Library/Audio/Plug-Ins/Components/DungeonCrawler.component /Library
 ```
 
 ```bash
-sudo pkgutil --forget com.windwardaudio.dungeoncrawler.pkg.au; sudo pkgutil --forget com.windwardaudio.dungeoncrawler.pkg.vst3; sudo pkgutil --forget com.windwardaudio.dungeoncrawler.pkg.remove-old
+sudo pkgutil --forget com.windwardaudio.pkg.dungeoncrawler.au; sudo pkgutil --forget com.windwardaudio.pkg.dungeoncrawler.vst3; sudo pkgutil --forget com.windwardaudio.pkg.dungeoncrawler.prepare
 ```
 
 ## The customer Read Me
 
-`packaging/DUNGEON CRAWLER - Read Me.pdf` is generated from `tools/readme/build_readme_pdf.py`
-(edit the text there, run it with reportlab installed, commit the PDF). The script refuses old
-names and script names in the text.
+`DUNGEON CRAWLER - Read Me.pdf` is rendered by `installer/render.py` from the standard's template
+`installer/templates/readme-pdf.txt.in` and `installer/product.json` on every package build, next
+to the pkg ([installer standard](INSTALLER_STANDARD.md)). CI checks that the installer's pages
+mention no old name or script.
 
 ## Renewing the certificates
 

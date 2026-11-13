@@ -17,5 +17,5 @@ First release, by **Windward Audio**. No change to the sound or the interface.
   `~/Library/Audio/Presets/Windward Audio/`. On first launch they are copied from the
   folders used before (the originals are kept).
 - Signed with Developer ID, notarised by Apple, and installed by a signed installer,
-  `DUNGEON CRAWLER.pkg` (Audio Unit and VST3, for all users), which silently removes copies
+  `DUNGEON CRAWLER Installer.pkg` (Audio Unit and VST3, for all users), which silently removes copies
   installed before 1.0. The download holds only the installer and a Read Me (PDF).

@@ -48,6 +48,16 @@ expanded="$(mktemp -d)/expanded"
 src_au="$expanded/au.pkg/Payload"
 src_vst3="$expanded/vst3.pkg/Payload"
 ls "$src_au" "$src_vst3"
+# The installer standard (docs/INSTALLER_STANDARD.md): title, pages, licence and backgrounds.
+dist_xml="$expanded/Distribution"
+/usr/bin/grep -q "<title>DUNGEON CRAWLER by Windward Audio</title>" "$dist_xml" || { echo "::error::the installer's window title is not 'DUNGEON CRAWLER by Windward Audio'"; status=1; }
+for res in welcome.html readme.html EULA.rtf conclusion.html background.png background-dark.png; do
+    /usr/bin/grep -q "\"$res\"" "$dist_xml" || { echo "::error::the distribution does not use $res"; status=1; }
+    [[ -f "$expanded/Resources/$res" ]] || { echo "::error::the installer has no $res"; status=1; }
+done
+if /usr/bin/grep -il -E 'veil|install-mac' "$expanded/Distribution" "$expanded"/Resources/*.html "$expanded/Resources/EULA.rtf"; then
+    echo "::error::the installer's pages mention an old name or a script"; status=1
+fi
 plant() {   # plant <source bundle> <destination> <bundle ID> [sudo]
     ${4:+/usr/bin/sudo} mkdir -p "$(dirname "$2")"
     ${4:+/usr/bin/sudo} rm -rf "$2"
@@ -90,7 +100,7 @@ set -e
 echo "installer exit $install_exit"
 if [[ $install_exit != 0 ]]; then echo "::error::installer -pkg DUNGEON CRAWLER.pkg failed (exit $install_exit)"; status=1; fi
 /usr/sbin/pkgutil --pkgs | /usr/bin/grep com.windwardaudio | tee "$logs/pkg-receipts.txt" || true
-for receipt in com.windwardaudio.dungeoncrawler.pkg.au com.windwardaudio.dungeoncrawler.pkg.vst3; do
+for receipt in com.windwardaudio.pkg.dungeoncrawler.au com.windwardaudio.pkg.dungeoncrawler.vst3; do
     /usr/bin/grep -qx "$receipt" "$logs/pkg-receipts.txt" || { echo "::error::no installer receipt $receipt"; status=1; }
 done
 for entry in "$sys_components/DungeonCrawler.component com.windwardaudio.dungeoncrawler" "$sys_components/DungeonCrawlerFX.component com.windwardaudio.dungeoncrawlerfx" \
