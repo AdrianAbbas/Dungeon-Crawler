@@ -4317,11 +4317,14 @@ dark instruments (little of their own above 8 kHz) the top was mostly noise.
   generated at all: exactly 0, however long the hall rings.
 - A duck: once a note has been held 2 s with no new note (the FX: no onset, a 2 ms / 40 ms follower
   6 dB over a 500 ms one), the hiss falls 10.5 dB (0.35 s), back over 80 ms on the next note.
-- The hiss has its own noise generator and is added after the image stage (folded by Mono, never
-  moving the width servo), so AIR changes nothing else: AIR 15 % minus AIR 0 % is the hiss alone,
-  which is how it is measured. AIR 0 % skips it entirely.
-- The top from the music: the 6 kHz shelf is lifted (Classic +1.5 dB, Modern +2 dB; build 2 cut
-  3 / 1.5 dB at 6.5 kHz), and the Grit's harmonics carry the top (new step 5b: the music's own
+- The hiss has its own noise generator and is added after the image stage and the -1.3 dBFS
+  ceiling (folded by Mono; never moving the width servo or the ceiling's gain), so AIR changes
+  nothing else: AIR 15 % minus AIR 0 % is the hiss alone, which is how it is measured. AIR 0 %
+  skips it entirely.
+- The top from the music: the 6 kHz shelf follows the playing (the gate, rising over 50 ms,
+  falling over 0.4 s): lifted while notes sound (Classic +1.5 dB, Modern +2 dB), easing to a cut
+  in the tails (-5 / -4.5 dB) so the hall's ring-out stays dark (build 2: a fixed cut of 3 / 1.5 dB
+  at 6.5 kHz). The Grit's harmonics carry the top (new step 5b: the music's own
   1.5-5 kHz band, full-wave rectified, high-passed at 2.5 kHz, added at 0.6 x Grit x Warmth; none at
   Grit 0 %). The Grit stage itself is unchanged (its groups' checks untouched).
 - Calibration (`airCalibration`, -8.5 dB): measured on the test phrase, four instruments in their
@@ -4355,18 +4358,32 @@ container; CI measures with them), before (build 2) -> after:
 
 | instrument, era | floor > 6 kHz, last 4 s (dBFS) | > 6 kHz under the pad (dBFS) | hiss under the pad (dBFS; held 0.3-1.8 s -> 3.2-5.2 s) | hiss ends (release 5.3 s) | 8-20 kHz, test phrase (dB) |
 |---|---|---|---|---|---|
-| Royal Strings Classic | -57.1 -> -101.5 | -43.8 -> -65.0 | -70.5 (-67.5 -> -77.1) | 5.59 s | -25.9 -> -48.3 |
-| Royal Strings Modern | -56.4 -> -99.3 | -45.5 -> -64.3 | -76.5 (-73.5 -> -83.1) | 5.59 s | -29.7 -> -56.1 |
-| Dark Choir Pad Classic | -46.5 -> -94.2 | -38.0 -> -67.6 | -67.8 (-66.2 -> -73.0) | 5.59 s | -25.6 -> -50.6 |
-| Dark Choir Pad Modern | -47.0 -> -92.4 | -40.6 -> -72.4 | -73.9 (-72.2 -> -79.2) | 5.64 s | -29.3 -> -58.9 |
-| Chamber Organ Classic | -66.1 -> -150.4 | -46.9 -> -68.6 | -68.6 (-65.4 -> -75.2) | 5.59 s | -25.9 -> -43.5 |
+| Royal Strings Classic | -57.1 -> -104.4 | -43.8 -> -65.0 | -70.5 (-67.5 -> -77.1) | 5.59 s | -25.9 -> -48.3 |
+| Royal Strings Modern | -56.4 -> -102.1 | -45.5 -> -64.3 | -76.5 (-73.5 -> -83.1) | 5.59 s | -29.7 -> -56.1 |
+| Dark Choir Pad Classic | -46.5 -> -98.6 | -38.0 -> -67.6 | -67.8 (-66.2 -> -73.0) | 5.59 s | -25.6 -> -50.6 |
+| Dark Choir Pad Modern | -47.0 -> -96.8 | -40.6 -> -72.3 | -73.8 (-72.2 -> -79.2) | 5.59 s | -29.3 -> -58.9 |
+| Chamber Organ Classic | -66.1 -> -150.5 | -46.9 -> -68.6 | -68.6 (-65.4 -> -75.2) | 5.59 s | -25.9 -> -43.5 |
 | Chamber Organ Modern | -66.0 -> -149.6 | -49.4 -> -74.6 | -74.6 (-71.4 -> -81.2) | 5.59 s | -29.6 -> -50.6 |
-| Lute Classic | -107.4 -> -128.2 | -54.6 -> -71.3 | -73.1 (-66.9 -> -102.5) | 4.16 s | -25.8 -> -43.3 |
-| Lute Modern | -104.8 -> -126.5 | -57.1 -> -72.7 | -79.1 (-72.9 -> -108.5) | 4.16 s | -29.7 -> -48.8 |
+| Lute Classic | -107.4 -> -132.4 | -54.6 -> -71.3 | -73.1 (-66.9 -> -102.5) | 4.16 s | -25.8 -> -43.3 |
+| Lute Modern | -104.8 -> -130.7 | -57.1 -> -72.7 | -79.1 (-72.9 -> -108.5) | 4.16 s | -29.7 -> -48.8 |
 
-(The lute's voices end on their own before the release, so its gate shuts at 4.2 s. The Dark Choir
-Pad Modern's hiss ends at 5.64 s: its block-aligned release plus the 300 ms ramp, inside 400 ms.)
+(The lute's voices end on their own before the release, so its gate shuts at 4.2 s; elsewhere the
+hiss ends 0.29 s after the release, the 300 ms ramp.)
 The Grit's texture gate (2-8 kHz flatness >= 0.12 at Grit 100 %), which build 2 met largely with
 the hiss, now passes from the harmonics: 0.15 / 0.14 (strings), 0.27 / 0.23 (choir), 0.32 / 0.26
 (organ), 0.18 / 0.17 (lute), Classic / Modern. CPU: the warmth group's test phrase 1.20x the engine
 before the warm chain at Grit 0 % (this container).
+
+**CI, first run (`0b9509e`, run 43597951229): macOS green** (signing, notarisation, the bundle gate
+with build 3, both AU harnesses with the new Air check, the package install); **Linux 3382 passed,
+1 failed**, plus the measure gate, both on the Dark Choir Pad with the developer's recordings (the
+strings and the organ measure as here; the choir and the lute play their recordings in CI):
+the floor above 6 kHz was -90.9 (Classic) / **-88.7 dBFS (Modern, over -90)**, and in Classic the
+"hiss alone" difference ran on to 5.88 s. Causes: the 6 kHz lift brightened the hall's ring-out
+(the hiss itself had stopped at 5.60 s), and the hiss went in before the ceiling, so on this loud
+pad the ceiling's gain differed between AIR 15 % and AIR 0 % and rang on after the gate shut. Fixed
+as above (the shelf follows the playing, the tails cut; the hiss after the ceiling): here the
+choir's floor went from -94.2 / -92.4 to -98.6 / -96.8 dBFS (4.4 dB), the rest unchanged; with
+the recordings that puts it near -95 / -93. CI with the recordings, first run: hiss under the pad
+-65.6 / -72.2 dBFS (choir), -77.4 / -83.4 (lute); phrase hiss share -48.4 / -55.9 (choir),
+-43.0 / -50.9 (lute); every other check passed.

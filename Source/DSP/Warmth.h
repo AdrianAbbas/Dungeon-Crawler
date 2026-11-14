@@ -24,7 +24,8 @@
 // note's release (the instrument) or of the input falling silent (the FX), even while the hall
 // rings, and exactly 0 with no note held and a silent input. Under a note held longer than 2 s it
 // ducks 10.5 dB. AIR 0 % adds no hiss at all. The air on top comes from the music instead: a 6-12 kHz
-// shelf lift (the tape saturation's and the Grit's harmonics carry it).
+// shelf lift while notes sound, easing to a cut in the tails (the tape saturation's and the
+// Grit's harmonics carry it).
 //
 // The Era voices both: Classic a worn cassette (a little more hiss, more wow, narrower but never
 // mono, more drive), Modern lush and wide (a longer hall, less hiss, gentler drive).
@@ -208,6 +209,8 @@ private:
     float dryPower = 0, dryFast = 0, drySlow = 0, dryFastAttack = 0, dryFastRelease = 0, drySlowCoefficient = 0;
     float airGate = 0, gateOpenStep = 0, gateCloseStep = 0, airDuck = 1, duckDown = 0, duckUp = 0;
     int dryHold = 0, dryHoldSamples = 0;
+    // The top's shelf follows the playing: lifted while notes sound, a gentle cut in the tails.
+    float presence = 0, presenceRise = 0, presenceFall = 0, shelfDb = 1.0e9f;
     double heldSeconds = 0;
     static bool& legacyAir() noexcept { static bool on = false; return on; }
     // Image.

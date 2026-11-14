@@ -297,8 +297,9 @@ optionally `-vib`, `-stac`) or `ocarina-sus`, they are played in place of the fl
 character dungeon synth has, on every instrument and in both Eras. In the order the sound meets
 it: a decorrelated three-voice ensemble (each side its own slowly sweeping delays, 7-18 ms) and
 the voices' own detune (each note 3-8 cents off, drifting slowly); tape wow (slow and drifting)
-and flutter; a sloped top (a 6 kHz shelf lifted a little and a 6 dB/oct corner that drifts, never
-a wall: the 6-12 kHz air comes from the music and its harmonics, not from noise); slow
+and flutter; a sloped top (a 6 kHz shelf lifted a little while notes sound and easing to a gentle
+cut in the tails, and a 6 dB/oct corner that drifts, never a wall: the 6-12 kHz air comes from the
+music and its harmonics, not from noise); slow
 breathing on pads; gentle 2x oversampled tape saturation and a slow bus compressor (2.5:1,
 30 / 300 ms, about 4 dB on dense parts) with a leveller that lifts the quiet parts a little; a
 long, dark stereo hall (decorrelated left and right, longer and wider in Modern, no shimmer);

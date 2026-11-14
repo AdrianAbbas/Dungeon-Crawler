@@ -17,8 +17,8 @@ shows it in its header ("1.0.0 (3)").
   400 ms of the last note (even while the hall rings; exactly zero with no note and no input), and
   dips about 10 dB under notes held longer than 2 s.
 - **Air** (new parameter, 15 %): the hiss's amount, from none (0 %) to obvious (100 %).
-- The top's air now comes from the music: the warm chain's 6 kHz shelf is lifted (it was cut), and
-  the Grit's harmonics (the music's own 1.5-5 kHz band, rectified) carry the top as it rises.
+- The top's air now comes from the music: the warm chain's 6 kHz shelf is lifted while notes sound
+  (it was cut) and eases to a gentle cut in the tails, which stay dark; the Grit's harmonics (the music's own 1.5-5 kHz band, rectified) carry the top as it rises.
 - The interface: the DUNGEON SYNTH roller is titled **GRIT** (its parameter is unchanged), with
   **WARMTH** and **AIR** rollers and a small **MONO** switch beside it, in both plug-ins.
 - Projects and presets saved before load unchanged (the Audio Unit codes, the VST3 class IDs and

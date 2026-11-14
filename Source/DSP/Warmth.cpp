@@ -332,6 +332,8 @@ void WarmChain::prepare(double sampleRate) {
     dryHoldSamples = static_cast<int>(0.05 * sr);
     duckDown = dsp::timeCoefficient(0.35, sr);
     duckUp = dsp::timeCoefficient(0.08, sr);
+    presenceRise = dsp::timeCoefficient(0.05, sr);
+    presenceFall = dsp::timeCoefficient(0.4, sr);
     widthCoefficient = dsp::timeCoefficient(1.5, sr);
     widthGlide = dsp::timeCoefficient(0.7, sr);
     ceilingRelease = dsp::timeCoefficient(0.08, sr);
@@ -414,6 +416,8 @@ void WarmChain::reset() noexcept {
     dryPower = dryFast = drySlow = 0;
     airGate = 0;
     airDuck = 1;
+    presence = 0;
+    shelfDb = 1.0e9f;
     dryHold = 0;
     heldSeconds = 0;
     noteStarted = false;
@@ -473,10 +477,12 @@ void WarmChain::updateFilters(float a, float e) noexcept {
     lastEco = eco;
     for (auto& b : lowWarm) b.peaking(sr, 58.0, 0.7, a * 3.0);
     for (auto& b : mudCut) b.peaking(sr, 320.0, 0.75, -a * 3.0);
-    // The top: a 6 kHz shelf lifted (Classic +1.5 dB, Modern +2 dB; build 2 cut it 3 / 1.5 dB at
-    // 6.5 kHz): the 6-12 kHz air comes from the music and its harmonics, not from noise.
+    // The top (build 3): a 6 kHz shelf that follows the playing (set in process(), every 16 samples):
+    // lifted while notes sound (Classic +1.5 dB, Modern +2 dB), the 6-12 kHz air from the music and
+    // its harmonics, not from noise; easing to a gentle cut in the tails (-5 / -4.5 dB), so the
+    // hall's ring-out stays dark. Build 2: a fixed cut of 3 / 1.5 dB at 6.5 kHz.
     if (legacyAir()) for (auto& b : topShelf) b.highShelf(sr, 6500.0, -a * mix(3.0f, 1.5f, e));
-    else for (auto& b : topShelf) b.highShelf(sr, 6000.0, a * mix(1.5f, 2.0f, e));
+    else shelfDb = 1.0e9f;   // (re-set below)
     // (The top's 6 dB/oct corner above: Classic about 10.5 kHz, Modern 14.5 kHz, drifting by +/-12 %.)
     for (auto& f : ensembleHigh) f.set(150.0, sr, 1.414f);
     // The hall: Classic a shorter, narrower room; Modern long and wide (no shimmer).
@@ -505,6 +511,13 @@ void WarmChain::process(float* l, float* r, int n, const float* dryL, const floa
         if (--filterCounter <= 0) {
             filterCounter = 16;
             updateFilters(a, e);
+            if (!legacy) {
+                const float db = a * mix(mix(-5.0f, -4.5f, e), mix(1.5f, 2.0f, e), presence);
+                if (std::abs(db - shelfDb) > 0.02f) {
+                    shelfDb = db;
+                    for (auto& b : topShelf) b.highShelf(sr, 6000.0, db);
+                }
+            }
             // What changes slowly, every 16 samples.
             const float wowRate = mix(0.6f, 0.38f, e), flutterRate = mix(6.3f, 5.1f, e);
             ctl.wowStep = wowRate / static_cast<float>(sr);
@@ -574,6 +587,7 @@ void WarmChain::process(float* l, float* r, int n, const float* dryL, const floa
             heldSeconds = !open || onset ? 0.0 : heldSeconds + secondsPerSample;
             const float duckTarget = heldSeconds > 2.0 ? 0.3f : 1.0f;   // -10.5 dB under a note held over 2 s
             airDuck += (duckTarget < airDuck ? duckDown : duckUp) * (duckTarget - airDuck);
+            presence += (airGate > presence ? presenceRise : presenceFall) * (airGate - presence);
         }
         // 2. Ensemble: three voices, each side its own read heads (decorrelated), above 150 Hz.
         ensembleLine[0].push(yl);
@@ -763,8 +777,19 @@ void WarmChain::process(float* l, float* r, int n, const float* dryL, const floa
             yl = (mid + side) * pg;
             yr = (mid - side) * pg;
         }
+        // 13. The ceiling: -1.3 dBFS (sample peaks), so the true peaks stay under -0.5 dBTP.
+        {
+            const float ceiling = mix(0.966f, 0.861f, a);
+            const float peak = std::max(std::abs(yl), std::abs(yr));
+            const float needed = peak > ceiling ? ceiling / peak : 1.0f;
+            ceilingGain = needed < ceilingGain ? needed : std::min(needed, ceilingGain + ceilingRelease * (1.0f - ceilingGain));
+            yl *= ceilingGain;
+            yr *= ceilingGain;
+        }
         // 9. The hiss (build 3): pink, shaped to the top, its own generator, after the image (so
-        // it never moves the width servo) and folded by the Mono switch. Gated: exactly 0 shut.
+        // it never moves the width servo) and the ceiling (so it never moves the ceiling's gain:
+        // at most -50 dBFS, it leaves the true peak where it was), folded by the Mono switch.
+        // Gated: exactly 0 shut.
         if (!legacy && airGate > 0.0f && airTarget > 0.0f && airLevel > 1.0e-9f) {
             const float g = airLevel * airGate * airDuck;
             float hiss[2];
@@ -780,15 +805,6 @@ void WarmChain::process(float* l, float* r, int n, const float* dryL, const floa
             const float hm = 0.5f * (hiss[0] + hiss[1]), hs = 0.5f * (hiss[0] - hiss[1]) * (1.0f - mono);
             yl += hm + hs;
             yr += hm - hs;
-        }
-        // 13. The ceiling: -1.3 dBFS (sample peaks), so the true peaks stay under -0.5 dBTP.
-        {
-            const float ceiling = mix(0.966f, 0.861f, a);
-            const float peak = std::max(std::abs(yl), std::abs(yr));
-            const float needed = peak > ceiling ? ceiling / peak : 1.0f;
-            ceilingGain = needed < ceilingGain ? needed : std::min(needed, ceilingGain + ceilingRelease * (1.0f - ceilingGain));
-            yl *= ceilingGain;
-            yr *= ceilingGain;
         }
         // Starting and stopping: crossfaded with the input (the chain runs `latency` samples behind).
         const bool on = target > 0.0f || a > 1.0e-3f || monoTarget || mono > 0.0f;
