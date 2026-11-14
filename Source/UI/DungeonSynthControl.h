@@ -4,6 +4,8 @@
 // full genre sound) and the Era switch beside it (Classic: the cassette era; Modern: cleaner
 // and warmer; Session 16: warm, wide and polished). The title runs across the top. On the instrument panel it sits to the right of
 // the keyboard; in the FX's controls between Travel and the switches.
+// Hiss fix (build 3): titled GRIT (what the roller is since the warmth pass; the parameter ID
+// "dungeonSynth" is kept), the WARMTH / AIR / MONO controls (WarmthControl.h) beside it.
 //
 // The roller is the Effects roller's slider (vertical drag, the mouse wheel, double-click back
 // to 0 %, host automation through its attachment); the Era buttons follow the parameter (a
@@ -22,7 +24,7 @@ public:
             roller.attach(*amount);
             roller.setDoubleClickReturnValue(true, 0.0);
         }
-        roller.setTooltip("Dungeon Synth: how much it sounds like dungeon synth (0 %: as it is; 25 % subtle, 50 % clearly, 100 % the full genre sound)");
+        roller.setTooltip("Grit: warm tube and tape saturation, a gentle crush and tape grain (0 %: as it is; 50 % clearly; 100 % the full crushed sound)");
         addAndMakeVisible(roller);
         classic.setTooltip("Classic: the 90s cassette demo (a cheap 13 kHz, 8-bit sampler with its aliasing, tape wow, flutter and hiss, a dark top, nearly mono, a big grainy old-digital hall)");
         modern.setTooltip("Modern: lush and warm, a vintage sampler (gentle 12-bit, 32 kHz, smooth), warm tape, a deep slow ensemble chorus, wide, a long dark hall that blooms");
@@ -43,11 +45,12 @@ public:
     juce::TextButton& modernButton() { return modern; }
     int shownEra() const noexcept { return era; }
     float titleHeight = 14.0f;
+    static constexpr const char* title = "GRIT";
 
     void paint(juce::Graphics& g) override {
         g.setColour(colours::ivory.withAlpha(0.92f));
         g.setFont(titleFont(10.5f));
-        g.drawFittedText("DUNGEON SYNTH", getLocalBounds().removeFromTop(juce::roundToInt(titleHeight)), juce::Justification::centred, 1, 0.75f);
+        g.drawFittedText(title, getLocalBounds().removeFromTop(juce::roundToInt(titleHeight)), juce::Justification::centred, 1, 0.75f);
     }
     void resized() override {
         auto area = getLocalBounds();

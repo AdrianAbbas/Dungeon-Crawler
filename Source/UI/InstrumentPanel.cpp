@@ -14,7 +14,7 @@ int whiteIndex(int key) {
 const juce::Colour stoneTop { 0xff1d1a20 }, stoneBottom { 0xff0d0c10 }, boneKey { 0xffcdc4b2 }, boneKeyShade { 0xffa79e8d };
 }
 
-InstrumentPanel::InstrumentPanel(DungeonCrawlerProcessor& p) : processor(p), dungeon(p.parameters), keyboard(p) {
+InstrumentPanel::InstrumentPanel(DungeonCrawlerProcessor& p) : processor(p), dungeon(p.parameters), warmthControls(p.parameters), keyboard(p) {
     setOpaque(true);
     setLookAndFeel(&look);
     place.setFont(labelFont(13.5f));
@@ -128,6 +128,7 @@ InstrumentPanel::InstrumentPanel(DungeonCrawlerProcessor& p) : processor(p), dun
     effects.setTooltip("Effects: how much of the place's effects (0 %: nearly dry, 100 %: as designed, 150 %: stronger)");
     addAndMakeVisible(effects);
     addAndMakeVisible(dungeon);   // Session 15
+    addAndMakeVisible(warmthControls);   // hiss fix
 
     // The wheels: bend springs back to the middle; mod stays where it is left.
     for (auto* w : { &bend, &mod }) {
@@ -308,7 +309,9 @@ void InstrumentPanel::resized() {
     bend.setBounds(10, 127, 30, 62);
     mod.setBounds(46, 127, 30, 62);
     sustain.setBounds(84, 150, 62, 30);
-    keyboard.setBounds(154, 115, getWidth() - 162 - 104, getHeight() - 121);
+    // Hiss fix: the keyboard gives up 100 px to WARMTH, AIR and MONO (left of GRIT).
+    keyboard.setBounds(154, 115, getWidth() - 162 - 204, getHeight() - 121);
+    warmthControls.setBounds(getWidth() - 202, 111, 96, getHeight() - 115);
     dungeon.setBounds(getWidth() - 102, 111, 96, getHeight() - 115);
 }
 

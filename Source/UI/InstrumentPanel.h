@@ -15,6 +15,7 @@
 #include "EngravedLookAndFeel.h"
 #include "EffectsRoller.h"
 #include "DungeonSynthControl.h"
+#include "WarmthControl.h"
 #include "Hover.h"
 
 namespace dc::ui {
@@ -48,6 +49,7 @@ public:
     EffectsRoller& bendWheel() { return bend; }
     EffectsRoller& modWheel() { return mod; }
     DungeonSynthControl& dungeonSynthControl() { return dungeon; }
+    WarmthControl& warmthControl() { return warmthControls; }
     juce::Component& keyboardForTest() { return keyboard; }
     void pollForTest() { timerCallback(); }
     int keyRepaints() const noexcept { return keyboard.repaints; }
@@ -100,6 +102,7 @@ private:
     std::array<std::unique_ptr<juce::SliderParameterAttachment>, sliderCount> attachments;
     EffectsRoller effects, bend, mod;
     DungeonSynthControl dungeon;   // Session 15: right of the keyboard
+    WarmthControl warmthControls;  // hiss fix: WARMTH, AIR, MONO, left of GRIT
     juce::Label bendLabel, modLabel;
     juce::TextButton sustain { "Sustain" };
     juce::TextButton mix { "Mix" };

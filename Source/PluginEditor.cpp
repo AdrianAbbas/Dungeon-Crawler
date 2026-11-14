@@ -24,6 +24,12 @@ DungeonCrawlerView::Drawer::Drawer(juce::AudioProcessorValueTreeState& state) {
     hint.setFont(labelFont(13.0f));
     hint.setColour(juce::Label::textColourId, colours::ash);
     addAndMakeVisible(hint);
+    build.setText(buildText(), juce::dontSendNotification);
+    build.setFont(labelFont(11.0f));
+    build.setColour(juce::Label::textColourId, colours::ash.withAlpha(0.75f));
+    build.setJustificationType(juce::Justification::centredRight);
+    build.setTooltip("Version and build number of this installed copy");
+    addAndMakeVisible(build);
     close.setButtonText(juce::String::fromUTF8("\xe2\x9c\x95"));
     close.setTooltip("Close (Esc)");
     close.onClick = [this] { if (onClose) onClose(); };
@@ -99,6 +105,17 @@ DungeonCrawlerView::Drawer::Drawer(juce::AudioProcessorValueTreeState& state) {
     addAndMakeVisible(viewport);
 }
 
+const juce::Label& DungeonCrawlerView::buildLabelForTest() const { return drawer.buildLabelForTest(); }
+juce::Rectangle<int> DungeonCrawlerView::advancedBoundsForTest() const { return drawer.getBounds(); }
+
+juce::String DungeonCrawlerView::Drawer::buildText() {
+#if defined(DC_VERSION_STRING) && defined(DC_BUILD_NUMBER)
+    return juce::String(DC_VERSION_STRING) + " (" + juce::String(DC_BUILD_NUMBER) + ")";
+#else
+    return {};
+#endif
+}
+
 void DungeonCrawlerView::Drawer::paint(juce::Graphics& g) {
     g.fillAll(colours::ink);
     g.setColour(colours::dust.withAlpha(0.6f));
@@ -109,6 +126,7 @@ void DungeonCrawlerView::Drawer::resized() {
     auto area = getLocalBounds().reduced(10);
     auto top = area.removeFromTop(34);
     close.setBounds(top.removeFromRight(28).withSizeKeepingCentre(28, 26));
+    build.setBounds(top.removeFromRight(70));
     hint.setBounds(top);
     viewport.setBounds(area);
     // Two columns of rows, headings spanning their column.
@@ -220,7 +238,7 @@ void DungeonCrawlerView::PlaceButton::paintHover(juce::Graphics& g, bool hover, 
 }
 
 DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
-    : processor(p), cache([this] { sceneReady(); }), dungeonControl(p.parameters), drawer(p.parameters),
+    : processor(p), cache([this] { sceneReady(); }), dungeonControl(p.parameters), warmthControl(p.parameters), drawer(p.parameters),
       journeyPanel(p, [this] { return dc::Stop { shown, dc::clampSubLocation(shown, shownSub) }; }),
       mixPanel(p.parameters),
       searchPanel(dc::search::index(p.isInstrument())) {
@@ -376,6 +394,7 @@ DungeonCrawlerView::DungeonCrawlerView(DungeonCrawlerProcessor& p)
     // Session 15: DUNGEON SYNTH (the FX's, between Travel and the switches; the instrument's
     // is on its panel).
     addChildComponent(dungeonControl);
+    addChildComponent(warmthControl);
     // The Journey / Roam badge with its Stop button, and the short note.
     steerBadge.stop.setTooltip("Stop the journey here");
     steerBadge.stop.onClick = [this] {
@@ -1563,7 +1582,8 @@ void DungeonCrawlerView::paint(juce::Graphics& g) {
         g.drawText("TRAVEL", juce::Rectangle<float>(548.0f, rowTop, 200.0f, 12.0f), juce::Justification::centredLeft);
         // Session 9: the levels group is wider in the FX (the Effects roller).
         // Session 15: the FX's DUNGEON SYNTH group after Travel.
-        for (float x : { 232.0f, processor.isInstrument() ? 504.0f : 540.0f, processor.isInstrument() ? 784.0f : 802.0f, processor.isInstrument() ? -1.0f : 706.0f }) {
+        // Hiss fix: in the FX, Travel narrower, GRIT and WARMTH / AIR / MONO after it, the switches narrower.
+        for (float x : { 232.0f, processor.isInstrument() ? 504.0f : 540.0f, processor.isInstrument() ? 784.0f : 880.0f, processor.isInstrument() ? -1.0f : 690.0f }) {
             if (x < 0.0f) continue;
             juce::ColourGradient div(colours::ivory.withAlpha(0.0f), x, rowTop, colours::ivory.withAlpha(0.0f), x, strip.getBottom() - 8.0f, false);
             div.addColour(0.5, colours::ivory.withAlpha(0.16f));
@@ -1618,11 +1638,13 @@ void DungeonCrawlerView::resized() {
         place(output, { mainX + 124, row, 62, rowHeight });
     }
     travelLabel.setBounds(548, row + 2, 52, 22);
-    // Session 15: in the FX the travel group is narrower and DUNGEON SYNTH follows it.
-    travelTime.setBounds(598, row + 2, fx ? 106 : 180, 22);
-    travelSync.setBounds(550, row + 36, fx ? 150 : 150, 24);
-    dungeonControl.setBounds(712, row - 16, 82, rowHeight + 16);
-    const int switchX = fx ? 810 : 792, switchWidth = fx ? 136 : 150;
+    // Session 15: in the FX the travel group is narrower and DUNGEON SYNTH (GRIT) follows it.
+    // Hiss fix: narrower still; WARMTH, AIR and MONO after GRIT; the switches narrower.
+    travelTime.setBounds(598, row + 2, fx ? 88 : 180, 22);
+    travelSync.setBounds(550, row + 36, fx ? 134 : 150, 24);
+    dungeonControl.setBounds(694, row - 16, 80, rowHeight + 16);
+    warmthControl.setBounds(778, row - 16, 98, rowHeight + 16);
+    const int switchX = fx ? 884 : 792, switchWidth = fx ? 68 : 150;
     journeyToggle.setBounds(switchX, row - 2, switchWidth, 26);
     bypass.setBounds(switchX, row + 25, switchWidth, 26);
     advancedToggle.setBounds(switchX, row + 52, switchWidth, 26);
@@ -1639,6 +1661,7 @@ void DungeonCrawlerView::resized() {
     }
     effectsRoller.setVisible(fx && controlsShown);
     dungeonControl.setVisible(fx && controlsShown);
+    warmthControl.setVisible(fx && controlsShown);
     if (shown >= 0)
         for (int m = 0; m < dc::macroCount; ++m) {
             const bool used = m < dc::macroCountFor(shown);
