@@ -4387,3 +4387,13 @@ choir's floor went from -94.2 / -92.4 to -98.6 / -96.8 dBFS (4.4 dB), the rest u
 the recordings that puts it near -95 / -93. CI with the recordings, first run: hiss under the pad
 -65.6 / -72.2 dBFS (choir), -77.4 / -83.4 (lute); phrase hiss share -48.4 / -55.9 (choir),
 -43.0 / -50.9 (lute); every other check passed.
+
+**CI, hiss fix: green** (`1f7e7e8`, run 43605607288, macOS and Linux): Linux 3383 passed, 0
+failed; the warmth and hiss gate 24 renders, 0 failures; CPU of the listening renders 1.10x the
+1.0.0 build's. With the recordings, before (build 2) -> after: Dark Choir Pad floor above 6 kHz
+(last 4 s) -42.3 -> -94.8 dBFS (Classic), -43.3 -> **-91.8** (Modern: passes, the smallest margin,
+1.8 dB), hiss under the pad -65.3 / -71.3 dBFS; Lute -136.4 / -134.5 dBFS, -77.4 / -83.4 dBFS.
+The hiss ends 0.29 s after the release everywhere (the lute's at 4.86 s, its voices ending first).
+macOS: the bundle gate (1.0.0, build 3), both AU harnesses (the Air check), signing, notarisation
+and the package install passed. Then a manual run (workflow_dispatch, run 43612000498) on main for
+the signed, notarised installer.
