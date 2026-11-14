@@ -8,8 +8,9 @@ endif()
 # 1.0.0 is frozen (docs/ROADMAP.md): bug fixes only. Hosts, bundles and the installer read it from here.
 project(DUNGEON_CRAWLER VERSION 1.0.0 LANGUAGES C CXX)
 # The build number (CFBundleVersion; the version above is what hosts and users see). 1: the first
-# 1.0.0 build; 2: the warmth pass (still 1.0.0: not sold yet).
-set(DC_BUILD_NUMBER 2)
+# 1.0.0 build; 2: the warmth pass; 3: the hiss fix (still 1.0.0: not sold yet). The Advanced
+# panel shows both ("1.0.0 (3)"), so the developer can tell which build a host loaded.
+set(DC_BUILD_NUMBER 3)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -117,7 +118,8 @@ function(dc_add_plugin target)
         # bundle at Contents/Resources/Painted; development builds and the tests fall back
         # to the source tree. Likewise the samples (instrument only).
         DC_PAINTED_DIR="${CMAKE_CURRENT_SOURCE_DIR}/assets/painted"
-        DC_DEV_SAMPLES_DIR="${DC_SAMPLES_DIR}")
+        DC_DEV_SAMPLES_DIR="${DC_SAMPLES_DIR}"
+        DC_VERSION_STRING="${PROJECT_VERSION}" DC_BUILD_NUMBER=${DC_BUILD_NUMBER})
     target_link_libraries(${target} PRIVATE juce::juce_audio_utils juce::juce_dsp
         PUBLIC juce::juce_recommended_config_flags DungeonCrawlerFonts)
     foreach(dc_format IN LISTS DC_FORMATS)

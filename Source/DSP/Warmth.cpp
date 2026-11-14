@@ -39,6 +39,12 @@ constexpr float ensembleBaseL[3] { 7.2f, 11.6f, 16.1f }, ensembleBaseR[3] { 8.1f
 constexpr float ensembleRates[3] { 0.15f, 0.27f, 0.43f };
 constexpr float ensembleOffset[3] { 1.9f, 2.6f, 3.4f };   // the right side's sweep against the left's (radians)
 constexpr float ensembleWeightL[3] { 0.5f, 0.35f, 0.3f }, ensembleWeightR[3] { 0.3f, 0.5f, 0.35f };
+// The hiss: the dry signal's level against the whole output's (the glue's make-up and the hall
+// lie between them) and the hiss's own power below 8 kHz, measured on the test phrase (four
+// instruments in their places, both Eras: -8.5 dB) so the share lands where it is asked to.
+constexpr float airCalibration = 0.1413f;
+// The Grit's harmonics at Grit 100 % (of the rectified band, against the music).
+constexpr float gritExciter = 0.6f;
 }
 
 float readCubic(const dsp::DelayLine& line, float delay) noexcept {
@@ -281,6 +287,7 @@ void WarmChain::prepare(double sampleRate) {
     era.setTime(0.25, sr);
     pad.setTime(0.3, sr);
     send.setTime(0.05, sr);
+    grit.setTime(0.08, sr);
     tapeBase = static_cast<int>(std::lround(0.0025 * sr));
     latency = Oversampler::latencySamples + tapeBase;
     for (auto& d : ensembleLine) d.prepare(static_cast<std::size_t>(0.025 * sr) + 8);
@@ -314,6 +321,17 @@ void WarmChain::prepare(double sampleRate) {
     envAttack = dsp::timeCoefficient(0.03, sr);
     envRelease = dsp::timeCoefficient(0.5, sr);
     airGlide = dsp::timeCoefficient(0.1, sr);
+    // The hiss's gate and duck: the dry signal's level (30 ms / 300 ms), its onsets (a 2 ms / 40 ms
+    // follower against a 500 ms one), the gate opening over 50 ms and shutting over 300 ms (after
+    // 50 ms of hold on the FX's input), the duck falling over 0.35 s and recovering over 80 ms.
+    dryFastAttack = dsp::timeCoefficient(0.002, sr);
+    dryFastRelease = dsp::timeCoefficient(0.04, sr);
+    drySlowCoefficient = dsp::timeCoefficient(0.5, sr);
+    gateOpenStep = static_cast<float>(1.0 / (0.05 * sr));
+    gateCloseStep = static_cast<float>(1.0 / (0.3 * sr));
+    dryHoldSamples = static_cast<int>(0.05 * sr);
+    duckDown = dsp::timeCoefficient(0.35, sr);
+    duckUp = dsp::timeCoefficient(0.08, sr);
     widthCoefficient = dsp::timeCoefficient(1.5, sr);
     widthGlide = dsp::timeCoefficient(0.7, sr);
     ceilingRelease = dsp::timeCoefficient(0.08, sr);
@@ -325,6 +343,10 @@ void WarmChain::prepare(double sampleRate) {
     drift(wowDrift, 1.7, 0.9);
     drift(breathDrift, 2.9, 1.1);
     drift(ensembleDrift, 3.7, 1.8);
+    for (auto& f : excHigh) f.set(1500.0, sr, 1.414f);
+    for (auto& f : excLow) f.set(5000.0, sr, 1.414f);
+    for (auto& f : excOut1) f.set(2500.0, sr, 1.848f);
+    for (auto& f : excOut2) f.set(2500.0, sr, 0.765f);
     for (auto& f : airHigh) f.set(7500.0, sr, 1.848f);
     for (auto& f : airHigh2) f.set(7500.0, sr, 0.765f);
     for (auto& f : airShelf) f.highShelf(sr, 11000.0, 3.0);
@@ -356,6 +378,7 @@ void WarmChain::prepare(double sampleRate) {
         airUnit = static_cast<float>(std::max(1.0e-12, hf / count));
     }
     random.seed(0x5741524Du);
+    airNoise.seed(0x48495353u);
     reset();
     fresh = true;
 }
@@ -365,8 +388,10 @@ void WarmChain::reset() noexcept {
     era.snap(eraTarget);
     pad.snap(padTarget);
     send.snap(sendTarget);
+    grit.snap(gritTarget);
     engage = target > 0.0f || monoTarget ? 1.0f : 0.0f;
     mono = monoTarget ? 1.0f : 0.0f;
+    for (auto* bank : { &excHigh, &excLow, &excOut1, &excOut2 }) for (auto& f : *bank) f.clear();
     for (auto* bank : { &lowWarm, &mudCut, &topShelf, &airShelf }) for (auto& b : *bank) b.clear();
     for (auto* bank : { &lowWarm, &mudCut, &topShelf }) for (auto& b : *bank) b.setNormalised(1, 0, 0, 1, 0, 0);
     topState = { 0, 0 };
@@ -386,6 +411,12 @@ void WarmChain::reset() noexcept {
     for (auto* bank : { &hallHigh, &hallLow, &airHigh, &airHigh2, &progHigh, &progHigh2 }) for (auto& f : *bank) f.clear();
     pink = {};
     progPower = progHf = airLevel = 0;
+    dryPower = dryFast = drySlow = 0;
+    airGate = 0;
+    airDuck = 1;
+    dryHold = 0;
+    heldSeconds = 0;
+    noteStarted = false;
     sideHigh.clear();
     sideHigh2.clear();
     sideHigh3.clear();
@@ -442,7 +473,10 @@ void WarmChain::updateFilters(float a, float e) noexcept {
     lastEco = eco;
     for (auto& b : lowWarm) b.peaking(sr, 58.0, 0.7, a * 3.0);
     for (auto& b : mudCut) b.peaking(sr, 320.0, 0.75, -a * 3.0);
-    for (auto& b : topShelf) b.highShelf(sr, 6500.0, -a * mix(3.0f, 1.5f, e));
+    // The top: a 6 kHz shelf lifted (Classic +1.5 dB, Modern +2 dB; build 2 cut it 3 / 1.5 dB at
+    // 6.5 kHz): the 6-12 kHz air comes from the music and its harmonics, not from noise.
+    if (legacyAir()) for (auto& b : topShelf) b.highShelf(sr, 6500.0, -a * mix(3.0f, 1.5f, e));
+    else for (auto& b : topShelf) b.highShelf(sr, 6000.0, a * mix(1.5f, 2.0f, e));
     // (The top's 6 dB/oct corner above: Classic about 10.5 kHz, Modern 14.5 kHz, drifting by +/-12 %.)
     for (auto& f : ensembleHigh) f.set(150.0, sr, 1.414f);
     // The hall: Classic a shorter, narrower room; Modern long and wide (no shimmer).
@@ -457,9 +491,13 @@ void WarmChain::updateFilters(float a, float e) noexcept {
     hallWidth = mix(0.8f, 1.0f, e);
 }
 
-void WarmChain::process(float* l, float* r, int n) noexcept {
+void WarmChain::process(float* l, float* r, int n, const float* dryL, const float* dryR) noexcept {
     const int voices = eco ? 2 : 3;
     const float tau = 2.0f * static_cast<float>(dsp::pi);
+    const bool legacy = legacyAir();
+    bool started = noteStarted;
+    noteStarted = false;
+    const float secondsPerSample = static_cast<float>(1.0 / sr);
     for (int i = 0; i < n; ++i) {
         const float a = amount.next(), e = era.next(), p = pad.next(), s = send.next();
         const float cd = cutoffDrift.next(random), wd = wowDrift.next(random), bd = breathDrift.next(random), ed = ensembleDrift.next(random);
@@ -479,7 +517,7 @@ void WarmChain::process(float* l, float* r, int n) noexcept {
             ctl.tapeBias = a * 0.12f;
             ctl.tapeT0 = std::tanh(ctl.tapeK * ctl.tapeBias);
             ctl.tapeInv = 1.0f / (ctl.tapeK * (1.0f - ctl.tapeT0 * ctl.tapeT0));
-            ctl.share = std::pow(10.0f, 0.1f * mix(-29.0f, -33.0f, e));
+            ctl.share = std::pow(10.0f, 0.1f * (legacy ? mix(-29.0f, -33.0f, e) : mix(-46.0f, -52.0f, e)));
             // The compressor and the leveller (in dB), stepped every 16 samples, the gain glides between.
             const float level = 10.0f * std::log10(std::max(detector, 1.0e-12f));
             const float threshold = std::max(-50.0f, 10.0f * std::log10(std::max(longTerm, 1.0e-12f)) - 8.0f);
@@ -495,9 +533,14 @@ void WarmChain::process(float* l, float* r, int n) noexcept {
             liftDb += (lift > liftDb ? liftRise : liftFall) * (lift - liftDb);
             ctl.gainFrom = ctl.gainTo;
             ctl.gainTo = dsp::dbToGain(a * (4.5f - grDb + liftDb));
-            // The air's level and the image's gains.
-            const float need = progPower > 1.0e-9f ? std::max(0.0f, ctl.share * progPower - progHf) : 0.0f;
-            ctl.air = a * std::sqrt(need / airUnit);
+            // The air's level and the image's gains. Build 3: the hiss follows the DRY signal's level
+            // (before the hall and the leveller), at the Era's share scaled by AIR (15 % = the share).
+            if (legacy) {
+                const float need = progPower > 1.0e-9f ? std::max(0.0f, ctl.share * progPower - progHf) : 0.0f;
+                ctl.air = a * std::sqrt(need / airUnit);
+            } else {
+                ctl.air = airTarget > 0.0f && dryPower > 1.0e-12f ? a * (airTarget / 0.15f) * std::sqrt(airCalibration * ctl.share * dryPower / airUnit) : 0.0f;
+            }
             const float rho = mix(0.64f, 0.47f, e), kk = (1.0f - rho) / (1.0f + rho);
             ctl.side = sidePower > 1.0e-14f && midPower > 1.0e-12f ? std::clamp(std::sqrt(kk * midPower / sidePower), 0.5f, 3.5f) : 1.0f;
             const float g = 1.0f + a * (sideGain - 1.0f);
@@ -508,6 +551,30 @@ void WarmChain::process(float* l, float* r, int n) noexcept {
         ctl.at += 1.0f / 16.0f;
         const float xl = l[i], xr = r[i];
         float yl = xl, yr = xr;
+        // The hiss's gate and duck, from the notes and the dry signal (never the output).
+        if (!legacy) {
+            const float dl = dryL != nullptr ? dryL[i] : xl, dr = dryR != nullptr ? dryR[i] : xr;
+            const float dp = 0.5f * (dl * dl + dr * dr);
+            dryPower += (dp > dryPower ? envAttack : envRelease) * (dp - dryPower);
+            dryFast += (dp > dryFast ? dryFastAttack : dryFastRelease) * (dp - dryFast);
+            drySlow += drySlowCoefficient * (dp - drySlow);
+            bool open, onset;
+            if (notesKnown) {
+                open = notesHeld;
+                onset = started;
+                started = false;
+            } else {
+                // The FX: open while the input sounds (above -66 dBFS within the last 50 ms).
+                if (std::max(std::abs(dl), std::abs(dr)) > 5.0e-4f) dryHold = dryHoldSamples;
+                else if (dryHold > 0) --dryHold;
+                open = dryHold > 0;
+                onset = dryFast > 4.0f * drySlow && dryFast > 1.0e-6f;
+            }
+            airGate = open ? std::min(1.0f, airGate + gateOpenStep) : std::max(0.0f, airGate - gateCloseStep);
+            heldSeconds = !open || onset ? 0.0 : heldSeconds + secondsPerSample;
+            const float duckTarget = heldSeconds > 2.0 ? 0.3f : 1.0f;   // -10.5 dB under a note held over 2 s
+            airDuck += (duckTarget < airDuck ? duckDown : duckUp) * (duckTarget - airDuck);
+        }
         // 2. Ensemble: three voices, each side its own read heads (decorrelated), above 150 Hz.
         ensembleLine[0].push(yl);
         ensembleLine[1].push(yr);
@@ -560,6 +627,20 @@ void WarmChain::process(float* l, float* r, int n) noexcept {
             const float g = 1.0f + a * p * mix(0.06f, 0.05f, e) * bd;
             yl *= g;
             yr *= g;
+        }
+        // 5b. The Grit's harmonics (hiss fix): the music's own 1.5-5 kHz band, full-wave rectified
+        // (its even harmonics and their intermodulation), above 2.5 kHz, added with the Grit.
+        {
+            const float gv = grit.next();
+            if (gv > 1.0e-4f && !legacy) {
+                const float k = a * gv * gritExciter;
+                for (int c = 0; c < 2; ++c) {
+                    const auto ch = std::size_t(c);
+                    float& y = c == 0 ? yl : yr;
+                    const float band = excLow[ch].low(excHigh[ch].highPass(y));
+                    y += k * excOut2[ch].highPass(excOut1[ch].highPass(std::abs(band)));
+                }
+            }
         }
         // 6. Tape saturation, 2x oversampled, gentle and a little asymmetric.
         {
@@ -635,8 +716,9 @@ void WarmChain::process(float* l, float* r, int n) noexcept {
         // 1. Tone, on everything the hall has added: 40-80 Hz warmth, the broad 200-500 Hz cut.
         yl = mudCut[0].process(lowWarm[0].process(yl));
         yr = mudCut[1].process(lowWarm[1].process(yr));
-        // 9. The air bed: envelope-following pink hiss, shaped to the top, filling 8-20 kHz up to
-        // the Era's share of the whole (Classic -29 dB, Modern -33 dB). None in silence.
+        // (Build 2's air bed, kept for the before renders only: envelope-following pink hiss on the
+        // output, filling 8-20 kHz up to -29 / -33 dB of the whole. Its level tracking also feeds
+        // the width servo's silence test below.)
         {
             const float pw = 0.5f * (yl * yl + yr * yr);
             progPower += (pw > progPower ? envAttack : envRelease) * (pw - progPower);
@@ -644,7 +726,7 @@ void WarmChain::process(float* l, float* r, int n) noexcept {
             const float ph = 0.5f * (hl * hl + hr * hr);
             progHf += (ph > progHf ? envAttack : envRelease) * (ph - progHf);
             airLevel += airGlide * (ctl.air - airLevel);
-            if (airLevel > 1.0e-7f) {
+            if (legacy && airLevel > 1.0e-7f) {
                 for (int c = 0; c < 2; ++c) {
                     auto& b = pink[std::size_t(c)];
                     const float w = random.bipolar();
@@ -680,6 +762,24 @@ void WarmChain::process(float* l, float* r, int n) noexcept {
             const float pg = 1.0f + a * (powerGain - 1.0f);
             yl = (mid + side) * pg;
             yr = (mid - side) * pg;
+        }
+        // 9. The hiss (build 3): pink, shaped to the top, its own generator, after the image (so
+        // it never moves the width servo) and folded by the Mono switch. Gated: exactly 0 shut.
+        if (!legacy && airGate > 0.0f && airTarget > 0.0f && airLevel > 1.0e-9f) {
+            const float g = airLevel * airGate * airDuck;
+            float hiss[2];
+            for (int c = 0; c < 2; ++c) {
+                auto& b = pink[std::size_t(c)];
+                const float w = airNoise.bipolar();
+                b[0] = 0.99765f * b[0] + w * 0.0990460f;
+                b[1] = 0.96300f * b[1] + w * 0.2965164f;
+                b[2] = 0.57000f * b[2] + w * 1.0526913f;
+                const float pk = (b[0] + b[1] + b[2] + w * 0.1848f) * 0.12f;
+                hiss[c] = g * airShelf[std::size_t(c)].process(airHigh2[std::size_t(c)].highPass(airHigh[std::size_t(c)].highPass(pk)));
+            }
+            const float hm = 0.5f * (hiss[0] + hiss[1]), hs = 0.5f * (hiss[0] - hiss[1]) * (1.0f - mono);
+            yl += hm + hs;
+            yr += hm - hs;
         }
         // 13. The ceiling: -1.3 dBFS (sample peaks), so the true peaks stay under -0.5 dBTP.
         {

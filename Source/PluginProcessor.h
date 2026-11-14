@@ -96,6 +96,7 @@ private:
     std::atomic<float>* dsEra = nullptr;
     std::atomic<float>* warmthParam = nullptr;   // Warmth pass
     std::atomic<float>* monoParam = nullptr;
+    std::atomic<float>* airParam = nullptr;      // hiss fix (build 3)
 
 public:
     juce::AudioProcessorValueTreeState parameters;
@@ -155,6 +156,8 @@ public:
     // the deliberate Mono switch (off by default).
     float warmthAmount() const noexcept;
     bool monoOn() const noexcept;
+    // Hiss fix (build 3): AIR, the warm chain's tape hiss (0..1, 0.15 by default; 0 = none).
+    float airAmount() const noexcept;
     const dc::WarmChain& warmChainForTest() const noexcept { return warm; }
     const dc::Grit& gritForTest() const noexcept { return grit; }
     dc::Grit& gritStageForTest() noexcept { return grit; }
@@ -288,6 +291,7 @@ private:
     // Warmth pass: the Grit (the DUNGEON SYNTH roller) and the warm chain, on the whole output.
     dc::Grit grit;
     dc::WarmChain warm;
+    uint64_t notesStartedSeen = 0;   // hiss fix: the synth's note count at the last block
     static std::atomic<bool>& warmthAvailable() noexcept { static std::atomic<bool> on { true }; return on; }
     std::array<dc::dsp::DelayLine, 2> rawDelay;
     std::array<std::array<float, dc::maxChunk>, 2> rawAligned {}, post {};

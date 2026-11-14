@@ -68,6 +68,8 @@ inline constexpr const char* dungeonSynthEra = "dungeonSynthEra";
 // Warmth pass (appended, both plug-ins): the warm character chain and the deliberate Mono switch.
 inline constexpr const char* warmth = "warmth";
 inline constexpr const char* stereoMono = "stereoMono";
+// Hiss fix (build 3, appended, both plug-ins): the tape-hiss bed's amount (AIR; 0 % = none).
+inline constexpr const char* air = "air";
 }
 
 namespace dc {
@@ -271,6 +273,11 @@ inline juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout
     layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::warmth, 1 }, "Warmth",
                                                            juce::NormalisableRange<float>(0.0f, 1.0f), instrumentNames.isEmpty() ? 0.0f : 1.0f, percent));
     layout.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID { ids::stereoMono, 1 }, "Mono", false));
+    // Hiss fix (build 3, appended last): AIR, the warm chain's faint tape hiss. 15 % (the default,
+    // and what an older session opens at): barely there, heard soloed on headphones; 100 % an
+    // obvious hiss; 0 % none at all.
+    layout.add(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID { ids::air, 1 }, "Air",
+                                                           juce::NormalisableRange<float>(0.0f, 1.0f), 0.15f, percent));
     return layout;
 }
 }

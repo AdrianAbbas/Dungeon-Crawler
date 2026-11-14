@@ -804,6 +804,12 @@ int Synth::activeVoices() const noexcept {
     return c;
 }
 
+int Synth::heldNotes() const noexcept {
+    int c = 0;
+    for (const auto& v : voices) c += v.on && !v.killing && (v.keyDown || v.sustained) ? 1 : 0;
+    return c;
+}
+
 bool Synth::keyLit(int key) const noexcept {
     if (key < 0 || key > 127) return false;
     return ((lit[std::size_t(key >> 6)].load(std::memory_order_relaxed) >> (key & 63)) & 1u) != 0;

@@ -64,6 +64,7 @@ DungeonCrawlerProcessor::DungeonCrawlerProcessor(PluginKind k)
     dsEra = parameters.getRawParameterValue(dc::ids::dungeonSynthEra);
     warmthParam = parameters.getRawParameterValue(dc::ids::warmth);
     monoParam = parameters.getRawParameterValue(dc::ids::stereoMono);
+    airParam = parameters.getRawParameterValue(dc::ids::air);
     if (isInstrument()) {
         instPunch = parameters.getRawParameterValue(dc::ids::instPunch);
         instPunchTime = parameters.getRawParameterValue(dc::ids::instPunchTime);
@@ -179,6 +180,11 @@ float DungeonCrawlerProcessor::warmthAmount() const noexcept {
     if (!warmthAvailable().load(std::memory_order_relaxed)) return 0.0f;
     const float v = warmthParam->load();
     return std::isfinite(v) ? juce::jlimit(0.0f, 1.0f, v) : 0.0f;
+}
+
+float DungeonCrawlerProcessor::airAmount() const noexcept {
+    const float v = airParam->load();
+    return std::isfinite(v) ? juce::jlimit(0.0f, 1.0f, v) : 0.15f;
 }
 
 bool DungeonCrawlerProcessor::monoOn() const noexcept {
@@ -768,7 +774,15 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
         warm.setControls(warmth, dungeonSynthEra(), monoOn(), pad, hallSend, eco);
         const auto& f = world.frame();
         warm.setPlace(f[dc::Decay], f[dc::Cutoff]);
-        if (isInstrument()) synth.setWarmth(warmth);
+        warm.setAir(airAmount());
+        warm.setGrit(dungeonSynthAmount());
+        // Hiss fix (build 3): the hiss follows the notes (the instrument) or the dry input (the FX).
+        if (isInstrument()) {
+            synth.setWarmth(warmth);
+            const auto started = synth.notesStarted();
+            warm.setNotes(synth.heldNotes() > 0, started != notesStartedSeen);
+            notesStartedSeen = started;
+        }
     }
     const bool gritting = grit.active();
     const bool warming = warm.active();
@@ -823,7 +837,7 @@ void DungeonCrawlerProcessor::process(juce::AudioBuffer<float>& buffer, bool for
             post[1][k] = orr;
         }
         if (gritting) grit.process(post[0].data(), post[1].data(), n);
-        if (warming) warm.process(post[0].data(), post[1].data(), n);
+        if (warming) warm.process(post[0].data(), post[1].data(), n, dryAligned[0].data(), dryAligned[1].data());
         for (int i = 0; i < n; ++i) {
             const auto k = static_cast<std::size_t>(i);
             float ol = post[0][k], orr = post[1][k];

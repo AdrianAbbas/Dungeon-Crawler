@@ -13,14 +13,21 @@
 //              three-voice ensemble, tape wow and flutter with a slow random drift, a sloped top
 //              (a shelf and a 6 dB/oct low-pass whose corner drifts, never a wall), slow
 //              amplitude breathing on pads, 2x oversampled tape saturation and a slow bus
-//              compressor (the glue) before a decorrelated stereo hall, an envelope-following
-//              air / tape-hiss bed (none in silence) shaped so 8-20 kHz sits about -29 to -33 dB
-//              under the whole, the bass below 150 Hz kept mono, a slow width servo that holds the
-//              image at the Era's L/R correlation (Classic about 0.55, Modern about 0.4), an optional
-//              deliberate Mono switch, and a -1.3 dBFS ceiling (true peaks stay under -0.5 dBTP).
+//              compressor (the glue) before a decorrelated stereo hall, the bass below 150 Hz kept
+//              mono, a slow width servo that holds the image at the Era's L/R correlation (Classic
+//              about 0.55, Modern about 0.4), an optional deliberate Mono switch, a faint tape-hiss
+//              bed (the AIR control) and a -1.3 dBFS ceiling (true peaks stay under -0.5 dBTP).
 //
-// The Era voices both: Classic a worn cassette (more hiss and wow, narrower but never mono, more
-// drive), Modern lush and wide (a longer hall, less hiss, gentler drive).
+// The hiss (hiss fix, build 3): driven by the notes and the DRY signal (before the hall and the
+// leveller, never the output), at AIR 15 % (the default) about -46 dB (Classic) / -52 dB (Modern)
+// of the whole: only heard soloed on headphones. It is gated: gone within 400 ms of the last
+// note's release (the instrument) or of the input falling silent (the FX), even while the hall
+// rings, and exactly 0 with no note held and a silent input. Under a note held longer than 2 s it
+// ducks 10.5 dB. AIR 0 % adds no hiss at all. The air on top comes from the music instead: a 6-12 kHz
+// shelf lift (the tape saturation's and the Grit's harmonics carry it).
+//
+// The Era voices both: Classic a worn cassette (a little more hiss, more wow, narrower but never
+// mono, more drive), Modern lush and wide (a longer hall, less hiss, gentler drive).
 //
 // Both stages are allocation-free after prepare() and click-free: their amounts glide, and their
 // constant latency (the linear-phase oversamplers: 23 samples, not reported; 0.5 ms on the whole
@@ -107,12 +114,27 @@ public:
     void setControls(float amount, int era, bool mono, float pad, float hallSend, bool eco) noexcept;
     // The place's reverb decay (s) and filter cutoff (Hz): the hall takes on its length and tone.
     void setPlace(float decaySeconds, float cutoffHz) noexcept;
+    // Once per host block: the AIR control (0..1, 0.15 the default: the hiss's share above).
+    void setAir(float air) noexcept { airTarget = std::isfinite(air) ? std::clamp(air, 0.0f, 1.0f) : 0.0f; }
+    // Once per host block: the Grit's amount (0..1). Its harmonics carry the top: the music's
+    // 1.5-5 kHz band, rectified, its products above 2.5 kHz added (none at Grit 0 %).
+    void setGrit(float g) noexcept { gritTarget = std::isfinite(g) ? std::clamp(g, 0.0f, 1.0f) : 0.0f; grit.set(gritTarget); }
+    // Once per host block, the instrument: whether notes are held (keys or the pedal) and whether
+    // one started in this block. Without it (the FX) the dry signal opens the hiss's gate.
+    void setNotes(bool held, bool started) noexcept { notesKnown = true; notesHeld = held; noteStarted = noteStarted || started; }
     bool active() const noexcept { return target > 0.0f || amount.value > 0.0f || engage > 0.0f; }
-    void process(float* l, float* r, int n) noexcept;
+    // dryL / dryR: the dry signal aligned with l / r (before the place); null: l / r themselves.
+    void process(float* l, float* r, int n, const float* dryL = nullptr, const float* dryR = nullptr) noexcept;
     // Tests and the report.
     float compressionDb() const noexcept { return grDb; }
     float widthGain() const noexcept { return sideGain; }
-    float airGain() const noexcept { return airLevel; }
+    float airGain() const noexcept { return airLevel * airGate * airDuck; }
+    float airGateForTest() const noexcept { return airGate; }
+    float airDuckForTest() const noexcept { return airDuck; }
+    // Tests (`--hiss-renders`): the chain exactly as build 2 had it (the air bed following the
+    // output at -29 / -33 dB, no gate; the 6.5 kHz shelf cut), for the before renders.
+    static void setLegacyAirForTests(bool on) noexcept { legacyAir() = on; }
+    static bool legacyAirForTests() noexcept { return legacyAir(); }
 
 private:
     void updateFilters(float a, float e) noexcept;
@@ -169,12 +191,25 @@ private:
     float placeLength = 1, placeTone = 1;
     float lastA = -1, lastE = -1, lastLength = 0, lastTone = 0;   // what the filters were last set for
     bool lastEco = false;
-    // Air bed.
+    // Air bed (the hiss).
     std::array<std::array<float, 3>, 2> pink {};
     std::array<dsp::Svf, 2> airHigh {}, airHigh2 {};
     std::array<dsp::Biquad, 2> airShelf {};
     std::array<dsp::Svf, 2> progHigh {}, progHigh2 {};
     float airUnit = 1, progPower = 0, progHf = 0, envAttack = 0, envRelease = 0, airLevel = 0, airGlide = 0;
+    dsp::Random airNoise;   // its own generator: AIR changes nothing else in the chain
+    // The Grit's harmonics (hiss fix): band in, rectified, high-passed out.
+    std::array<dsp::Svf, 2> excHigh {}, excLow {}, excOut1 {}, excOut2 {};
+    float gritTarget = 0;
+    dsp::Smoothed grit;
+    float airTarget = 0.15f;
+    bool notesKnown = false, notesHeld = false, noteStarted = false;
+    // The dry signal's level, its onsets, the gate (0..1, linear: shut within 300 ms) and the duck.
+    float dryPower = 0, dryFast = 0, drySlow = 0, dryFastAttack = 0, dryFastRelease = 0, drySlowCoefficient = 0;
+    float airGate = 0, gateOpenStep = 0, gateCloseStep = 0, airDuck = 1, duckDown = 0, duckUp = 0;
+    int dryHold = 0, dryHoldSamples = 0;
+    double heldSeconds = 0;
+    static bool& legacyAir() noexcept { static bool on = false; return on; }
     // Image.
     dsp::Svf sideHigh, sideHigh2, sideHigh3, sideHigh4;
     float midPower = 0, sidePower = 0, sideGain = 1, powerGain = 1, widthCoefficient = 0, widthGlide = 0;

@@ -739,6 +739,10 @@ public:
     void render(float* l, float* r, int n) noexcept;
 
     int activeVoices() const noexcept;
+    // Hiss fix (build 3): notes held now (keys down or on the pedal, not fading), and how many
+    // notes have started so far (a change: a new note).
+    int heldNotes() const noexcept;
+    uint64_t notesStarted() const noexcept { return noteCount; }
     const Performance& performance() const noexcept { return perf; }
     // Whether the effect captures were found (tests, the panel).
     bool capturesReady(int capture) const noexcept { return captures.available(capture); }
