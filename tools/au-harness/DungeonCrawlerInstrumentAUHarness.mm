@@ -650,6 +650,10 @@ void v2Suite(Report& r, AudioComponent component, bool outOfProcess, bool useWin
                 r.check(warmth != nullptr && mono != nullptr && std::abs(warmth->info.defaultValue - warmth->info.maxValue) < 1.0e-4f
                             && std::abs(mono->info.defaultValue - mono->info.minValue) < 1.0e-4f,
                         "parameters Warmth (100 % by default) and Mono (off by default) exist");
+                // Hiss fix (build 3): Air, the hiss's amount (15 % by default).
+                const auto* air = findParameter(params, { "Air" });
+                r.check(air != nullptr && std::abs(air->info.defaultValue - (air->info.minValue + 0.15f * (air->info.maxValue - air->info.minValue))) < 1.0e-3f * std::max(1.0f, air->info.maxValue),
+                        "parameter Air (15 % by default) exists");
                 const double a0 = offChord.attack.rmsDb(), ac = classicChord.attack.rmsDb(), am = modernChord.attack.rmsDb();
                 r.check(std::abs(ac - a0) < 3.0 && std::abs(am - a0) < 3.0, "Dungeon Synth keeps the level (the chord's attack within 3 dB of 0 %)",
                         strf("0 %% %.1f, Classic %.1f, Modern %.1f dBFS", a0, ac, am));

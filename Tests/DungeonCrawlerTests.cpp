@@ -14,6 +14,8 @@
 //   DungeonCrawlerTests --listen-dungeonsynth dir  Session 15: the dark fantasy melody on five instruments at 0 / 50 / 100 %, Classic and Modern
 //   DungeonCrawlerTests --ds-report | --ds-hashes | --ds-snapshots dir   Session 15: the numbers, the null-test hashes, the control's snapshots
 //   DungeonCrawlerTests --warmth-renders dir   the warmth pass: the test phrase, 4 instruments x 2 Eras x Grit 0 / 50 / 100 %, warm (measured by tools/warmth/measure.py)
+//   DungeonCrawlerTests --hiss-renders dir     the hiss fix: the test phrase and the silence test, build 2's air bed (before) and build 3's (after)
+//   DungeonCrawlerTests --hiss-snapshots dir   the hiss fix: GRIT, WARMTH, AIR, MONO and the build number
 //   DungeonCrawlerTests --warm ...   any group or render with the warm chain on (otherwise only the warmth group has it)
 #include "PluginEditor.h"
 #include "PluginProcessor.h"
@@ -2709,6 +2711,8 @@ int main(int argc, char** argv) {
         else if (arg == "--listen-dungeonsynth" && i + 1 < argc) return listenDungeonSynth(argv[i + 1]);
         else if (arg == "--ds-snapshots" && i + 1 < argc) return dsSnapshots(argv[i + 1]);
         else if (arg == "--warmth-renders" && i + 1 < argc) return warmthRenders(argv[i + 1]);   // the warmth pass
+        else if (arg == "--hiss-renders" && i + 1 < argc) return hissRenders(argv[i + 1]);       // the hiss fix (build 3)
+        else if (arg == "--hiss-snapshots" && i + 1 < argc) return hissSnapshots(argv[i + 1]);
         else if (arg == "--render" && i + 2 < argc)
             return renderToFile(argv[i + 1], juce::String(argv[i + 2]).getIntValue(), i + 3 < argc ? juce::String(argv[i + 3]).getDoubleValue() : 8.0);
     }

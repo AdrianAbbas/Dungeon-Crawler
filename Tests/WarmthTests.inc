@@ -24,11 +24,12 @@ const std::vector<int>& instruments() {
 // 9.6 s) on an instrument in its place, the tail after it 3.5 s (as `--listen-dungeonsynth`).
 // The bus compressor's gain reduction, block by block, of the last phrase rendered (dB).
 std::vector<float>& lastReduction() { static std::vector<float> v; return v; }
-effectstests::Take phrase(int instrument, Ds d, bool warm = true, double tail = 3.5) {
+effectstests::Take phrase(int instrument, Ds d, bool warm = true, double tail = 3.5, float air = 0.15f) {
     Available available(warm);
     InstHost h;
     h.play(instrument);
     setDs(h, d);
+    h.set(dc::ids::air, air);
     h.render(0.05);
     dstests::darkFantasyPhrase(h, 0.1);
     lastReduction().clear();
@@ -205,6 +206,85 @@ std::string slug(std::string name) {
     return name;
 }
 const char* eraName(int era) { return era == 0 ? "classic" : "modern"; }
+
+// Hiss fix (build 3). The silence test: a chord held 5 s (from 0.3 s), released, then 6 s of
+// silence; Grit 0 %, the instrument in its place, AIR as given.
+constexpr double holdStart = 0.3, holdSeconds = 5.0, silenceSeconds = 6.0, releaseAt = holdStart + holdSeconds;
+effectstests::Take silenceTest(int instrument, int era, float air, std::vector<float>* gate = nullptr) {
+    InstHost h;
+    h.play(instrument);
+    setDs(h, { 0, era });
+    h.set(dc::ids::air, air);
+    for (int key : { 45, 52, 57, 60 }) h.note(holdStart, holdSeconds, key, 0.6f);
+    if (gate != nullptr) gate->clear();
+    for (double t = 0; t < releaseAt + silenceSeconds; t += 512.0 / 48000.0) {
+        h.render(512.0 / 48000.0);
+        if (gate != nullptr) gate->push_back(h.p->warmChainForTest().airGain());
+    }
+    return { h.outL, h.outR };
+}
+// The difference of two takes (the hiss alone: AIR changes nothing else in the chain).
+effectstests::Take difference(const effectstests::Take& a, const effectstests::Take& b) {
+    effectstests::Take d;
+    const auto n = std::min(a.l.size(), b.l.size());
+    for (std::size_t i = 0; i < n; ++i) { d.l.push_back(a.l[i] - b.l[i]); d.r.push_back(a.r[i] - b.r[i]); }
+    return d;
+}
+// RMS (both sides) over [from, to) seconds, dBFS.
+double rmsDb(const effectstests::Take& t, double from, double to) {
+    const auto a = std::min(t.l.size(), std::size_t(from * 48000)), b = std::min(t.l.size(), std::size_t(to * 48000));
+    double sum = 0;
+    for (std::size_t i = a; i < b; ++i) sum += 0.5 * (double(t.l[i]) * t.l[i] + double(t.r[i]) * t.r[i]);
+    return 10.0 * std::log10(std::max(sum / double(std::max<std::size_t>(1, b - a)), 1.0e-30));
+}
+// The level above 6 kHz (eighth-order high-pass) over [from, to) seconds, RMS dBFS.
+double above6kDb(const effectstests::Take& t, double from, double to) {
+    effectstests::Take hp;
+    for (const auto* x : { &t.l, &t.r }) {
+        std::array<juce::IIRFilter, 4> f;
+        for (auto& b : f) b.setCoefficients(juce::IIRCoefficients::makeHighPass(48000.0, 6000.0));
+        auto& out = x == &t.l ? hp.l : hp.r;
+        for (float v : *x) { for (auto& b : f) v = b.processSingleSampleRaw(v); out.push_back(v); }
+    }
+    return rmsDb(hp, from, to);
+}
+// The last sample (s) that is not exactly 0, or -1.
+double lastNonZero(const effectstests::Take& t) {
+    for (std::size_t i = t.l.size(); i-- > 0;)
+        if (t.l[i] != 0.0f || t.r[i] != 0.0f) return double(i) / 48000.0;
+    return -1.0;
+}
+double firstNonZero(const effectstests::Take& t) {
+    for (std::size_t i = 0; i < t.l.size(); ++i)
+        if (t.l[i] != 0.0f || t.r[i] != 0.0f) return double(i) / 48000.0;
+    return -1.0;
+}
+// The silence test's numbers: the floor above 6 kHz in the last 4 s, the hiss under the held pad
+// (before and after it has been held 2 s), when the hiss starts and ends, its share of the whole.
+struct HissMetrics { double floor6k = 0, hiss = 0, hissEarly = 0, hissLate = 0, first = -1, last = -1, b820 = 0; };
+HissMetrics hissOf(const effectstests::Take& withAir, const effectstests::Take& noAir) {
+    HissMetrics m;
+    const auto hiss = difference(withAir, noAir);
+    m.floor6k = above6kDb(withAir, releaseAt + silenceSeconds - 4.0, releaseAt + silenceSeconds);
+    m.hiss = rmsDb(hiss, holdStart + 0.5, releaseAt);
+    m.hissEarly = rmsDb(hiss, holdStart + 0.3, holdStart + 1.8);
+    m.hissLate = rmsDb(hiss, holdStart + 3.2, releaseAt - 0.1);
+    m.first = firstNonZero(hiss);
+    m.last = lastNonZero(hiss);
+    m.b820 = spectrum(withAir).share(8000, 20000);
+    return m;
+}
+std::string describe(const HissMetrics& m) {
+    return "floor above 6 kHz (last 4 s) " + fmt(m.floor6k) + " dBFS, hiss under the pad " + fmt(m.hiss) + " dBFS (" + fmt(m.hissEarly) + " -> " + fmt(m.hissLate)
+         + " after 2 s held), hiss from " + fmt(m.first, 2) + " s to " + fmt(m.last, 2) + " s (release at " + fmt(releaseAt, 2) + " s), 8-20 kHz " + fmt(m.b820) + " dB";
+}
+// The hiss's share of the whole over the test phrase (AIR as given against AIR 0, Grit 0 %), dB.
+double phraseHissShare(int instrument, int era, float air = 0.15f) {
+    const auto with = phrase(instrument, { 0, era }, true, 3.5, air), without = phrase(instrument, { 0, era }, true, 3.5, 0.0f);
+    const auto hiss = difference(with, without);
+    const double end = 0.1 + dstests::phraseSeconds + 0.5;
+    return rmsDb(hiss, 0.1, end) - rmsDb(with, 0.1, end);
+}
 } // namespace warmtests
 
 void testWarmth(Suite& s) {
@@ -221,6 +301,10 @@ void testWarmth(Suite& s) {
                         && warmth->getDefaultValue() == (p->isInstrument() ? 1.0f : 0.0f),
                     kind + ": Warmth is an automatable parameter, " + (p->isInstrument() ? "100 %" : "0 %") + " by default");
             s.check(mono != nullptr && !mono->get() && mono->getName(40) == "Mono", kind + ": Mono is a switch, off by default");
+            auto* air = dynamic_cast<juce::RangedAudioParameter*>(p->parameters.getParameter(dc::ids::air));
+            s.check(air != nullptr && air->isAutomatable() && air->getName(40) == "Air" && std::abs(air->convertFrom0to1(air->getDefaultValue()) - 0.15f) < 1.0e-6f
+                        && p->getParameters().getLast() == air,
+                    kind + ": Air (hiss fix) is an automatable parameter, 15 % by default, appended last");
             // A session saved before the warmth pass (no Warmth in it) opens with the new sound on
             // (the instrument), the parameters it has unchanged.
             p->parameters.getParameter(dc::ids::dungeonSynth)->setValueNotifyingHost(0.4f);
@@ -230,19 +314,20 @@ void testWarmth(Suite& s) {
             for (auto* child = xml->getFirstChildElement(); child != nullptr;) {
                 auto* next = child->getNextElement();
                 const auto id = child->getStringAttribute("id");
-                if (id == dc::ids::warmth || id == dc::ids::stereoMono) xml->removeChildElement(child, true);
+                if (id == dc::ids::warmth || id == dc::ids::stereoMono || id == dc::ids::air) xml->removeChildElement(child, true);
                 child = next;
             }
             juce::MemoryBlock old;
             juce::AudioProcessor::copyXmlToBinary(*xml, old);
             DungeonCrawlerProcessor reopened(p->kind());
             reopened.parameters.getParameter(dc::ids::warmth)->setValueNotifyingHost(0.3f);
+            reopened.parameters.getParameter(dc::ids::air)->setValueNotifyingHost(0.9f);
             reopened.setStateInformation(old.getData(), int(old.getSize()));
             s.check(std::abs(reopened.warmthAmount() - (p->isInstrument() ? 1.0f : 0.0f)) < 1.0e-4f && !reopened.monoOn()
-                        && std::abs(reopened.dungeonSynthAmount() - 0.4f) < 1.0e-3f,
-                    kind + ": an older session opens with Warmth at its default and its own Grit");
+                        && std::abs(reopened.dungeonSynthAmount() - 0.4f) < 1.0e-3f && std::abs(reopened.airAmount() - 0.15f) < 1.0e-4f,
+                    kind + ": an older session opens with Warmth and Air at their defaults and its own Grit");
         }
-        s.check(fx.getParameters().size() + 13 == inst.getParameters().size(), "both plug-ins got the same two parameters (the instrument still adds thirteen)");
+        s.check(fx.getParameters().size() + 13 == inst.getParameters().size(), "both plug-ins got the same three parameters (the instrument still adds thirteen)");
     }
     // Warmth 0 % is the engine exactly as before the warmth pass (bit for bit).
     {
@@ -276,7 +361,8 @@ void testWarmth(Suite& s) {
                 airSum[std::size_t(g)][std::size_t(era)] += m.b820;
                 const double lo = era == 0 ? 0.42 : 0.28, hi = era == 0 ? 0.70 : 0.55;
                 s.check(m.corr <= 0.8 && m.corr >= lo && m.corr <= hi, label + ": stereo, never mono (L/R correlation " + fmt(lo, 2) + "-" + fmt(hi, 2) + ")", describe(m));
-                s.check(m.b820 >= -40.0 && m.b820 <= -24.0, label + ": a sloped, airy top (8-20 kHz -40 to -24 dB of the whole)", fmt(m.b820) + " dB");
+                // Hiss fix (build 3): the 8-20 kHz share is reported only (the hiss gate is below).
+                s.metric(label + ": 8-20 kHz share of the whole", m.b820, " dB");
                 s.check(m.lra <= 9.0, label + ": glued (loudness range over the music 9 LU or less)", fmt(m.lra) + " LU");
                 s.check(m.tp <= -0.5, label + ": the true peak at -0.5 dBTP or under", fmt(m.tp, 2) + " dBTP");
                 s.check(m.bass <= -20.0, label + ": the bass below 100 Hz mono (side 20 dB or more under mid)", fmt(m.bass) + " dB");
@@ -292,8 +378,8 @@ void testWarmth(Suite& s) {
         const double n = double(instruments().size());
         s.check(corrSum[std::size_t(g)][1] / n <= corrSum[std::size_t(g)][0] / n - 0.05, "Grit " + std::to_string(50 * g) + " %: Modern wider than Classic (mean correlation)",
                 fmt(corrSum[std::size_t(g)][0] / n, 2) + " / " + fmt(corrSum[std::size_t(g)][1] / n, 2));
-        s.check(airSum[std::size_t(g)][0] / n >= airSum[std::size_t(g)][1] / n + 1.5, "Grit " + std::to_string(50 * g) + " %: Classic hissier than Modern (8-20 kHz, mean)",
-                fmt(airSum[std::size_t(g)][0] / n) + " / " + fmt(airSum[std::size_t(g)][1] / n) + " dB");
+        s.metric("Grit " + std::to_string(50 * g) + " %: 8-20 kHz share, Classic (mean)", airSum[std::size_t(g)][0] / n, " dB");
+        s.metric("Grit " + std::to_string(50 * g) + " %: 8-20 kHz share, Modern (mean)", airSum[std::size_t(g)][1] / n, " dB");
     }
 
     // The chain's tone on noise (no hall): 40-80 Hz up 1-3.5 dB, 200-500 Hz down 2-3.5 dB, against 1-2 kHz.
@@ -383,7 +469,7 @@ void testWarmth(Suite& s) {
         for (std::size_t i = h.idx(0.1); i < h.outL.size(); ++i) same = same && h.outL[i] == h.outR[i];
         s.check(same && h.peak(0.2, 2.0) > 1.0e-3, "Mono on: left and right are the same, the sound plays");
     }
-    // Silence stays silent (the air follows the music), and the tail dies away.
+    // Silence stays silent (the hiss is gated), and the tail dies away.
     for (int era : { 0, 1 }) {
         InstHost h;
         h.play(dc::inst::designFor(dc::Necropolis, 0));
@@ -396,6 +482,69 @@ void testWarmth(Suite& s) {
         s.check(silent < 1.0e-6 && h.finite() && last < 3.0e-5, std::string(era == 0 ? "Classic" : "Modern") + ": silent without notes, and the tail dies away",
                 fmt(toDb(std::max(silent, 1.0e-12))) + " dBFS before, " + fmt(toDb(std::max(last, 1.0e-12))) + " dBFS 25 s after");
     }
+    s.section("warmth: the hiss gate (hiss fix, build 3)");
+    // A held chord, its release and 6 s of silence: the floor above 6 kHz in the last 4 s under
+    // -90 dBFS, the hiss under the held pad under -60 dBFS and ducking 6 dB or more once held 2 s,
+    // nothing before the first note, gone within 400 ms of the release (the hall still ringing).
+    {
+        const double latency = double(InstHost().p->getLatencySamples()) / 48000.0;
+        for (int instrument : { dc::inst::designFor(dc::Necropolis, 0), dc::inst::designFor(dc::Castle, 2) })
+            for (int era : { 0, 1 }) {
+                const std::string label = instName(instrument) + " " + (era == 0 ? "Classic" : "Modern");
+                std::vector<float> gate;
+                const auto with = silenceTest(instrument, era, 0.15f, &gate), without = silenceTest(instrument, era, 0.0f);
+                const auto m = hissOf(with, without);
+                s.check(m.floor6k < -90.0, label + ": the noise floor above 6 kHz in the last 4 s of silence under -90 dBFS", describe(m));
+                s.check(m.hiss < -60.0, label + ": the hiss under a sustained pad under -60 dBFS", fmt(m.hiss) + " dBFS");
+                s.check(m.hissLate <= m.hissEarly - 6.0, label + ": the hiss ducks 6 dB or more under a note held over 2 s", fmt(m.hissEarly) + " -> " + fmt(m.hissLate) + " dBFS");
+                s.check(m.first >= holdStart && m.last >= 0.0 && m.last <= releaseAt + 0.4 + latency,
+                        label + ": no hiss before the first note, none 400 ms after the release (while the hall rings)",
+                        "hiss " + fmt(m.first, 3) + " .. " + fmt(m.last, 3) + " s, release " + fmt(releaseAt, 2) + " s");
+                const bool tailRings = rmsDb(with, releaseAt + 0.5, releaseAt + 1.5) > -80.0;
+                const bool shut = !gate.empty() && gate.back() == 0.0f;
+                s.check(tailRings && shut, label + ": the hall still rings after the release while the hiss is exactly 0", "tail " + fmt(rmsDb(with, releaseAt + 0.5, releaseAt + 1.5)) + " dBFS");
+                s.metric(label + ": silence test, 8-20 kHz share of the whole", m.b820, " dB");
+            }
+    }
+    // AIR: 0 % no hiss at all, 100 % an obvious one (16.5 dB over the default).
+    {
+        const int pad = dc::inst::designFor(dc::Necropolis, 0);
+        const auto off = silenceTest(pad, 0, 0.0f), def = silenceTest(pad, 0, 0.15f), full = silenceTest(pad, 0, 1.0f);
+        std::vector<float> gate;
+        silenceTest(pad, 0, 0.0f, &gate);
+        const bool none = std::all_of(gate.begin(), gate.end(), [](float g) { return g == 0.0f; });
+        const double d15 = rmsDb(difference(def, off), holdStart + 0.3, holdStart + 1.8), d100 = rmsDb(difference(full, off), holdStart + 0.3, holdStart + 1.8);
+        s.check(none, "AIR 0 %: no hiss at all (the hiss bed's gain stays exactly 0 while notes are held)");
+        s.check(d100 >= d15 + 14.0 && d100 > -60.0, "AIR 100 %: an obvious hiss (14 dB or more over the default)", fmt(d15) + " -> " + fmt(d100) + " dBFS");
+    }
+    // The share of the whole on the test phrase: about -46 dB (Classic) and -52 dB (Modern).
+    for (int era : { 0, 1 }) {
+        double sum = 0;
+        for (int instrument : instruments()) sum += phraseHissShare(instrument, era);
+        const double share = sum / double(instruments().size()), target = era == 0 ? -46.0 : -52.0;
+        s.check(std::abs(share - target) <= 3.0, std::string(era == 0 ? "Classic" : "Modern") + ": the hiss at AIR 15 % is about " + fmt(target, 0) + " dB of the whole (the test phrase, mean of four)",
+                fmt(share) + " dB");
+    }
+    // The FX: the hiss follows its input, gone within 400 ms of the input falling silent.
+    {
+        const auto run = [](float air) {
+            Host h;
+            h.go(dc::Cathedral, 2);
+            h.set(dc::ids::warmth, 1.0f);
+            h.set(dc::ids::air, air);
+            h.render(0.5, silence());
+            h.render(3.0, sine(440.0, 0.25f));
+            h.render(4.0, silence());
+            return effectstests::Take { h.outL, h.outR };
+        };
+        const auto hiss = difference(run(0.15f), run(0.0f));
+        const double latency = double(Host().p->getLatencySamples()) / 48000.0;
+        const double first = firstNonZero(hiss), last = lastNonZero(hiss);
+        s.check(first >= 0.5 && last > 1.0 && last <= 3.5 + 0.05 + 0.4 + latency && rmsDb(hiss, 1.0, 3.0) < -60.0,
+                "the FX: hiss only while the input sounds, gone within 400 ms of silence, under -60 dBFS",
+                "hiss " + fmt(first, 3) + " .. " + fmt(last, 3) + " s (input 0.5 .. 3.5 s), " + fmt(rmsDb(hiss, 1.0, 3.0)) + " dBFS");
+    }
+
     // Click-free: a held chord while Warmth sweeps 0 -> 100 -> 0 %, the Era flips and Mono switches.
     {
         const int strings = dc::inst::designFor(dc::Castle, 2);
@@ -531,6 +680,43 @@ void testWarmth(Suite& s) {
     }
 }
 
+// `--hiss-renders dir` (hiss fix, build 3): the test phrase (Grit 0 %) and the silence test (a
+// chord held 5 s, released, 6 s of silence) on the four instruments, both Eras, by build 2's warm
+// chain ("before/", its air bed exactly as it was) and this build's ("after/", AIR 15 %; the
+// silence test also at AIR 0 %, "-air0", for the hiss alone). tools/warmth/measure.py --hiss gates
+// the after renders; the numbers are printed (hiss-report.txt in CI).
+int hissRenders(const juce::String& directory) {
+    using namespace warmtests;
+    Available available(true);
+    juce::File dir(directory);
+    for (bool legacy : { true, false }) {
+        dc::WarmChain::setLegacyAirForTests(legacy);
+        auto sub = dir.getChildFile(legacy ? "before" : "after");
+        sub.createDirectory();
+        std::cout << (legacy ? "before (build 2's air bed)" : "after (build 3, AIR 15 %)") << "\n";
+        for (int instrument : instruments())
+            for (int era : { 0, 1 }) {
+                const auto base = slug(instName(instrument)) + "-" + eraName(era);
+                const auto p = phrase(instrument, { 0, era });
+                brasstests::writeWav(sub.getChildFile(base + "-phrase.wav"), p.l, p.r);
+                const auto t = silenceTest(instrument, era, 0.15f);
+                brasstests::writeWav(sub.getChildFile(base + "-silence.wav"), t.l, t.r);
+                std::cout << "  " << instName(instrument) << " " << eraName(era) << ": phrase 8-20 kHz " << fmt(spectrum(p).share(8000, 20000)) << " dB; silence test: ";
+                if (legacy) {
+                    std::cout << "floor above 6 kHz (last 4 s) " << fmt(above6kDb(t, releaseAt + silenceSeconds - 4.0, releaseAt + silenceSeconds)) << " dBFS, above 6 kHz under the pad "
+                              << fmt(above6kDb(t, holdStart + 0.5, releaseAt)) << " dBFS, 8-20 kHz " << fmt(spectrum(t).share(8000, 20000)) << " dB\n";
+                } else {
+                    const auto quiet = silenceTest(instrument, era, 0.0f);
+                    brasstests::writeWav(sub.getChildFile(base + "-silence-air0.wav"), quiet.l, quiet.r);
+                    std::cout << describe(hissOf(t, quiet)) << ", above 6 kHz under the pad " << fmt(above6kDb(t, holdStart + 0.5, releaseAt)) << " dBFS, phrase hiss share "
+                              << fmt(phraseHissShare(instrument, era)) << " dB\n";
+                }
+            }
+    }
+    dc::WarmChain::setLegacyAirForTests(false);
+    return 0;
+}
+
 // `--warmth-renders dir`: the test phrase on the four instruments in their places, both Eras,
 // Grit 0 / 50 / 100 %, with the warmth on (the shipped sound): "<instrument>-<era>-grit<g>.wav",
 // 48 kHz stereo. tools/warmth/measure.py measures them (and the 1.0 build's renders) in CI.
@@ -548,4 +734,48 @@ int warmthRenders(const juce::String& directory) {
                           << " dB (median), " << fmt(high) << " dB (95 %)\n";
             }
     return 0;
+}
+
+// `--hiss-snapshots dir` (hiss fix, build 3): the instrument and FX windows with GRIT, WARMTH, AIR
+// and MONO, their controls up close (2x), and the Advanced panel's header with the build number.
+int hissSnapshots(const juce::String& directory) {
+    using namespace windowtests;
+    juce::File dir(directory);
+    dir.createDirectory();
+    int written = 0;
+    const auto save = [&](const juce::Image& image, const char* name) {
+        auto file = dir.getChildFile(name);
+        file.deleteFile();
+        juce::FileOutputStream stream(file);
+        if (stream.openedOk() && juce::PNGImageFormat().writeImageToStream(image, stream)) ++written;
+    };
+    {
+        Window w(true);
+        w.go(dc::Castle, 2);
+        w.p->parameters.getParameter(dc::ids::dungeonSynth)->setValueNotifyingHost(0.4f);
+        juce::AudioBuffer<float> buffer(2, 512);
+        juce::MidiBuffer midi;
+        for (int k = 0; k < 8; ++k) w.p->processBlock(buffer, midi);
+        if (auto* panel = w.editor->instrumentPanel()) panel->pollForTest();
+        w.view().setAnimation(false);
+        save(w.editor->createComponentSnapshot(w.editor->getLocalBounds(), true, 1.0f), "hiss-instrument-window.png");
+        if (auto* panel = w.editor->instrumentPanel()) {
+            const auto& c = panel->warmthControl();
+            save(w.editor->createComponentSnapshot(juce::Rectangle<int>(panel->getX() + c.getX() - 8, panel->getY() + c.getY() - 6, panel->getWidth() - c.getX() + 8, c.getHeight() + 10),
+                                                   true, 2.0f), "hiss-instrument-controls-2x.png");
+        }
+        w.view().advancedButton().setToggleState(true, juce::dontSendNotification);
+        w.view().advancedButton().onClick();
+        const auto d = w.view().advancedBoundsForTest();
+        save(w.editor->createComponentSnapshot(juce::Rectangle<int>(d.getX(), d.getY(), d.getWidth(), 60), true, 2.0f), "hiss-advanced-header-2x.png");
+    }
+    {
+        Window w(false);
+        w.go(dc::Necropolis, 0);
+        w.view().setAnimation(false);
+        save(w.editor->createComponentSnapshot(w.editor->getLocalBounds(), true, 1.0f), "hiss-fx-window.png");
+        save(w.editor->createComponentSnapshot(juce::Rectangle<int>(530, 560 - 150, 430, 150), true, 2.0f), "hiss-fx-controls-2x.png");
+    }
+    std::cout << written << " snapshots written to " << dir.getFullPathName() << "\n";
+    return written == 5 ? 0 : 1;
 }

@@ -357,9 +357,13 @@ jobs:
       # The warmth pass: the test phrase (the dark fantasy test melody over held chords) on four
       # instruments, both Eras, Grit 0 / 50 / 100 %, by this build (after) and by the 1.0.0 build
       # (before: its test binary built here from its commit, with the same JUCE and samples),
-      # measured by tools/warmth/measure.py into the job summary and gated (correlation, the top,
-      # the loudness range, the true peak, the Grit's texture), and the CPU of the same listening
-      # renders compared (within 1.5x). The renders are a developer artifact, never committed.
+      # measured by tools/warmth/measure.py into the job summary and gated (correlation, the
+      # loudness range, the true peak, the Grit's texture; the 8-20 kHz share reported only), and
+      # the CPU of the same listening renders compared (within 1.5x). The renders are a developer
+      # artifact, never committed.
+      # Hiss fix (build 3): the test phrase and the silence test (a held chord, its release, 6 s of
+      # silence) by build 2's air bed (before) and this build's (after), and the hiss gate (the
+      # floor above 6 kHz in the last 4 s under -90 dBFS, the hiss under a held pad under -60 dBFS).
       - name: Warmth pass, build the 1.0.0 test binary (before)
         if: always()
         env:
@@ -380,13 +384,20 @@ jobs:
           { time build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --warm --listen-dungeonsynth build/warmth/after-listen > build/warmth/after-listen.log 2>&1 ; } 2> build/warmth/cpu-after.txt
           build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --warmth-renders build/warmth/after > build/warmth/after.log 2>&1
           tail -3 build/warmth/after.log
+      - name: Hiss fix, render the test phrase and the silence test before and after (WAV)
+        if: always()
+        run: |
+          build/DungeonCrawlerTests_artefacts/Release/DungeonCrawlerTests --hiss-renders build/warmth/hiss > build/warmth/hiss.log 2>&1
+          grep -v '^wrote ' build/warmth/hiss.log > build/warmth/hiss-report.txt || true
+          cat build/warmth/hiss-report.txt
       - name: Warmth pass, measure and gate (job summary)
         if: always()
         run: >
           python3 tools/warmth/measure.py --after build/warmth/after --before build/warmth/before
+          --hiss build/warmth/hiss/after --hiss-before build/warmth/hiss/before
           --summary "$GITHUB_STEP_SUMMARY" --json build/warmth/metrics.json
           --cpu-before build/warmth/cpu-before.txt --cpu-after build/warmth/cpu-after.txt --gate
-      - name: Upload the warmth pass renders (before and after; renders only, for the developer)
+      - name: Upload the warmth pass and hiss fix renders (before and after; renders only, for the developer)
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -394,6 +405,8 @@ jobs:
           path: |
             build/warmth/before/
             build/warmth/after/
+            build/warmth/hiss/
+            build/warmth/hiss-report.txt
             build/warmth/metrics.json
             build/warmth/cpu-*.txt
             build/warmth/after.log

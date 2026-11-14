@@ -890,6 +890,41 @@ void testDungeonSynthUi(Suite& s) {
         };
         walk(*w.editor);
         s.check(clear, kind + ": it sits inside the window and overlaps no other control", overlapping);
+        // Hiss fix (build 3): titled GRIT (the parameter ID kept); WARMTH, AIR and MONO beside it.
+        s.check(juce::String(dc::ui::DungeonSynthControl::title) == "GRIT" && w.p->parameters.getParameter(dc::ids::dungeonSynth) != nullptr,
+                kind + ": the roller is titled GRIT (its parameter ID dungeonSynth kept)");
+        auto* warm = instrument ? &w.editor->instrumentPanel()->warmthControl() : &w.view().warmthControlForTest();
+        s.check(shown(warm, w.editor), kind + ": the WARMTH / AIR / MONO control is shown");
+        warm->warmthRoller().setValue(0.4, juce::sendNotificationSync);
+        warm->airRoller().setValue(0.6, juce::sendNotificationSync);
+        // (the raw parameters: this group runs with the warm chain unavailable, so warmthAmount() reads 0)
+        const auto raw = [&](const char* id) { return w.p->parameters.getRawParameterValue(id)->load(); };
+        s.check(std::abs(raw(dc::ids::warmth) - 0.4f) < 1.0e-3f && std::abs(w.p->airAmount() - 0.6f) < 1.0e-3f && warm->airRoller().readout() == "60 %",
+                kind + ": the WARMTH and AIR rollers set their parameters");
+        w.p->parameters.getParameter(dc::ids::air)->setValueNotifyingHost(0.15f);
+        s.check(std::abs(warm->airRoller().getValue() - 0.15) < 1.0e-3, kind + ": automation of AIR moves its roller");
+        warm->monoButton().onClick();
+        const bool monoOn = raw(dc::ids::stereoMono) >= 0.5f && warm->monoButton().getToggleState() && warm->monoButton().getButtonText() == "On";
+        warm->monoButton().onClick();
+        s.check(monoOn && raw(dc::ids::stereoMono) < 0.5f && !warm->monoButton().getToggleState(), kind + ": the MONO switch turns Mono on and off");
+        const auto warmBounds = w.editor->getLocalArea(warm, warm->getLocalBounds());
+        bool warmClear = w.editor->getLocalBounds().contains(warmBounds) && !warmBounds.intersects(bounds);
+        std::string warmOverlapping;
+        std::function<void(juce::Component&)> walk2 = [&](juce::Component& c) {
+            for (auto* child : c.getChildren()) {
+                if (child == warm || warm->isParentOf(child) || child == control || control->isParentOf(child) || !shown(child, w.editor)) continue;
+                const bool leaf = dynamic_cast<juce::Button*>(child) != nullptr || dynamic_cast<juce::Slider*>(child) != nullptr || dynamic_cast<juce::ComboBox*>(child) != nullptr
+                                  || dynamic_cast<juce::Label*>(child) != nullptr || child == (instrument ? &w.editor->instrumentPanel()->keyboardForTest() : nullptr);
+                if (leaf) {
+                    if (w.editor->getLocalArea(child, child->getLocalBounds()).intersects(warmBounds)) { warmClear = false; warmOverlapping += child->getName().toStdString() + "/" + typeid(*child).name() + " "; }
+                } else walk2(*child);
+            }
+        };
+        walk2(*w.editor);
+        s.check(warmClear, kind + ": WARMTH / AIR / MONO sit inside the window and overlap no other control", warmOverlapping);
+        // The build number in the Advanced panel's header.
+        const auto& build = w.view().buildLabelForTest();
+        s.check(build.getText() == "1.0.0 (3)" && build.isVisible(), kind + ": the Advanced panel shows the build, 1.0.0 (3)", build.getText().toStdString());
     }
 }
 

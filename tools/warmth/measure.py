@@ -3,15 +3,22 @@
 
 Measures stereo WAV renders of the DUNGEON CRAWLER test phrase and, optionally, gates them.
 
-  measure.py --after DIR [--before DIR] [--summary FILE] [--json FILE] [--gate]
+  measure.py --after DIR [--before DIR] [--hiss DIR [--hiss-before DIR]] [--summary FILE] [--json FILE] [--gate]
 
 Per render: L/R correlation, band energies relative to the total (20-80 Hz, 200-500 Hz,
 8-12 kHz, 12-20 kHz), spectral flatness 2-8 kHz, integrated loudness (ITU-R BS.1770-4),
 loudness range (EBU Tech 3342; over the music, and over the whole file) with the short-term
 10th percentile, and the true peak
 (4x oversampled). With --gate the script fails when an "after" render breaks a target:
-correlation > 0.8, 8-20 kHz < -40 dB of the total, LRA > 9 LU, true peak > -0.5 dBTP,
-or 2-8 kHz flatness < 0.12 at Grit 100 %.
+correlation > 0.8, LRA > 9 LU, true peak > -0.5 dBTP, or 2-8 kHz flatness < 0.12 at Grit 100 %.
+The 8-20 kHz share is reported only (hiss fix, build 3: it was gated at >= -40 dB, which the
+old hiss bed filled).
+
+The hiss gate (hiss fix, build 3; --hiss, the "after" directory of `--hiss-renders`): per
+instrument and era, the silence test (a chord held 5 s from 0.3 s, released at 5.3 s, 6 s of
+silence) at AIR 15 % ("-silence.wav") and AIR 0 % ("-silence-air0.wav"). Gated: the noise floor
+above 6 kHz in the last 4 s < -90 dBFS, and the hiss under the sustained pad (the difference of
+the two, 0.8-5.3 s, RMS) < -60 dBFS. --hiss-before: build 2's renders, the floor reported.
 
 Render names: "<instrument>-<era>-grit<0|50|100>.wav" (after, this build) and the 1.0 build's
 "--listen-dungeonsynth" names "<instrument>-0-off.wav", "-classic-50.wav", ... (before).
@@ -146,6 +153,72 @@ def measure(path):
     }
 
 
+HOLD_START, RELEASE_AT, SILENCE_SECONDS = 0.3, 5.3, 6.0
+
+
+def rms_db(x, sr, start, end):
+    a, b = int(start * sr), int(end * sr)
+    seg = x[a:b]
+    return 10 * math.log10(max(float(np.mean(seg ** 2)) if len(seg) else 0.0, 1e-30))
+
+
+def above_6k(l, r, sr):
+    sos = signal.butter(8, 6000.0, "highpass", fs=sr, output="sos")
+    return signal.sosfilt(sos, l), signal.sosfilt(sos, r)
+
+
+def hiss_measure(path, air0_path=None):
+    l, r, sr = read(path)
+    hl, hr = above_6k(l, r, sr)
+    end = RELEASE_AT + SILENCE_SECONDS
+    floor = 10 * math.log10(max(0.5 * (10 ** (rms_db(hl, sr, end - 4.0, end) / 10) + 10 ** (rms_db(hr, sr, end - 4.0, end) / 10)), 1e-30))
+    out = {"floor6k": floor, "b8_20k": band_db(*psd(l, r, sr), 8000, 20000)}
+    pad = 0.5 * (10 ** (rms_db(hl, sr, HOLD_START + 0.5, RELEASE_AT) / 10) + 10 ** (rms_db(hr, sr, HOLD_START + 0.5, RELEASE_AT) / 10))
+    out["above6k_pad"] = 10 * math.log10(max(pad, 1e-30))
+    if air0_path and os.path.exists(air0_path):
+        ql, qr, _ = read(air0_path)
+        n = min(len(l), len(ql))
+        dl, dr = l[:n] - ql[:n], r[:n] - qr[:n]
+        h = 0.5 * (10 ** (rms_db(dl, sr, HOLD_START + 0.5, RELEASE_AT) / 10) + 10 ** (rms_db(dr, sr, HOLD_START + 0.5, RELEASE_AT) / 10))
+        out["hiss_pad"] = 10 * math.log10(max(h, 1e-30))
+        nz = np.nonzero((dl != 0) | (dr != 0))[0]
+        out["hiss_last"] = float(nz[-1]) / sr if len(nz) else -1.0
+    return out
+
+
+def hiss_section(after_dir, before_dir, bad, results):
+    lines = ["", "## Hiss gate (build 3): a chord held 5 s, released at 5.3 s, then 6 s of silence (Grit 0 %, AIR 15 %)", "",
+             "Floor: above 6 kHz in the last 4 s (gate < -90 dBFS). Hiss: AIR 15 % minus AIR 0 % under the held pad, 0.8-5.3 s RMS (gate < -60 dBFS). "
+             "Each cell: before (build 2) -> after (this build); 8-20 kHz share reported only.", "",
+             "| instrument | era | floor > 6 kHz (last 4 s) | above 6 kHz under the pad | hiss under the pad | hiss ends | 8-20 kHz share (silence test) | result |",
+             "|---|---|---|---|---|---|---|---|"]
+    for inst in INSTRUMENTS:
+        for era in ERAS:
+            base = f"{inst}-{era}"
+            path = os.path.join(after_dir, base + "-silence.wav")
+            if not os.path.exists(path):
+                bad.append(f"{base}: silence test render missing ({path})")
+                continue
+            m = hiss_measure(path, os.path.join(after_dir, base + "-silence-air0.wav"))
+            b = None
+            if before_dir and os.path.exists(os.path.join(before_dir, base + "-silence.wav")):
+                b = hiss_measure(os.path.join(before_dir, base + "-silence.wav"))
+            results[f"{inst} {era} silence"] = {"after": m, "before": b}
+            f = []
+            if m["floor6k"] >= -90.0:
+                f.append(f"floor above 6 kHz {m['floor6k']:.1f} dBFS >= -90")
+            if "hiss_pad" not in m:
+                f.append("AIR 0 % render missing (hiss not measured)")
+            elif m["hiss_pad"] >= -60.0:
+                f.append(f"hiss under the pad {m['hiss_pad']:.1f} dBFS >= -60")
+            bad.extend(f"{base}: {x}" for x in f)
+            cell = lambda k, fmt="{:.1f}": ((fmt.format(b[k]) + " -> ") if b and k in b else "") + (fmt.format(m[k]) if k in m else "n/a")
+            ends = f"{m['hiss_last']:.2f} s" if m.get("hiss_last", -1) >= 0 else "none"
+            lines.append(f"| {inst} | {era} | {cell('floor6k')} | {cell('above6k_pad')} | {cell('hiss_pad')} | {ends} | {cell('b8_20k')} | "
+                         + ("pass" if not f else "FAIL: " + "; ".join(f)) + " |")
+    return lines
+
+
 def before_name(inst, era, grit):
     return f"{inst}-0-off.wav" if grit == 0 else f"{inst}-{era}-{grit}.wav"
 
@@ -158,8 +231,6 @@ def failures(m, grit):
     out = []
     if m["corr"] > 0.8:
         out.append(f"correlation {m['corr']:.2f} > 0.8")
-    if m["b8_20k"] < -40.0:
-        out.append(f"8-20 kHz {m['b8_20k']:.1f} dB < -40")
     if m["lra"] > 9.0:
         out.append(f"LRA {m['lra']:.1f} > 9")
     if m["tp"] > -0.5:
@@ -181,6 +252,8 @@ def main():
     ap.add_argument("--summary")
     ap.add_argument("--json")
     ap.add_argument("--gate", action="store_true")
+    ap.add_argument("--hiss", help="the after directory of --hiss-renders (the hiss gate)")
+    ap.add_argument("--hiss-before", help="the before directory of --hiss-renders (build 2's air bed)")
     ap.add_argument("--cpu-before", help="a file holding the 1.0 build's CPU seconds for the listening renders")
     ap.add_argument("--cpu-after", help="the same for this build (warm)")
     a = ap.parse_args()
@@ -206,7 +279,7 @@ def main():
     lines = ["## Warmth pass: the test phrase, 4 instruments x 2 eras x Grit 0 / 50 / 100 % (48 kHz stereo)", "",
              "Bands are dB relative to the whole spectrum. Each cell: before (1.0 build) -> after (this build). "
              "LRA: over the music (the phrase and 1.5 s of its ring-out); LRA (file): the whole render, its 3.5 s ring-out included. "
-             "Gates (after): correlation <= 0.8, 8-20 kHz >= -40 dB, LRA <= 9 LU, true peak <= -0.5 dBTP, flatness >= 0.12 at Grit 100 %.", "",
+             "Gates (after): correlation <= 0.8, LRA <= 9 LU, true peak <= -0.5 dBTP, flatness >= 0.12 at Grit 100 %. 8-20 kHz: reported only.", "",
              "| instrument | era | grit | " + " | ".join(c[1] for c in COLUMNS) + " | result |",
              "|---|---|---|" + "---|" * len(COLUMNS) + "---|"]
     for inst, era, grit, b, m, f in rows:
@@ -214,6 +287,8 @@ def main():
         for k, _, fmt in COLUMNS:
             cells.append((fmt.format(b[k]) + " -> " if b else "") + fmt.format(m[k]))
         lines.append(f"| {inst} | {era} | {grit} | " + " | ".join(cells) + " | " + ("pass" if not f else "FAIL: " + "; ".join(f)) + " |")
+    if a.hiss:
+        lines += hiss_section(a.hiss, a.hiss_before, bad, results)
     if a.cpu_before and a.cpu_after:
         try:
             before_s = float(open(a.cpu_before).read().split()[-1])
