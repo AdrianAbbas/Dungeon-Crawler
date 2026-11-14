@@ -4295,3 +4295,78 @@ gate: 24 renders, 0 failures (table in the run's job summary, renders in the art
 96.5 s, this build (warm) 105.2 s, 1.09x. macOS: both AU harnesses (the rewritten Dungeon Synth
 checks), the bundle gate (1.0.0, build 2), signing, notarisation and the package install passed.
 Then a manual run (workflow_dispatch) on main for the signed, notarised installer.
+
+## Hiss fix (build 3 of 1.0.0, 2026-11-14)
+
+**The report.** After installing build 2 the developer heard a constant hiss in GarageBand. The
+cause was the warm chain's step 9, the "air bed": its level followed `progPower`, the output's
+power measured *after* the 5-8 s warm hall and the leveller's lift, and it filled 8-20 kHz up to
+-29 dB (Classic) / -33 dB (Modern) of the whole. So it never stopped while any tail rang, and on
+dark instruments (little of their own above 8 kHz) the top was mostly noise.
+
+**The fix (`Source/DSP/Warmth.cpp`).**
+
+- The hiss is driven by the notes and the **dry** signal: the processor hands the warm chain the
+  dry signal aligned with its input (`dryAligned`, before the place, the hall and the leveller) and,
+  on the instrument, whether notes are held (`Synth::heldNotes()`: keys down or on the pedal, not
+  fading) and whether one started (`Synth::notesStarted()`). Its level follows the dry signal's
+  power (30 ms / 300 ms) at the Era's share, -46 dB (Classic) / -52 dB (Modern), scaled by AIR
+  (15 % = that share; amplitude in proportion, so 100 % is +16.5 dB).
+- A gate (linear, opens over 50 ms, shuts over 300 ms): open while notes are held (the instrument)
+  or while the input is above -66 dBFS within the last 50 ms (the FX). Shut, the hiss is not
+  generated at all: exactly 0, however long the hall rings.
+- A duck: once a note has been held 2 s with no new note (the FX: no onset, a 2 ms / 40 ms follower
+  6 dB over a 500 ms one), the hiss falls 10.5 dB (0.35 s), back over 80 ms on the next note.
+- The hiss has its own noise generator and is added after the image stage (folded by Mono, never
+  moving the width servo), so AIR changes nothing else: AIR 15 % minus AIR 0 % is the hiss alone,
+  which is how it is measured. AIR 0 % skips it entirely.
+- The top from the music: the 6 kHz shelf is lifted (Classic +1.5 dB, Modern +2 dB; build 2 cut
+  3 / 1.5 dB at 6.5 kHz), and the Grit's harmonics carry the top (new step 5b: the music's own
+  1.5-5 kHz band, full-wave rectified, high-passed at 2.5 kHz, added at 0.6 x Grit x Warmth; none at
+  Grit 0 %). The Grit stage itself is unchanged (its groups' checks untouched).
+- Calibration (`airCalibration`, -8.5 dB): measured on the test phrase, four instruments in their
+  places; the hiss's share of the whole (AIR 15 % minus AIR 0 %, RMS against the whole) is then
+  -47.0 / -48.8 / -42.0 / -42.7 dB in Classic (mean -45.1) and -56.1 / -57.2 / -49.1 / -51.1 dB in
+  Modern (mean -53.4) for Royal Strings / Dark Choir Pad / Chamber Organ / Lute.
+- `WarmChain::setLegacyAirForTests(true)` keeps build 2's air bed and shelf, for the before renders
+  only.
+
+**Interface.** The DUNGEON SYNTH roller is titled **GRIT** (instrument and FX; parameter ID
+`dungeonSynth` kept). New `Source/UI/WarmthControl.h`: **WARMTH** and **AIR** rollers (the Effects
+roller's slider) and a small **MONO** switch (On / Off), beside GRIT. The instrument's keyboard
+gave up 100 px; in the FX, Travel is 16 px narrower and the switches 68 px wide. New parameter
+**`air`** ("Air", appended last in both plug-ins, 15 %; an older session opens at 15 %). The
+Advanced panel's header shows **1.0.0 (3)** (`DC_VERSION_STRING`, `DC_BUILD_NUMBER` from CMake);
+CFBundleVersion 3 (`scripts/ci-check-bundles.sh` checks it). Snapshots: `docs/snapshots/hissfix/`.
+
+**The hiss gate (replaces "8-20 kHz >= -40 dB").** The silence test: a chord (A2 E3 A3 C4) held 5 s
+from 0.3 s, released at 5.3 s, then 6 s of silence, Grit 0 %. Gated in C++ (group `warmth`,
+section "the hiss gate") and in CI (`tools/warmth/measure.py --hiss`): the floor above 6 kHz in the
+last 4 s < -90 dBFS, the hiss under the sustained pad < -60 dBFS. C++ also checks no hiss before
+the first note and none 400 ms after the release while the hall rings, the duck (>= 6 dB after
+2 s), AIR 0 % (gain exactly 0) and 100 % (>= 14 dB over the default), the share (+-3 dB of -46 /
+-52 on the test phrase) and the FX (gone within 400 ms of a silent input). The 8-20 kHz share is
+reported only, in both. `--hiss-renders dir`: before (build 2's air bed) and after, the test
+phrase and the silence test (after also at AIR 0 %), in the CI artifact
+`DUNGEON-CRAWLER-warmth-renders` (`hiss/`, with `hiss-report.txt`).
+
+Measured here (Linux, **the synthesised stand-ins**: the developer's recordings are not in this
+container; CI measures with them), before (build 2) -> after:
+
+| instrument, era | floor > 6 kHz, last 4 s (dBFS) | > 6 kHz under the pad (dBFS) | hiss under the pad (dBFS; held 0.3-1.8 s -> 3.2-5.2 s) | hiss ends (release 5.3 s) | 8-20 kHz, test phrase (dB) |
+|---|---|---|---|---|---|
+| Royal Strings Classic | -57.1 -> -101.5 | -43.8 -> -65.0 | -70.5 (-67.5 -> -77.1) | 5.59 s | -25.9 -> -48.3 |
+| Royal Strings Modern | -56.4 -> -99.3 | -45.5 -> -64.3 | -76.5 (-73.5 -> -83.1) | 5.59 s | -29.7 -> -56.1 |
+| Dark Choir Pad Classic | -46.5 -> -94.2 | -38.0 -> -67.6 | -67.8 (-66.2 -> -73.0) | 5.59 s | -25.6 -> -50.6 |
+| Dark Choir Pad Modern | -47.0 -> -92.4 | -40.6 -> -72.4 | -73.9 (-72.2 -> -79.2) | 5.64 s | -29.3 -> -58.9 |
+| Chamber Organ Classic | -66.1 -> -150.4 | -46.9 -> -68.6 | -68.6 (-65.4 -> -75.2) | 5.59 s | -25.9 -> -43.5 |
+| Chamber Organ Modern | -66.0 -> -149.6 | -49.4 -> -74.6 | -74.6 (-71.4 -> -81.2) | 5.59 s | -29.6 -> -50.6 |
+| Lute Classic | -107.4 -> -128.2 | -54.6 -> -71.3 | -73.1 (-66.9 -> -102.5) | 4.16 s | -25.8 -> -43.3 |
+| Lute Modern | -104.8 -> -126.5 | -57.1 -> -72.7 | -79.1 (-72.9 -> -108.5) | 4.16 s | -29.7 -> -48.8 |
+
+(The lute's voices end on their own before the release, so its gate shuts at 4.2 s. The Dark Choir
+Pad Modern's hiss ends at 5.64 s: its block-aligned release plus the 300 ms ramp, inside 400 ms.)
+The Grit's texture gate (2-8 kHz flatness >= 0.12 at Grit 100 %), which build 2 met largely with
+the hiss, now passes from the harmonics: 0.15 / 0.14 (strings), 0.27 / 0.23 (choir), 0.32 / 0.26
+(organ), 0.18 / 0.17 (lute), Classic / Modern. CPU: the warmth group's test phrase 1.20x the engine
+before the warm chain at Grit 0 % (this container).

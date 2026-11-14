@@ -2,7 +2,27 @@
 
 All notable changes to DUNGEON CRAWLER (the instrument) and DUNGEON CRAWLER FX (the effect).
 1.0 is frozen: only bug fixes go into 1.0.x; new ideas go to [docs/ROADMAP.md](docs/ROADMAP.md).
-The warmth pass (build 2) unfroze the sound once before release, at the developer's request.
+The warmth pass (build 2) unfroze the sound once before release, at the developer's request; the
+hiss fix (build 3) corrects it.
+
+## 1.0.0, build 3 (2026-11-14): the hiss fix
+
+Still version 1.0.0 (not sold yet); the build number (CFBundleVersion) is 3. The Advanced panel
+shows it in its header ("1.0.0 (3)").
+
+- **Fixed: a constant hiss.** Build 2's tape-hiss bed followed the output, after the warm hall and
+  the leveller, and filled 8-20 kHz up to 29-33 dB under the whole: it never stopped while a tail
+  rang, and on dark instruments it was mostly noise. The hiss now follows the notes and the dry
+  signal, sits about 46 dB (Classic) / 52 dB (Modern) under the whole at the default, stops within
+  400 ms of the last note (even while the hall rings; exactly zero with no note and no input), and
+  dips about 10 dB under notes held longer than 2 s.
+- **Air** (new parameter, 15 %): the hiss's amount, from none (0 %) to obvious (100 %).
+- The top's air now comes from the music: the warm chain's 6 kHz shelf is lifted (it was cut), and
+  the Grit's harmonics (the music's own 1.5-5 kHz band, rectified) carry the top as it rises.
+- The interface: the DUNGEON SYNTH roller is titled **GRIT** (its parameter is unchanged), with
+  **WARMTH** and **AIR** rollers and a small **MONO** switch beside it, in both plug-ins.
+- Projects and presets saved before load unchanged (the Audio Unit codes, the VST3 class IDs and
+  every parameter ID are the same); they open with Air at 15 %.
 
 ## 1.0.0, build 2 (2026-11-13): the warmth pass
 

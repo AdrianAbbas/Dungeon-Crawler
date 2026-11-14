@@ -589,3 +589,26 @@ artifact). In GarageBand, on a software instrument track with DUNGEON CRAWLER:
       Mono folds to mono and back without a click.
 - [ ] Listen to the CI artifact `DUNGEON-CRAWLER-warmth-renders`: each `before/<instrument>-*.wav`
       (build 1) against `after/<instrument>-<era>-grit<0|50|100>.wav` (this build).
+
+## Hiss fix (build 3 of 1.0.0)
+
+Install the signed `DUNGEON CRAWLER Installer.pkg` from the manual CI run (or the developer
+artifact). In GarageBand, on a software instrument track with DUNGEON CRAWLER:
+
+- [ ] Open **Advanced**: its header shows **1.0.0 (3)** at the right (small text, left of the ✕).
+      If it shows nothing or another number, the old build is still installed.
+- [ ] The bottom-right roller reads **GRIT** (not DUNGEON SYNTH); **WARMTH**, **AIR** and a small
+      **MONO** switch sit beside it. The same in DUNGEON CRAWLER FX (after Travel).
+- [ ] Play a chord and let go, at normal listening level through speakers: no hiss while the
+      hall rings out, and none in silence. With headphones and the track soloed, a faint hiss
+      under the notes, gone within half a second of the last note.
+- [ ] Hold a pad for 5 s: on headphones the hiss (if you hear it at all) drops after about 2 s.
+- [ ] AIR 0 %: no hiss at all, whatever you play. AIR 100 %: an obvious tape hiss under the notes,
+      still gone when you stop. Double-click AIR: back to 15 %.
+- [ ] WARMTH 0 %: the sound of build 1. MONO: folds to mono and back without a click; the switch
+      shows On / Off. Automating Warmth, Air or Mono moves the controls.
+- [ ] A project saved with build 2 opens with the same settings and Air at 15 %, without the
+      constant hiss.
+- [ ] Listen to the CI artifact `DUNGEON-CRAWLER-warmth-renders`, folder `hiss/`:
+      `before/<instrument>-<era>-phrase.wav` and `-silence.wav` (build 2's air bed) against
+      `after/...` (this build; `-silence-air0.wav`: AIR 0 %). `hiss-report.txt` holds the numbers.

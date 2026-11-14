@@ -297,27 +297,39 @@ optionally `-vib`, `-stac`) or `ocarina-sus`, they are played in place of the fl
 character dungeon synth has, on every instrument and in both Eras. In the order the sound meets
 it: a decorrelated three-voice ensemble (each side its own slowly sweeping delays, 7-18 ms) and
 the voices' own detune (each note 3-8 cents off, drifting slowly); tape wow (slow and drifting)
-and flutter; a sloped top (a gentle shelf and a 6 dB/oct corner that drifts, never a wall); slow
+and flutter; a sloped top (a 6 kHz shelf lifted a little and a 6 dB/oct corner that drifts, never
+a wall: the 6-12 kHz air comes from the music and its harmonics, not from noise); slow
 breathing on pads; gentle 2x oversampled tape saturation and a slow bus compressor (2.5:1,
 30 / 300 ms, about 4 dB on dense parts) with a leveller that lifts the quiet parts a little; a
 long, dark stereo hall (decorrelated left and right, longer and wider in Modern, no shimmer);
-40-80 Hz warmth and a broad 200-500 Hz cut; an air bed of soft tape hiss that follows the music
-(none in silence) so the top sits about 30 dB under the whole; the bass below 150 Hz kept mono;
-and a slow width control that holds the image at the Era's stereo (left/right correlation about
-0.55 in Classic, 0.4 in Modern: never mono). **Mono** (off by default) folds the output to mono
-on purpose. Projects saved before open with Warmth on (the instrument) and their own settings.
+40-80 Hz warmth and a broad 200-500 Hz cut; the bass below 150 Hz kept mono; a slow width control
+that holds the image at the Era's stereo (left/right correlation about 0.55 in Classic, 0.4 in
+Modern: never mono); and a faint tape hiss (**Air**, below). **Mono** (off by default) folds the
+output to mono on purpose.
+
+**Air** (build 3; 15 % by default) is that tape hiss, and only that. At 15 % it sits about 46 dB
+(Classic) or 52 dB (Modern) under the whole: barely there, heard only soloed on headphones. It
+follows the notes you play and the dry sound (never the hall's tail): it stops within 400 ms of
+the last note's release (on the FX: of the input falling silent), even while the hall still rings,
+and is exactly zero with no note held and no input. Under a note held longer than 2 s it dips
+about 10 dB, so long pads do not sit on a bed of hiss. 0 % is no hiss at all; 100 % an obvious one
+(about 16 dB above the default). It is part of the warm chain, so Warmth 0 % turns it off too. Projects saved before open with Warmth on (the instrument) and their own settings.
 Quality **Eco** runs a lighter version (two ensemble voices, an unmodulated hall, 2x Grit).
 
-The **DUNGEON SYNTH** roller is the **Grit** (0 % by default: untouched; its parameter and
-automation are the same as before). It crushes warmly: 4x oversampled, asymmetric tube/tape
+The roller titled **GRIT** (until build 3 titled DUNGEON SYNTH) is the **Grit** (0 % by default:
+untouched; its parameter, `dungeonSynth`, and its automation are the same as before). It crushes warmly: 4x oversampled, asymmetric tube/tape
 saturation on the body (even harmonics; its drive follows the music's level, so the colour is the
 same loud or soft), a gentle bit crush that stays at 12 bits or more (13 in Modern), a soft
 tape grain riding the music, then a dark tilt and band limit, so it thickens and darkens and
-never fizzes or thins, and its own level match. The **Era** voices both: **Classic** a worn
-cassette (more hiss and wow, more drive, narrower but stereo), **Modern** lush and wide (a longer
-hall, less hiss, gentler drive). On the instrument panel the roller sits to the right of the
-keyboard; in the FX between Travel and the switches. Drag it, use the mouse wheel, double-click
-for 0 %; Warmth, Mono, the Grit and the Era are automatable and saved with presets and projects.
+never fizzes or thins, and its own level match. With Warmth on, its harmonics also carry the top:
+the music's own 1.5-5 kHz band, rectified, adds even harmonics above 2.5 kHz as the Grit rises. The **Era** voices both: **Classic** a worn
+cassette (a little more hiss, more wow, more drive, narrower but stereo), **Modern** lush and wide
+(a longer hall, less hiss, gentler drive). On the instrument panel GRIT sits to the right of the
+keyboard with **WARMTH**, **AIR** and a small **MONO** switch beside it; in the FX they follow
+Travel, before the switches. Drag a roller, use the mouse wheel, double-click for its default
+(GRIT 0 %, WARMTH 100 % on the instrument / 0 % on the FX, AIR 15 %); Warmth, Air, Mono, the Grit
+and the Era are automatable and saved with presets and projects. Projects saved before build 3
+open with Air at 15 %.
 
 Both work on the whole sound, after the place (as a tape records everything): the place's
 space and effects come first, so the places still sound different. The warm hall follows
@@ -379,8 +391,8 @@ where it belongs and its tags.
 | **↶ ↷** | Undo / redo of your edits in the window. |
 | **⚙** | Window size (75–200 %, or drag the corner) and Quality: Eco (lightest: no animation, mono spectral layer), Standard, High (smoothest animation). |
 | **Mix** | The MIX section: reverb, echoes, modulation, character, atmosphere, and the reverbs' low cut, pre-delay and duck (see Mix above). |
-| **Dungeon Synth** (roller, the Grit) + **Classic / Modern** | How hard the sound is crushed, warmly (0 %: untouched), and which era (see Warmth and the Grit above). |
-| **Warmth**, **Mono** (host parameters) | The warm character (100 % on the instrument, 0 % on the FX) and a deliberate fold to mono (off). |
+| **GRIT** (roller; host parameter "Dungeon Synth") + **Classic / Modern** | How hard the sound is crushed, warmly (0 %: untouched), and which era (see Warmth and the Grit above). |
+| **WARMTH**, **AIR** (rollers), **MONO** (switch) | The warm character (100 % on the instrument, 0 % on the FX), its faint tape hiss (15 %; 0 %: none, gone 400 ms after the last note) and a deliberate fold to mono (off). |
 | **Magnifier** (top right), Cmd+F | Search places, instruments, presets and sounds (see Search above). |
 | **▾** (above the controls) | Hide the controls to see the whole picture. |
 
